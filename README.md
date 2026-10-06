@@ -1,6 +1,6 @@
-# DatAtlas
+# DatabaseDoc
 
-DatAtlas is a web application for documenting databases and data warehouses. It stores users, sessions, encrypted connections, schema snapshots, documentation notes, source ownership and tags, scan schedules, search indexes, and audit events in a separate MariaDB database.
+DatabaseDoc is a web application for documenting databases and data warehouses. It stores users, sessions, encrypted connections, schema snapshots, documentation notes, source ownership and tags, scan schedules, search indexes, and audit events in a separate MariaDB database.
 
 Supported database adapters: **Microsoft SQL Server, MySQL, MariaDB, PostgreSQL, MongoDB, and SQLite**.
 
@@ -31,6 +31,8 @@ docker compose ps
 ```
 
 Open the URL configured in `APP_URL`. The default application port is `8090`; MariaDB does not expose a host port.
+
+Existing deployments need no database migration for the DatabaseDoc rename. The internal MariaDB database/user and session-cookie identifiers retain their legacy names to preserve stored documentation and existing sign-ins. Backups created after the rename use the `databasedoc-` filename prefix; existing backups remain compatible.
 
 The existing development deployment is available at **http://192.168.10.70:8090**, with its checkout at `/opt/datenbankdokumentation`.
 
@@ -116,7 +118,7 @@ Schedules, automatic scan starts, and changes to ownership/tags are recorded in 
 
 ## Schema comparison
 
-Select **Schema-Vergleich** inside a source. With at least two successful snapshots, DatAtlas initially compares the two latest versions. Choose another older/newer pair to compare retained history.
+Select **Schema-Vergleich** inside a source. With at least two successful snapshots, DatabaseDoc initially compares the two latest versions. Choose another older/newer pair to compare retained history.
 
 The comparison identifies added and removed tables, views, or collections; added, removed, and changed columns; changes to column types, nullability, defaults, primary-key flags, and comments; and changes to object type, primary/foreign keys, indexes, unique constraints, and MongoDB validators. Constraint list order does not produce false changes. Summary counts include columns belonging to added or removed objects.
 
@@ -168,7 +170,7 @@ Dates returned by these endpoints are UTC. Source listing responses also include
 
 The user-management page lets administrators create local accounts, deactivate accounts, and grant access to specific databases. New external accounts are created as viewers without source access after successful authentication.
 
-Roles are managed within DatAtlas in this version; AD and Entra groups are not mapped to application roles. External identities are matched using stable tenant/object IDs or the AD `objectGUID`. Accounts are not merged by email address.
+Roles are managed within DatabaseDoc in this version; AD and Entra groups are not mapped to application roles. External identities are matched using stable tenant/object IDs or the AD `objectGUID`. Accounts are not merged by email address.
 
 ## Docker operations
 
@@ -227,7 +229,7 @@ TLS with certificate validation is enabled by default for network sources. Postg
 OIDC authentication is implemented but has not yet been configured or integration-tested against a real tenant on this server.
 
 1. Register a single-tenant application in Entra ID.
-2. Set its Web redirect URI to the exact value of `APP_URL` followed by `/auth/entra/callback`, for example `https://datatlas.example.org/auth/entra/callback`.
+2. Set its Web redirect URI to the exact value of `APP_URL` followed by `/auth/entra/callback`, for example `https://databasedoc.example.org/auth/entra/callback`.
 3. Set `ENTRA_TENANT_ID` (tenant GUID), `ENTRA_CLIENT_ID`, and `ENTRA_CLIENT_SECRET` in `.env`.
 4. Recreate the application container: `docker compose up -d --force-recreate app`.
 5. Have users sign in through the Microsoft Entra ID option, then assign their roles and source grants as an administrator.
@@ -244,21 +246,21 @@ Set the following values in `.env`:
 LDAP_HOST=dc.example.local
 LDAP_PORT=636
 LDAP_BASE_DN=DC=example,DC=local
-LDAP_BIND_DN=CN=svc-datatlas,OU=Service Accounts,DC=example,DC=local
+LDAP_BIND_DN=CN=svc-databasedoc,OU=Service Accounts,DC=example,DC=local
 LDAP_BIND_PASSWORD=your-service-account-password
 LDAP_CA_FILE=/certs/ad-ca.pem
 ```
 
 Provide the CA file through an additional read-only Compose mount, such as `./certs/ad-ca.pem:/certs/ad-ca.pem:ro`. The service account needs only read permissions for user lookup.
 
-Users sign in with their `sAMAccountName` and AD password over TLS with certificate validation; unencrypted LDAP is not supported. Assign roles and source grants in DatAtlas after the first sign-in. AD passwords are not stored in the application database.
+Users sign in with their `sAMAccountName` and AD password over TLS with certificate validation; unencrypted LDAP is not supported. Assign roles and source grants in DatabaseDoc after the first sign-in. AD passwords are not stored in the application database.
 
 ## Backup and restore
 
 `scripts/backup.sh` creates a consistent logical dump of the application's MariaDB database. Store the output on a protected backup volume:
 
 ```bash
-./scripts/backup.sh /secure/path/datatlas-backups
+./scripts/backup.sh /secure/path/databasedoc-backups
 ```
 
 Also back up `.env`, or at least its encryption/session secrets, and required SQLite source files separately and securely. The dump contains encrypted connection configurations, password hashes, and documentation. Verify backups by restoring them.

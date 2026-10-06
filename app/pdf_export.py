@@ -22,8 +22,8 @@ from reportlab.platypus import (
     Flowable,
 )
 
-FONT = "DatAtlas"
-BOLD = "DatAtlasBold"
+FONT = "DatabaseDoc"
+BOLD = "DatabaseDocBold"
 pdfmetrics.registerFont(TTFont(FONT, "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
 pdfmetrics.registerFont(
     TTFont(BOLD, "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")
@@ -145,7 +145,7 @@ def document(buffer, payload, page_size, title):
         topMargin=54,
         bottomMargin=42,
         title=text(title),
-        author="DatAtlas",
+        author="DatabaseDoc",
         pageCompression=1,
     )
 
@@ -159,7 +159,7 @@ def footer(payload, page_size):
         canvas.line(36, height - 33, width - 36, height - 33)
         canvas.setFont(BOLD, 9)
         canvas.setFillColor(GREEN)
-        canvas.drawString(36, height - 25, "DatAtlas · Datenbankdokumentation")
+        canvas.drawString(36, height - 25, "DatabaseDoc · Datenbankdokumentation")
         canvas.setFont(FONT, 8)
         canvas.setFillColor(MUTED)
         canvas.drawString(

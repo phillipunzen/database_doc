@@ -95,7 +95,7 @@ async def lifespan(app):
 
 
 app = FastAPI(
-    title="DatAtlas", version="0.1.0", lifespan=lifespan, docs_url=None, redoc_url=None
+    title="DatabaseDoc", version="0.1.0", lifespan=lifespan, docs_url=None, redoc_url=None
 )
 app.add_middleware(
     SessionMiddleware,
@@ -684,7 +684,7 @@ def export(
                 content,
                 media_type="application/pdf",
                 headers={
-                    "Content-Disposition": f'attachment; filename="datatlas-{source_id}-{suffix}.pdf"'
+                    "Content-Disposition": f'attachment; filename="databasedoc-{source_id}-{suffix}.pdf"'
                 },
             )
         audit(db, user, "documentation_export", source_id)
@@ -694,7 +694,7 @@ def export(
                 json.dumps(payload, ensure_ascii=False, indent=2, default=str),
                 media_type="application/json",
                 headers={
-                    "Content-Disposition": f'attachment; filename="datatlas-{source_id}.json"'
+                    "Content-Disposition": f'attachment; filename="databasedoc-{source_id}.json"'
                 },
             )
 
@@ -745,7 +745,7 @@ def export(
             "\n".join(lines),
             media_type="text/markdown",
             headers={
-                "Content-Disposition": f'attachment; filename="datatlas-{source_id}.md"'
+                "Content-Disposition": f'attachment; filename="databasedoc-{source_id}.md"'
             },
         )
 

@@ -16,7 +16,7 @@ const baseURL =
     args: ["--no-sandbox"],
   });
   const output = fs.mkdtempSync(
-    path.join(os.tmpdir(), "datatlas-pdf-browser-"),
+    path.join(os.tmpdir(), "databasedoc-pdf-browser-"),
   );
   try {
     const page = await browser.newPage({
@@ -56,7 +56,7 @@ const baseURL =
       assert.equal(await file.failure(), null);
       assert.equal(
         file.suggestedFilename(),
-        `datatlas-${demo.id}-${expectedSuffix}.pdf`,
+        `databasedoc-${demo.id}-${expectedSuffix}.pdf`,
       );
       const target = path.join(output, file.suggestedFilename());
       await file.saveAs(target);
