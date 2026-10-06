@@ -1,0 +1,965 @@
+"use strict";
+const state = {
+  user: null,
+  csrf: "",
+  sources: [],
+  source: null,
+  snapshot: null,
+  view: "sources",
+  tab: "overview",
+  table: 0,
+  tableTab: "columns",
+  query: "",
+  filter: "all",
+  history: [],
+  users: [],
+  audit: [],
+  erPositions: {},
+  erZoom: 1,
+  erPan: { x: 0, y: 0 },
+};
+const root = document.getElementById("app"),
+  modal = document.getElementById("modal");
+const names = {
+  mssql: "Microsoft SQL Server",
+  mysql: "MySQL",
+  mariadb: "MariaDB",
+  postgresql: "PostgreSQL",
+  mongodb: "MongoDB",
+  sqlite: "SQLite",
+};
+const roles = { admin: "Administrator", editor: "Bearbeiter", viewer: "Leser" };
+const paths = {
+  database:
+    '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/>',
+  grid: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  users:
+    '<circle cx="9" cy="8" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 5"/>',
+  shield:
+    '<path d="M12 3 3 7v5c0 6 9 10 9 10s9-4 9-10V7z"/><path d="m8 12 3 3 5-6"/>',
+  search: '<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  arrow: '<path d="M5 12h14m-5-5 5 5-5 5"/>',
+  back: '<path d="M19 12H5m5-5-5 5 5 5"/>',
+  server:
+    '<rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="14" width="18" height="7" rx="2"/><path d="M7 7.5h.1M7 17.5h.1M12 7.5h5M12 17.5h5"/>',
+  table:
+    '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 9v12"/>',
+  columns:
+    '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
+  relations:
+    '<rect x="2" y="3" width="6" height="7" rx="1"/><rect x="16" y="14" width="6" height="7" rx="1"/><path d="M5 10v7h11m-3-3 3 3-3 3"/>',
+  refresh: '<path d="M20 7a9 9 0 1 0 1 7M20 2v5h-5"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  download: '<path d="M12 3v12m-4-4 4 4 4-4M4 17v4h16v-4"/>',
+  edit: '<path d="m16 3 5 5-13 13H3v-5zM13 6l5 5"/>',
+  x: '<path d="m6 6 12 12M6 18 18 6"/>',
+  info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/>',
+  file: '<path d="M14 3H5v18h14V8zM14 3v5h5M8 12h8M8 16h8"/>',
+  eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12"/><circle cx="12" cy="12" r="3"/>',
+  check: '<path d="m5 12 4 4L19 6"/>',
+  trash: '<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/>',
+};
+function icon(name) {
+  return `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${paths[name] || paths.database}</svg>`;
+}
+function e(v) {
+  return String(v ?? "").replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        c
+      ],
+  );
+}
+function dt(v) {
+  return v
+    ? new Date(v.endsWith("Z") ? v : v + "Z").toLocaleString("de-DE", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    : "Noch kein Scan";
+}
+function toast(message) {
+  const node = document.getElementById("toast");
+  node.textContent = message;
+  node.classList.add("visible");
+  clearTimeout(toast.timer);
+  toast.timer = setTimeout(() => node.classList.remove("visible"), 4500);
+}
+async function api(url, method = "GET", body) {
+  const res = await fetch(url, {
+    method,
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", "X-CSRF-Token": state.csrf },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const result = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (res.status === 401 && state.user) {
+      state.user = null;
+      await showLogin();
+    }
+    throw new Error(
+      typeof result.detail === "string"
+        ? result.detail
+        : Array.isArray(result.detail)
+          ? "Bitte die Eingaben prüfen."
+          : `Anfrage fehlgeschlagen (${res.status}).`,
+    );
+  }
+  return result;
+}
+function brand() {
+  return `<div class="brand">${icon("database")}<div>DatAtlas<small>DATABASE DOCUMENTATION</small></div></div>`;
+}
+async function showLogin() {
+  const options = await api("/api/auth/options");
+  root.innerHTML = `<div class="login-shell"><aside class="login-art">${brand()}<div><div class="eyebrow" style="color:#b5d7a2">Wissen, wie Daten zusammenhängen</div><h1>Deine Datenbanken.<br>Ein klarer Überblick.</h1><p>Strukturen entdecken, Beziehungen verstehen und Datenwissen gemeinsam festhalten.</p><svg class="art-nodes" viewBox="0 0 440 200" aria-hidden="true"><g fill="none" stroke="#739b7c"><path d="M130 60H200V150H275M130 60H310V40"/></g><g fill="#244d40" stroke="#739b7c"><rect x="0" y="18" width="130" height="90" rx="8"/><rect x="275" y="110" width="140" height="85" rx="8"/><rect x="280" y="5" width="140" height="75" rx="8"/></g><g fill="#c0e8aa" font-size="12" font-family="monospace"><text x="15" y="42">customers</text><text x="295" y="28">addresses</text><text x="290" y="134">orders</text></g><g stroke="#6f9779"><path d="M15 58h90M15 73h65M15 88h78M295 43h100M295 58h70M290 150h100M290 166h65M290 181h80"/></g></svg></div><small>Metadaten · ER-Modelle · Dokumentation</small></aside><main class="login-main"><div class="login-box"><div class="eyebrow">Willkommen bei DatAtlas</div><h2>Anmelden</h2><p>Öffne deine Datenbankdokumentation.</p><form id="login-form" class="login-form"><div class="field"><label for="login-user">Benutzername</label><input id="login-user" name="username" autocomplete="username" required autofocus></div><div class="field"><label for="login-pass">Passwort</label><input id="login-pass" name="password" type="password" autocomplete="current-password" required></div>${options.ad ? '<div class="field"><label for="provider">Anmeldung</label><select id="provider" name="provider"><option value="local">Lokales Konto</option><option value="ad">Microsoft Active Directory</option></select></div>' : ""}<button class="btn primary" type="submit">Anmelden ${icon("arrow")}</button><div class="error-text" id="login-error" role="alert">${location.search.includes("auth_error") ? "Entra-Anmeldung fehlgeschlagen. Bitte Einrichtung oder Kontostatus prüfen." : ""}</div></form>${options.entra ? '<div class="divider">oder</div><a class="btn" style="width:100%" href="/auth/entra">Mit Microsoft Entra ID anmelden</a>' : ""}<p class="login-foot">Der Zugriff richtet sich nach den Freigaben deines Administrators.</p></div></main></div>`;
+}
+function shell(content) {
+  root.innerHTML = `<div class="layout"><aside class="sidebar">${brand()}<nav><div class="nav-label">Arbeitsbereich</div><button class="nav-button ${["sources", "source"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="sources">${icon("database")}<span>Datenquellen</span></button>${state.user.role === "admin" ? `<div class="nav-label" style="margin-top:30px">Administration</div><button class="nav-button ${state.view === "users" ? "active" : ""}" data-action="nav" data-view="users">${icon("users")}<span>Benutzer & Rechte</span></button><button class="nav-button ${state.view === "audit" ? "active" : ""}" data-action="nav" data-view="audit">${icon("shield")}<span>Aktivitätsprotokoll</span></button>` : ""}</nav><div class="sidebar-bottom"><div class="user-line"><div class="avatar">${e(state.user.display_name.slice(0, 1).toUpperCase())}</div><div><div class="small">${e(state.user.display_name)}</div><div style="font-size:10px;color:#a7c0b3">${roles[state.user.role]}</div></div></div>${state.user.provider === "local" ? '<button data-action="password">Passwort ändern</button>' : ""}<button data-action="logout">Abmelden</button></div></aside><main class="main"><header class="topbar"><div class="breadcrumb">Arbeitsbereich <span>/</span> <strong>${state.view === "source" ? e(state.source.name) : state.view === "users" ? "Benutzer & Rechte" : state.view === "audit" ? "Aktivitätsprotokoll" : "Datenquellen"}</strong></div><div class="env-pill"><span class="dot"></span> ${roles[state.user.role]}</div><button class="btn ghost mobile-logout" data-action="logout" style="display:none">Abmelden</button></header><div class="content">${content}</div></main></div>`;
+}
+function status(source) {
+  const job = source.job;
+  if (job?.status === "failed")
+    return '<span class="badge error">Scan fehlgeschlagen</span>';
+  if (["queued", "running"].includes(job?.status))
+    return '<span class="badge busy"><span class="dot" style="background:#b79043"></span> Scan läuft</span>';
+  if (source.snapshot_id)
+    return '<span class="badge"><span class="dot"></span> Dokumentiert</span>';
+  return '<span class="badge neutral">Bereit zum Scan</span>';
+}
+function stat(label, value, ic, bottom) {
+  return `<div class="stat"><div class="stat-top">${label}${icon(ic)}</div><strong>${value.toLocaleString("de-DE")}</strong><span class="bottom">${bottom}</span></div>`;
+}
+function sourceStats(sources) {
+  return `<div class="stats">${stat("Datenquellen", sources.length, "database", "Verbundene Datenbanken")}${stat(
+    "Tabellen & Collections",
+    sources.reduce((n, s) => n + s.table_count, 0),
+    "table",
+    "In der Dokumentation",
+  )}${stat(
+    "Spalten & Felder",
+    sources.reduce((n, s) => n + s.column_count, 0),
+    "columns",
+    "Dokumentierte Attribute",
+  )}${stat(
+    "Beziehungen",
+    sources.reduce((n, s) => n + s.relation_count, 0),
+    "relations",
+    "Erkannte Fremdschlüssel",
+  )}</div>`;
+}
+function card(s) {
+  return `<article class="source-card"><div class="source-card-top"><div class="db-icon ${s.kind}">${icon("database")}</div><div style="flex:1;min-width:0"><button class="source-title" data-action="open" data-id="${s.id}">${e(s.name)}</button><div class="small muted">${names[s.kind]}</div></div>${status(s)}</div><div class="source-meta">${icon("server")}<span>${e(s.kind === "sqlite" ? s.config.path : s.config.host + (s.config.port ? ":" + s.config.port : "") + " / " + s.config.database)}</span></div><div class="card-stats"><div><strong>${s.table_count}</strong><span>Objekte</span></div><div><strong>${s.column_count}</strong><span>Spalten</span></div><div><strong>${s.relation_count}</strong><span>Beziehungen</span></div></div><div class="card-footer"><span>${e(dt(s.scanned_at))}</span><button data-action="open" data-id="${s.id}">Öffnen ${icon("arrow")}</button></div></article>`;
+}
+function filteredSources() {
+  return state.sources.filter(
+    (s) =>
+      (state.filter === "all" || state.filter === s.kind) &&
+      `${s.name} ${s.config.host || ""} ${s.config.database || ""}`
+        .toLowerCase()
+        .includes(state.query.toLowerCase()),
+  );
+}
+function paintCards() {
+  const list = filteredSources();
+  document.getElementById("source-cards").innerHTML = list.length
+    ? list.map(card).join("")
+    : `<div class="empty" style="grid-column:1/-1">${icon("database")}<h2>${state.sources.length ? "Keine passenden Quellen" : "Deine erste Datenquelle"}</h2><p>${state.sources.length ? "Passe Suche oder Datenbanktyp an." : state.user.role === "admin" ? "Hinterlege eine Datenbankverbindung und starte einen Scan. DatAtlas erstellt daraus die Dokumentation." : "Hier erscheinen Datenbanken, die für dich freigegeben wurden."}</p>${!state.sources.length && state.user.role === "admin" ? `<button class="btn primary" data-action="add-source">${icon("plus")} Datenquelle hinzufügen</button>` : ""}</div>`;
+  document.getElementById("source-count").textContent = list.length;
+}
+function renderSources() {
+  shell(
+    `<div class="page-head"><div><div class="eyebrow">Datenkatalog</div><h1>Datenquellen</h1><p>Alle Datenbankstrukturen an einem Ort.</p></div>${state.user.role === "admin" ? `<button class="btn primary" data-action="add-source">${icon("plus")} Datenquelle hinzufügen</button>` : ""}</div>${sourceStats(state.sources)}<div class="toolbar"><div class="section-title" style="margin:0"><h2>Deine Datenbanken</h2><span class="count" id="source-count"></span></div><div class="actions" style="flex:1;justify-content:flex-end"><div class="search">${icon("search")}<input id="source-search" aria-label="Datenquellen durchsuchen" placeholder="Name, Host oder Datenbank suchen …" value="${e(state.query)}"></div><select id="source-filter" class="filter" aria-label="Datenbanktyp"><option value="all">Alle Datenbanktypen</option>${Object.entries(
+      names,
+    )
+      .map(
+        ([k, v]) =>
+          `<option value="${k}" ${state.filter === k ? "selected" : ""}>${v}</option>`,
+      )
+      .join(
+        "",
+      )}</select></div></div><div class="source-grid" id="source-cards"></div><div class="hint">${icon("info")}<span>Schema-Scans speichern Metadaten. Datenvorschauen werden nur auf Anfrage geladen und benötigen eine separate Freigabe.</span></div>`,
+  );
+  paintCards();
+}
+async function loadSources() {
+  state.sources = await api("/api/sources");
+}
+async function navigate(view, id) {
+  if (view === "source") {
+    state.source = state.sources.find((s) => s.id === Number(id));
+    if (!state.source) {
+      await loadSources();
+      state.source = state.sources.find((s) => s.id === Number(id));
+    }
+    if (!state.source) throw new Error("Datenquelle nicht verfügbar.");
+    state.view = "source";
+    state.tab = "overview";
+    state.table = 0;
+    state.tableTab = "columns";
+    state.erPositions = {};
+    state.erZoom = 1;
+    state.erPan = { x: 0, y: 0 };
+    state.snapshot = null;
+    if (state.source.snapshot_id)
+      state.snapshot = await api(`/api/sources/${id}/snapshot`);
+    renderSource();
+  } else {
+    state.view = view;
+    if (view === "sources") {
+      await loadSources();
+      renderSources();
+    }
+    if (view === "users") {
+      state.users = await api("/api/users");
+      renderUsers();
+    }
+    if (view === "audit") {
+      state.audit = await api("/api/audit");
+      renderAudit();
+    }
+  }
+  location.hash = view === "source" ? `source/${id}` : view;
+}
+function tabs(items, current, action) {
+  return `<div class="tabs">${items.map(([id, label, ic]) => `<button class="tab ${id === current ? "active" : ""}" aria-pressed="${id === current}" data-action="${action}" data-tab="${id}">${icon(ic)}${label}</button>`).join("")}</div>`;
+}
+function renderSource() {
+  const s = state.source;
+  shell(
+    `<button class="back" data-action="nav" data-view="sources">${icon("back")} Alle Datenquellen</button><div class="page-head"><div><div class="eyebrow">${names[s.kind]}</div><h1>${e(s.name)}</h1><p>${e(s.kind === "sqlite" ? s.config.path : s.config.host + " / " + s.config.database)} ${s.config.schema ? "· " + e(s.config.schema) : ""}</p></div><div class="actions">${s.snapshot_id ? `<a class="btn" href="/api/sources/${s.id}/export?format=markdown">${icon("download")} Markdown</a><a class="btn" href="/api/sources/${s.id}/export?format=json">JSON</a>` : ""}${s.can_edit ? `<button class="btn" data-action="edit-source">${icon("edit")} Bearbeiten</button><button class="btn primary" data-action="scan" ${["queued", "running"].includes(s.job?.status) ? "disabled" : ""}>${icon("refresh")} ${["queued", "running"].includes(s.job?.status) ? "Scan läuft …" : "Schema scannen"}</button>` : ""}</div></div>${s.job ? `<div class="status-message">${status(s)} <span style="margin-left:10px">${e(s.job.message)}</span></div>` : ""}${tabs(
+      [
+        ["overview", "Übersicht", "grid"],
+        ["schema", "Tabellen & Felder", "table"],
+        ["er", "ER-Modell", "relations"],
+        ["history", "Scan-Verlauf", "clock"],
+      ],
+      state.tab,
+      "source-tab",
+    )}<div id="source-body">${sourceBody()}</div>`,
+  );
+  if (state.tab === "er") setupER();
+}
+function info(label, value) {
+  return `<div class="info-line"><span>${label}</span><span>${value}</span></div>`;
+}
+function sourceBody() {
+  const s = state.source,
+    snap = state.snapshot;
+  if (state.tab === "history") return historyView();
+  if (!snap)
+    return `<div class="empty">${icon("table")}<h2>Die Dokumentation beginnt mit einem Scan</h2><p>${s.can_edit ? "DatAtlas liest die Struktur der Datenbank aus und erstellt daraus Tabellenübersichten und Beziehungen." : "Ein Bearbeiter muss zunächst einen Schema-Scan starten."}</p>${s.can_edit ? '<button class="btn primary" data-action="scan">Schema scannen</button>' : ""}</div>`;
+  if (state.tab === "schema") return schemaView();
+  if (state.tab === "er") return erView();
+  return `${sourceStats([s])}<div class="info-grid"><section class="panel"><div class="panel-head"><h2>Verbindungsinformationen</h2>${status(s)}</div><div class="panel-body">${info("Datenbanktyp", names[s.kind])}${info("Datenbank", e(s.config.database || "SQLite-Datei"))}${info("Host / Datei", e(s.config.host || s.config.path))}${info("Schema", e(s.config.schema || "Alle zugänglichen Schemas"))}${info("Letzter Scan", e(dt(s.scanned_at)))}${info("Deine Berechtigungen", (s.can_edit ? "Bearbeiten" : "Lesen") + (s.can_data ? " · Datenvorschau" : ""))}</div></section><section class="panel"><div class="panel-head"><h2>Dokumentierte Objekte</h2><button class="text-button" data-action="source-tab" data-tab="schema">Alle anzeigen →</button></div><div class="table-wrap"><table><thead><tr><th>Objekt</th><th>Typ</th><th>Spalten</th></tr></thead><tbody>${snap.payload.tables
+    .slice(0, 7)
+    .map(
+      (t, i) =>
+        `<tr><td><button class="text-button source-table-name" data-action="select-table" data-index="${i}">${e(t.schema ? t.schema + "." + t.name : t.name)}</button></td><td class="muted">${e(t.kind)}</td><td>${t.columns.length}</td></tr>`,
+    )
+    .join(
+      "",
+    )}</tbody></table>${!snap.payload.tables.length ? '<div class="panel-body muted">Keine zugänglichen Objekte gefunden.</div>' : ""}</div></section></div>${snap.payload.warnings.map((w) => `<div class="hint">${icon("info")}<span>${e(w)}</span></div>`).join("")}<div class="hint">${icon("clock")}<span>Die Dokumentation zeigt den Stand des letzten Scans. Starte nach Strukturänderungen einen neuen Scan.</span></div>`;
+}
+function schemaView() {
+  const tables = state.snapshot.payload.tables;
+  if (!tables.length)
+    return '<div class="empty"><h2>Keine Tabellen oder Collections gefunden</h2></div>';
+  state.table = Math.min(state.table, tables.length - 1);
+  return `<div class="schema-layout"><aside class="object-list"><div class="object-search"><input id="object-search" aria-label="Objekte durchsuchen" placeholder="Objekte durchsuchen …"></div><div class="object-items" id="object-items">${tableList()}</div></aside><section class="panel object-detail" id="object-detail">${tableDetail()}</section></div>`;
+}
+function tableList(query = "") {
+  return state.snapshot.payload.tables
+    .map(
+      (t, i) =>
+        `${(t.schema + "." + t.name).toLowerCase().includes(query.toLowerCase()) ? `<button class="object-item ${state.table === i ? "active" : ""}" data-action="select-table" data-index="${i}">${icon("table")}<span title="${e(t.schema + "." + t.name)}">${e(t.name)}</span><small>${t.columns.length}</small></button>` : ""}`,
+    )
+    .join("");
+}
+function tableDetail() {
+  const t = state.snapshot.payload.tables[state.table];
+  return `<div class="panel-head"><div><div class="eyebrow" style="margin-bottom:3px">${e(t.schema || "Standard-Schema")} · ${e(t.kind)}</div><h2>${e(t.name)}</h2><p class="object-description">${e(t.comment || "")}${t.sampled_documents !== undefined ? " · " + t.sampled_documents + " Dokumente für Feldableitung untersucht" : ""}</p></div><span class="badge neutral">${t.columns.length} Felder</span></div><div class="detail-tabs">${tabs(
+    [
+      ["columns", "Spalten", "columns"],
+      ["keys", "Schlüssel & Indizes", "relations"],
+      ["data", "Datenvorschau", "eye"],
+      ["notes", "Dokumentation", "file"],
+    ],
+    state.tableTab,
+    "table-tab",
+  )}</div><div id="table-body">${tableBody()}</div>`;
+}
+function tableBody() {
+  const t = state.snapshot.payload.tables[state.table];
+  if (state.tableTab === "data")
+    return `<div class="panel-body"><p class="muted small" style="margin-bottom:18px">Die Vorschau liest maximal 50 Zeilen direkt aus der Datenquelle. Werte werden nicht in der Dokumentationsdatenbank gespeichert.</p>${state.source.can_data ? `<button class="btn" data-action="load-preview">${icon("eye")} Datenvorschau laden</button><div id="preview-result" style="margin-top:20px"></div>` : '<div class="hint" style="margin:0">Für Datenvorschauen fehlt dir die Freigabe. Wende dich an einen Administrator.</div>'}</div>`;
+  if (state.tableTab === "notes")
+    return `<div class="panel-body"><form id="note-form" class="note-form"><div class="field"><label for="note">Beschreibung & Fachwissen</label><textarea id="note" name="text" rows="10" placeholder="Zweck, Datenherkunft, Verantwortliche oder fachliche Besonderheiten …" ${!state.source.can_edit ? "readonly" : ""}>${e(state.snapshot.notes[t.key] || "")}</textarea><small>Diese Notiz bleibt auch nach einem erneuten Scan erhalten.</small></div>${state.source.can_edit ? '<button class="btn primary" type="submit">Dokumentation speichern</button>' : ""}</form></div>`;
+  if (state.tableTab === "keys")
+    return `<div class="panel-body"><h3>Primärschlüssel</h3><p class="mono muted" style="margin:8px 0 22px">${e(t.primary_key.join(", ") || "Kein Primärschlüssel erkannt")}</p><h3>Fremdschlüssel</h3>${t.foreign_keys.length ? `<div class="table-wrap" style="margin:10px 0 22px"><table><thead><tr><th>Spalten</th><th>Ziel</th><th>Zielspalten</th></tr></thead><tbody>${t.foreign_keys.map((f) => `<tr><td class="mono">${e(f.columns.join(", "))}</td><td>${e(f.target_schema + "." + f.target_table)}</td><td class="mono">${e(f.target_columns.join(", "))}</td></tr>`).join("")}</tbody></table></div>` : '<p class="muted small" style="margin:8px 0 22px">Keine deklarierten Fremdschlüssel.</p>'}<h3>Indizes & eindeutige Constraints</h3><div class="table-wrap" style="margin-top:10px"><table><thead><tr><th>Name</th><th>Spalten</th><th>Eindeutig</th></tr></thead><tbody>${[...t.indexes, ...t.unique_constraints.map((u) => ({ ...u, unique: true }))].map((i) => `<tr><td>${e(i.name || "Ohne Namen")}</td><td class="mono">${e(i.columns.join(", "))}</td><td>${i.unique ? "Ja" : "Nein"}</td></tr>`).join("")}</tbody></table></div>${t.validator ? `<h3 style="margin-top:22px">MongoDB-Validator</h3><pre class="mono" style="overflow:auto">${e(JSON.stringify(t.validator, null, 2))}</pre>` : ""}</div>`;
+  return `<div class="table-wrap"><table><thead><tr><th>Spalte / Feld</th><th>Datentyp</th><th>NULL</th><th>Standard</th><th>Kommentar</th></tr></thead><tbody>${t.columns.map((c) => `<tr><td class="mono">${c.primary_key ? '<span class="key-label">PK</span>' : ""}${t.foreign_keys.some((f) => f.columns.includes(c.name)) ? '<span class="key-label fk">FK</span>' : ""}${e(c.name)}</td><td class="mono muted">${e(c.type)}</td><td>${c.nullable ? "Ja" : "Nein"}</td><td class="mono muted">${e(c.default ?? "—")}</td><td class="muted">${e(c.comment || "—")}</td></tr>`).join("")}</tbody></table>${!t.columns.length ? '<div class="panel-body muted">Keine Felder dokumentiert. Bei MongoDB kann die optionale Feldableitung in der Verbindung aktiviert werden.</div>' : ""}</div>`;
+}
+function historyView() {
+  return `<section class="panel"><div class="panel-head"><h2>Gespeicherte Schema-Stände</h2><span class="small muted">${state.history.length} Scans</span></div><div class="table-wrap"><table><thead><tr><th>Stand</th><th>Objekte</th><th></th></tr></thead><tbody>${state.history.map((h) => `<tr><td>${e(dt(h.created))}</td><td>${h.table_count}</td><td><button class="text-button" data-action="history-open" data-id="${h.id}">Schema ansehen →</button></td></tr>`).join("")}</tbody></table>${!state.history.length ? '<div class="panel-body muted">Noch keine erfolgreichen Scans.</div>' : ""}</div></section>`;
+}
+function erView() {
+  const tables = state.snapshot.payload.tables;
+  if (!tables.length)
+    return '<div class="empty"><h2>Keine Objekte für das ER-Modell</h2></div>';
+  return `<section class="panel"><div class="panel-head"><div><h2>Beziehungen im Überblick</h2><p class="muted small">${state.source.kind === "mongodb" ? "Collections und abgeleitete Felder. MongoDB deklariert keine Fremdschlüssel." : "Pfeile führen von Fremdschlüsseln zur referenzierten Tabelle."}</p></div><div class="er-tools"><label class="small muted" for="er-zoom">Zoom</label><input id="er-zoom" type="range" min="0.3" max="2" step="0.1" value="${state.erZoom}" style="width:95px"><button class="btn" data-action="er-reset">Anordnen</button><button class="btn" data-action="er-download">${icon("download")} SVG</button></div></div><div class="er-stage"><svg id="er-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ER-Modell der dokumentierten Datenbank"></svg></div><div class="er-footer">Tabellen und Hintergrund lassen sich verschieben. Doppelklick oder Enter öffnet die Spalten. ${tables.length > 80 ? "Die Ansicht zeigt die ersten 80 Objekte. Weitere Objekte stehen in der Tabellenübersicht." : ""}</div></section>`;
+}
+function erTables() {
+  return state.snapshot.payload.tables.slice(0, 80);
+}
+function erHeight(t) {
+  return (
+    50 + Math.min(t.columns.length, 6) * 22 + (t.columns.length > 6 ? 22 : 0)
+  );
+}
+function drawER() {
+  const svg = document.getElementById("er-svg");
+  if (!svg) return;
+  const ts = erTables();
+  ts.forEach((t, i) => {
+    if (!state.erPositions[t.key])
+      state.erPositions[t.key] = {
+        x: 35 + (i % 3) * 330,
+        y: 30 + Math.floor(i / 3) * 260,
+      };
+  });
+  const maxY =
+    Math.max(...ts.map((t) => state.erPositions[t.key].y + erHeight(t))) + 40;
+  const maxX =
+    Math.max(1020, ...ts.map((t) => state.erPositions[t.key].x + 290)) + 40;
+  svg.setAttribute(
+    "viewBox",
+    `${state.erPan.x} ${state.erPan.y} ${maxX / state.erZoom} ${Math.max(620, maxY) / state.erZoom}`,
+  );
+  svg.setAttribute("preserveAspectRatio", "xMinYMin meet");
+  const defs =
+    '<defs><marker id="arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 8 4 0 8" fill="none" stroke="#87a693"/></marker><filter id="node-shadow"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#163a35" flood-opacity="0.06"/></filter></defs>';
+  let edges = "";
+  ts.forEach((t) =>
+    t.foreign_keys.forEach((f) => {
+      const target = ts.find(
+        (other) =>
+          other.name === f.target_table &&
+          other.schema === (f.target_schema || t.schema),
+      );
+      if (!target) return;
+      const a = state.erPositions[t.key],
+        b = state.erPositions[target.key];
+      const aRight = a.x <= b.x;
+      const x1 = a.x + (aRight ? 280 : 0),
+        x2 = b.x + (aRight ? 0 : 280);
+      const sourceColumn = Math.max(
+        0,
+        t.columns.findIndex((c) => f.columns.includes(c.name)),
+      );
+      const targetColumn = Math.max(
+        0,
+        target.columns.findIndex((c) => f.target_columns.includes(c.name)),
+      );
+      const y1 = a.y + 54 + Math.min(sourceColumn, 5) * 22,
+        y2 = b.y + 54 + Math.min(targetColumn, 5) * 22;
+      let d;
+      if (target === t) {
+        d = `M${x1},${y1} C${x1 + 60},${y1 - 60} ${x1 + 60},${y2 + 60} ${x1},${y2}`;
+      } else {
+        const mid = (x1 + x2) / 2;
+        d = `M${x1},${y1} C${mid},${y1} ${mid},${y2} ${x2},${y2}`;
+      }
+      edges += `<path class="er-edge" d="${d}" marker-end="url(#arrowhead)"><title>${e(t.name + ": " + f.columns.join(", ") + " → " + target.name + " (" + f.target_columns.join(", ") + ")")}</title></path>`;
+    }),
+  );
+  svg.innerHTML =
+    defs +
+    `<g id="er-edges">${edges}</g>` +
+    ts
+      .map((t, i) => {
+        const p = state.erPositions[t.key];
+        return `<g class="er-node" tabindex="0" role="button" aria-label="${e(t.name)} öffnen" data-er-index="${i}" transform="translate(${p.x},${p.y})"><rect width="280" height="${erHeight(t)}" rx="9" fill="white" stroke="#cbd9c9" filter="url(#node-shadow)"/><path d="M0 37H280" stroke="#dee7da"/><text class="er-title" x="14" y="24">${e(((t.schema ? t.schema + "." : "") + t.name).slice(0, 40))}</text>${t.columns
+          .slice(0, 6)
+          .map(
+            (c, j) =>
+              `<text class="er-field" x="14" y="${58 + j * 22}">${c.primary_key ? "◆ " : t.foreign_keys.some((f) => f.columns.includes(c.name)) ? "↗ " : "  "}${e(c.name.length > 21 ? c.name.slice(0, 20) + "…" : c.name)}</text><text class="er-field" x="266" y="${58 + j * 22}" text-anchor="end" fill="#83957c">${e(c.type.slice(0, 14))}</text>`,
+          )
+          .join(
+            "",
+          )}${t.columns.length > 6 ? `<text class="er-field" x="14" y="${58 + 6 * 22}">+ ${t.columns.length - 6} weitere Felder</text>` : ""}</g>`;
+      })
+      .join("");
+}
+function setupER() {
+  drawER();
+  const svg = document.getElementById("er-svg");
+  if (!svg) return;
+  let drag = null;
+  function point(event) {
+    return new DOMPoint(event.clientX, event.clientY).matrixTransform(
+      svg.getScreenCTM().inverse(),
+    );
+  }
+  svg.addEventListener("pointerdown", (ev) => {
+    const node = ev.target.closest("[data-er-index]");
+    if (!node) {
+      drag = {
+        pan: true,
+        startX: ev.clientX,
+        startY: ev.clientY,
+        originX: state.erPan.x,
+        originY: state.erPan.y,
+        scale: svg.viewBox.baseVal.width / svg.getBoundingClientRect().width,
+      };
+      svg.setPointerCapture(ev.pointerId);
+      return;
+    }
+    const index = Number(node.dataset.erIndex),
+      t = erTables()[index],
+      p = point(ev);
+    drag = {
+      index,
+      key: t.key,
+      dx: p.x - state.erPositions[t.key].x,
+      dy: p.y - state.erPositions[t.key].y,
+    };
+    svg.setPointerCapture(ev.pointerId);
+    ev.preventDefault();
+  });
+  svg.addEventListener("pointermove", (ev) => {
+    if (!drag) return;
+    if (drag.pan) {
+      state.erPan = {
+        x: drag.originX - (ev.clientX - drag.startX) * drag.scale,
+        y: drag.originY - (ev.clientY - drag.startY) * drag.scale,
+      };
+      drawER();
+      return;
+    }
+    const p = point(ev);
+    state.erPositions[drag.key] = {
+      x: Math.max(5, p.x - drag.dx),
+      y: Math.max(5, p.y - drag.dy),
+    };
+    drawER();
+  });
+  svg.addEventListener("pointerup", () => {
+    drag = null;
+  });
+  svg.addEventListener("pointercancel", () => {
+    drag = null;
+  });
+  svg.addEventListener("dblclick", (ev) => {
+    const node = ev.target.closest("[data-er-index]");
+    if (node) selectTable(Number(node.dataset.erIndex));
+  });
+  svg.addEventListener("keydown", (ev) => {
+    const node = ev.target.closest("[data-er-index]");
+    if (node && (ev.key === "Enter" || ev.key === " ")) {
+      ev.preventDefault();
+      selectTable(Number(node.dataset.erIndex));
+    }
+  });
+}
+function downloadER() {
+  const source = document.getElementById("er-svg").cloneNode(true);
+  const styles = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "style",
+  );
+  styles.textContent =
+    ".er-edge{fill:none;stroke:#87a693;stroke-width:1.5}.er-title{font-family:sans-serif;font-weight:600;font-size:13px;fill:#22473a}.er-field{font-family:monospace;font-size:10px;fill:#56685b}";
+  source.prepend(styles);
+  source.setAttribute("width", "1400");
+  source.setAttribute(
+    "height",
+    String(Math.max(850, Math.ceil(erTables().length / 3) * 300)),
+  );
+  const url = URL.createObjectURL(
+    new Blob([new XMLSerializer().serializeToString(source)], {
+      type: "image/svg+xml",
+    }),
+  );
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `datatlas-${state.source.id}-er.svg`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function renderUsers() {
+  shell(
+    `<div class="page-head"><div><div class="eyebrow">Administration</div><h1>Benutzer & Rechte</h1><p>Konten verwalten und Datenbanken gezielt freigeben.</p></div><button class="btn primary" data-action="add-user">${icon("plus")} Benutzer hinzufügen</button></div><section class="panel"><div class="table-wrap"><table><thead><tr><th>Benutzer</th><th>Anmeldung</th><th>Rolle</th><th>Status</th><th></th></tr></thead><tbody>${state.users.map((u) => `<tr><td><strong>${e(u.display_name)}</strong><div class="small muted">${e(u.username)}</div></td><td>${{ local: "Lokales Konto", ad: "Microsoft AD", entra: "Entra ID" }[u.provider]}</td><td>${roles[u.role]}</td><td><span class="badge ${u.active ? "" : "error"}">${u.active ? "Aktiv" : "Deaktiviert"}</span></td><td><button class="text-button" data-action="edit-user" data-id="${u.id}">Verwalten</button></td></tr>`).join("")}</tbody></table></div></section><div class="hint">${icon("shield")}<span>Administratoren sehen alle Quellen. Bearbeiter benötigen zusätzlich eine Freigabe zum Bearbeiten; Leser erhalten ausschließlich freigegebene Dokumentationen. Neue Entra- und AD-Konten starten als Leser ohne Datenbankzugriff.</span></div><section style="margin-top:28px"><div class="section-title"><h2>Datenbankfreigaben</h2></div><section class="panel"><div class="table-wrap"><table><thead><tr><th>Datenquelle</th><th>Typ</th><th></th></tr></thead><tbody>${state.sources.map((s) => `<tr><td>${e(s.name)}</td><td class="muted">${names[s.kind]}</td><td><button class="text-button" data-action="grants" data-id="${s.id}">Freigaben verwalten →</button></td></tr>`).join("")}</tbody></table>${!state.sources.length ? '<div class="panel-body muted">Lege zunächst eine Datenquelle an.</div>' : ""}</div></section></section>`,
+  );
+}
+const auditLabels = {
+  login: "Angemeldet",
+  logout: "Abgemeldet",
+  login_failed: "Anmeldung fehlgeschlagen",
+  password_changed: "Passwort geändert",
+  source_created: "Datenquelle angelegt",
+  source_updated: "Datenquelle geändert",
+  source_deleted: "Datenquelle gelöscht",
+  scan_started: "Schema-Scan gestartet",
+  data_preview: "Datenvorschau geladen",
+  note_updated: "Dokumentation geändert",
+  documentation_export: "Dokumentation exportiert",
+  user_created: "Benutzer angelegt",
+  user_updated: "Benutzer geändert",
+  grant_updated: "Freigabe geändert",
+  grant_revoked: "Freigabe entfernt",
+};
+function renderAudit() {
+  shell(
+    `<div class="page-head"><div><div class="eyebrow">Administration</div><h1>Aktivitätsprotokoll</h1><p>Die letzten 200 Anmeldungen und Änderungen.</p></div><button class="btn" data-action="nav" data-view="audit">${icon("refresh")} Aktualisieren</button></div><section class="panel"><div class="table-wrap"><table><thead><tr><th>Zeitpunkt</th><th>Benutzer</th><th>Aktion</th><th>Ziel</th></tr></thead><tbody>${state.audit.map((a) => `<tr><td class="nowrap">${e(dt(a.created))}</td><td>${e(a.user)}</td><td>${e(auditLabels[a.action] || a.action)}</td><td class="mono muted">${e(a.target || "—")}</td></tr>`).join("")}</tbody></table></div></section>`,
+  );
+}
+function openModal(title, html) {
+  modal.innerHTML = `<div class="modal-head"><h2>${e(title)}</h2><button class="btn ghost" data-action="close-modal" aria-label="Schließen">${icon("x")}</button></div><div class="modal-body">${html}</div>`;
+  modal.showModal();
+}
+function field(label, name, value = "", type = "text", extra = "") {
+  return `<div class="field"><label for="f-${name}">${label}</label><input id="f-${name}" name="${name}" type="${type}" value="${e(value)}" ${extra}></div>`;
+}
+function sourceModal(edit = false) {
+  const s = edit ? state.source : null,
+    c = s?.config || {};
+  openModal(
+    edit ? "Datenquelle bearbeiten" : "Datenquelle hinzufügen",
+    `<form id="source-form" data-id="${s?.id || ""}"><div class="form-grid"><div class="full">${field("Bezeichnung", "name", s?.name || "", "text", 'required maxlength="190" placeholder="z. B. Produktions-DWH"')}</div><div class="field full"><label for="f-kind">Datenbanksystem</label><select name="kind" id="f-kind">${Object.entries(
+      names,
+    )
+      .map(
+        ([k, n]) =>
+          `<option value="${k}" ${s?.kind === k ? "selected" : ""}>${n}</option>`,
+      )
+      .join(
+        "",
+      )}</select></div><div class="network-field">${field("Host", "host", c.host || "", "text", 'placeholder="db.example.local"')}</div><div class="network-field">${field("Port", "port", c.port || "", "number", 'min="1" max="65535" placeholder="Standardport"')}</div><div class="network-field">${field("Datenbank", "database", c.database || "", "text", 'maxlength="190" list="database-options"')}<datalist id="database-options"></datalist><button class="text-button small" type="button" data-action="discover" style="margin-top:5px">Datenbanken auf dem Server suchen</button></div><div class="network-field sql-schema">${field("Schema (optional)", "schema_name", c.schema || "", "text", 'placeholder="Alle zugänglichen Schemas" maxlength="190"')}</div><div class="network-field">${field("Benutzername", "username", c.username || "", "text", 'autocomplete="off" maxlength="190"')}</div><div class="network-field">${field(s ? "Passwort (leer = beibehalten)" : "Passwort", "password", "", "password", 'autocomplete="new-password"')}</div><div class="sqlite-field full">${field("SQLite-Datei im Container", "path", c.path || "", "text", 'placeholder="/sources/meine-datenbank.db"')}<div class="small muted" style="margin-top:6px">Datei auf dem Server unter /opt/datenbankdokumentation/sources ablegen. Sie wird nur lesend eingebunden.</div></div><div class="mongo-field full">${field("Authentifizierungsdatenbank", "auth_source", c.auth_source || "", "text", 'placeholder="Standard: ausgewählte Datenbank"')}</div></div><label class="checkbox network-field"><input name="tls" type="checkbox" ${c.tls !== false ? "checked" : ""}><span>TLS mit Zertifikatsprüfung verwenden. Nur für lokale Testdatenbanken ohne TLS deaktivieren.</span></label><label class="checkbox mongo-field"><input name="mongo_infer" type="checkbox" ${s?.mongo_infer ? "checked" : ""}><span>Felder aus bis zu 100 Dokumenten pro Collection ableiten. Hierfür werden Dokumente gelesen; ihre Werte werden nicht gespeichert.</span></label><div class="error-text" id="source-error" role="alert"></div><div class="modal-footer"><button class="btn" type="button" data-action="test-connection">${icon("server")} Verbindung testen</button><div class="actions"><button class="btn" type="button" data-action="close-modal">Abbrechen</button><button class="btn primary" type="submit">Speichern</button></div></div>${s && state.user.role === "admin" ? '<button class="btn danger" type="button" data-action="delete-source" style="justify-self:start">Datenquelle löschen</button>' : ""}</form>`,
+  );
+  sourceFormKind();
+}
+function sourceFormKind() {
+  const kind = document.getElementById("f-kind").value;
+  modal
+    .querySelectorAll(".network-field")
+    .forEach((el) => el.classList.toggle("hidden", kind === "sqlite"));
+  modal
+    .querySelectorAll(".sqlite-field")
+    .forEach((el) => el.classList.toggle("hidden", kind !== "sqlite"));
+  modal
+    .querySelectorAll(".mongo-field")
+    .forEach((el) => el.classList.toggle("hidden", kind !== "mongodb"));
+  modal
+    .querySelectorAll(".sql-schema")
+    .forEach((el) =>
+      el.classList.toggle("hidden", kind === "sqlite" || kind === "mongodb"),
+    );
+  const defaults = {
+    mssql: 1433,
+    mysql: 3306,
+    mariadb: 3306,
+    postgresql: 5432,
+    mongodb: 27017,
+  };
+  document.getElementById("f-port").placeholder = String(defaults[kind] || "");
+}
+function sourceInput() {
+  const form = document.getElementById("source-form"),
+    data = new FormData(form);
+  return {
+    name: data.get("name"),
+    kind: data.get("kind"),
+    host: data.get("host"),
+    port: data.get("port") ? Number(data.get("port")) : null,
+    database: data.get("database"),
+    schema_name: data.get("schema_name"),
+    username: data.get("username"),
+    password: data.get("password") || null,
+    path: data.get("path"),
+    tls: data.get("tls") === "on",
+    mongo_infer: data.get("mongo_infer") === "on",
+    auth_source: data.get("auth_source"),
+  };
+}
+function addUserModal() {
+  openModal(
+    "Lokalen Benutzer hinzufügen",
+    `<form id="user-form">${field("Anzeigename", "display_name", "", "text", 'required maxlength="190"')}${field("Benutzername", "username", "", "text", 'required pattern="[a-zA-Z0-9_.@\\-]+" autocomplete="off" maxlength="190"')}${field("Passwort", "password", "", "password", 'required minlength="12" autocomplete="new-password"')}<div class="field"><label for="f-role">Rolle</label><select name="role" id="f-role"><option value="viewer">Leser</option><option value="editor">Bearbeiter</option><option value="admin">Administrator</option></select></div><div class="error-text" id="form-error" role="alert"></div><div class="modal-footer"><span class="small muted">Mindestens 12 Zeichen im Passwort.</span><button type="submit" class="btn primary">Benutzer anlegen</button></div></form>`,
+  );
+}
+function editUserModal(id) {
+  const u = state.users.find((u) => u.id === Number(id));
+  openModal(
+    "Benutzer verwalten",
+    `<form id="user-edit-form" data-id="${u.id}"><p>${e(u.display_name)} <span class="muted">(${e(u.username)})</span></p><div class="field"><label for="f-role">Rolle</label><select name="role" id="f-role">${Object.entries(
+      roles,
+    )
+      .map(
+        ([k, v]) =>
+          `<option value="${k}" ${u.role === k ? "selected" : ""}>${v}</option>`,
+      )
+      .join(
+        "",
+      )}</select></div><label class="checkbox"><input name="active" type="checkbox" ${u.active ? "checked" : ""}>Konto aktiv</label><div class="error-text" id="form-error" role="alert"></div><div class="modal-footer"><span class="small muted">Änderungen beenden bestehende Sitzungen.</span><button class="btn primary" type="submit">Speichern</button></div></form>`,
+  );
+}
+async function grantsModal(id) {
+  const source = state.sources.find((s) => s.id === Number(id));
+  state.users = await api("/api/users");
+  const grants = await api(`/api/sources/${id}/grants`);
+  const people = state.users.filter((u) => u.role !== "admin");
+  openModal(
+    "Freigaben · " + source.name,
+    `<p class="small muted" style="margin-bottom:16px">„Lesen“ erlaubt die Dokumentation. Bearbeiten setzt die Rolle Bearbeiter voraus. Die Datenvorschau wird separat freigegeben.</p><form id="grants-form" data-id="${id}">${people
+      .map((u) => {
+        const g = grants.find((g) => g.user_id === u.id);
+        return `<div class="grant-row" data-user="${u.id}"><div>${e(u.display_name)}<div class="muted small">${roles[u.role]}</div></div><label><input type="checkbox" name="read-${u.id}" ${g ? "checked" : ""}>Lesen</label><label><input type="checkbox" name="edit-${u.id}" ${g?.edit ? "checked" : ""} ${u.role !== "editor" ? "disabled" : ""}>Bearbeiten</label><label><input type="checkbox" name="data-${u.id}" ${g?.data ? "checked" : ""}>Daten</label></div>`;
+      })
+      .join(
+        "",
+      )}${!people.length ? '<p class="muted">Es gibt noch keine Leser oder Bearbeiter. Lege zuerst einen Benutzer an.</p>' : ""}<div class="error-text" id="form-error" role="alert"></div><div class="modal-footer"><span class="small muted">Administratoren haben Zugriff auf alle Quellen.</span><button class="btn primary" type="submit">Freigaben speichern</button></div></form>`,
+  );
+}
+function passwordModal() {
+  openModal(
+    "Passwort ändern",
+    `<form id="password-form">${field("Aktuelles Passwort", "current_password", "", "password", 'required autocomplete="current-password"')}${field("Neues Passwort", "password", "", "password", 'required minlength="12" autocomplete="new-password"')}<div class="error-text" id="form-error" role="alert"></div><div class="modal-footer"><span class="small muted">Andere Sitzungen werden beendet.</span><button type="submit" class="btn primary">Passwort ändern</button></div></form>`,
+  );
+}
+function selectTable(index) {
+  state.table = index;
+  state.tableTab = "columns";
+  if (state.tab !== "schema") {
+    state.tab = "schema";
+    renderSource();
+  } else {
+    document.getElementById("object-items").innerHTML = tableList(
+      document.getElementById("object-search").value,
+    );
+    document.getElementById("object-detail").innerHTML = tableDetail();
+  }
+}
+async function changeSourceTab(tab) {
+  state.tab = tab;
+  if (tab === "history")
+    state.history = await api(`/api/sources/${state.source.id}/history`);
+  if (
+    tab !== "history" &&
+    state.snapshot?.id !== state.source.snapshot_id &&
+    state.source.snapshot_id
+  )
+    state.snapshot = await api(`/api/sources/${state.source.id}/snapshot`);
+  renderSource();
+}
+document.addEventListener("click", async (ev) => {
+  const button = ev.target.closest("[data-action]");
+  if (!button) return;
+  const a = button.dataset.action;
+  try {
+    if (a === "close-modal") {
+      modal.close();
+      return;
+    }
+    if (a === "nav") await navigate(button.dataset.view);
+    if (a === "open") await navigate("source", button.dataset.id);
+    if (a === "add-source") sourceModal();
+    if (a === "edit-source") sourceModal(true);
+    if (a === "add-user") addUserModal();
+    if (a === "edit-user") editUserModal(button.dataset.id);
+    if (a === "grants") await grantsModal(button.dataset.id);
+    if (a === "password") passwordModal();
+    if (a === "logout") {
+      await api("/api/auth/logout", "POST", {});
+      state.user = null;
+      state.csrf = "";
+      location.hash = "";
+      await showLogin();
+    }
+    if (a === "scan") {
+      button.disabled = true;
+      await api(`/api/sources/${state.source.id}/scan`, "POST", {});
+      await loadSources();
+      state.source = state.sources.find((s) => s.id === state.source.id);
+      renderSource();
+      toast("Schema-Scan gestartet.");
+    }
+    if (a === "source-tab") await changeSourceTab(button.dataset.tab);
+    if (a === "select-table") selectTable(Number(button.dataset.index));
+    if (a === "table-tab") {
+      state.tableTab = button.dataset.tab;
+      document.getElementById("object-detail").innerHTML = tableDetail();
+    }
+    if (a === "load-preview") {
+      button.disabled = true;
+      button.textContent = "Vorschau wird geladen …";
+      const t = state.snapshot.payload.tables[state.table];
+      const p = await api(`/api/sources/${state.source.id}/preview`, "POST", {
+        table_key: t.key,
+      });
+      document.getElementById("preview-result").innerHTML =
+        `<p class="muted small" style="margin-bottom:10px">${p.rows.length} Zeilen · maximal ${p.limit} · Reihenfolge der Datenquelle</p><div class="table-wrap"><table><thead><tr>${p.columns.map((c) => `<th>${e(c)}</th>`).join("")}</tr></thead><tbody>${p.rows.map((row) => `<tr>${row.map((v) => `<td class="mono">${v === null ? '<span class="muted">NULL</span>' : e(v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+      button.textContent = "Vorschau aktualisieren";
+      button.disabled = false;
+    }
+    if (a === "discover") {
+      const form = document.getElementById("source-form"),
+        id = form.dataset.id;
+      button.disabled = true;
+      const result = await api(
+        id ? `/api/sources/${id}/discover` : "/api/sources/discover",
+        "POST",
+        sourceInput(),
+      );
+      document.getElementById("database-options").innerHTML = result.databases
+        .map((n) => `<option value="${e(n)}"></option>`)
+        .join("");
+      if (
+        result.databases.length &&
+        !document.getElementById("f-database").value
+      )
+        document.getElementById("f-database").value = result.databases[0];
+      toast(
+        result.databases.length +
+          " Datenbanken gefunden. Datenbankfeld öffnen, um auszuwählen.",
+      );
+      button.disabled = false;
+    }
+    if (a === "test-connection") {
+      const form = document.getElementById("source-form"),
+        id = form.dataset.id;
+      button.disabled = true;
+      document.getElementById("source-error").textContent =
+        "Verbindung wird geprüft …";
+      const result = await api(
+        id ? `/api/sources/${id}/test-config` : "/api/sources/test",
+        "POST",
+        sourceInput(),
+      );
+      document.getElementById("source-error").textContent = "";
+      toast(result.message);
+      button.disabled = false;
+    }
+    if (a === "delete-source") {
+      openModal(
+        "Datenquelle löschen",
+        `<p>Die Verbindung „${e(state.source.name)}“ und ihre gespeicherte Dokumentation werden gelöscht.</p><p class="muted small" style="margin-top:10px">Die Quelldatenbank wird dabei nicht verändert.</p><div class="modal-footer"><button class="btn" data-action="close-modal">Abbrechen</button><button class="btn danger" data-action="confirm-delete-source">Endgültig löschen</button></div>`,
+      );
+    }
+    if (a === "confirm-delete-source") {
+      await api(`/api/sources/${state.source.id}`, "DELETE");
+      modal.close();
+      await navigate("sources");
+      toast("Datenquelle gelöscht.");
+    }
+    if (a === "er-reset") {
+      state.erPositions = {};
+      state.erZoom = 1;
+      state.erPan = { x: 0, y: 0 };
+      document.getElementById("er-zoom").value = 1;
+      drawER();
+    }
+    if (a === "er-download") downloadER();
+    if (a === "history-open") {
+      state.snapshot = await api(
+        `/api/sources/${state.source.id}/snapshot?snapshot_id=${button.dataset.id}`,
+      );
+      openModal(
+        "Schema-Stand · " + dt(state.snapshot.created),
+        `<p class="muted small" style="margin-bottom:16px">Historischer Schema-Stand. Datenvorschau und Notizen beziehen sich auf den aktuellen Stand.</p><div class="table-wrap"><table><thead><tr><th>Objekt</th><th>Spalten</th><th>Fremdschlüssel</th></tr></thead><tbody>${state.snapshot.payload.tables.map((t) => `<tr><td>${e(t.schema + "." + t.name)}</td><td>${t.columns.length}</td><td>${t.foreign_keys.length}</td></tr>`).join("")}</tbody></table></div>`,
+      );
+      state.snapshot = await api(`/api/sources/${state.source.id}/snapshot`);
+    }
+  } catch (error) {
+    button.disabled = false;
+    const errorNode = modal.open
+      ? document.getElementById("source-error") ||
+        document.getElementById("form-error")
+      : null;
+    if (errorNode) errorNode.textContent = error.message;
+    else toast(error.message);
+  }
+});
+document.addEventListener("submit", async (ev) => {
+  const form = ev.target;
+  if (
+    ![
+      "login-form",
+      "source-form",
+      "user-form",
+      "user-edit-form",
+      "grants-form",
+      "password-form",
+      "note-form",
+    ].includes(form.id)
+  )
+    return;
+  ev.preventDefault();
+  const button = form.querySelector('[type="submit"]');
+  button.disabled = true;
+  const data = Object.fromEntries(new FormData(form));
+  try {
+    if (form.id === "login-form") {
+      const result = await api("/api/auth/login", "POST", data);
+      state.user = result.user;
+      state.csrf = result.csrf;
+      await loadSources();
+      await route();
+    }
+    if (form.id === "source-form") {
+      const id = form.dataset.id;
+      const source = await api(
+        id ? `/api/sources/${id}` : "/api/sources",
+        id ? "PUT" : "POST",
+        sourceInput(),
+      );
+      modal.close();
+      await loadSources();
+      await navigate("source", source.id);
+      toast("Datenquelle gespeichert. Starte jetzt einen Schema-Scan.");
+    }
+    if (form.id === "user-form") {
+      await api("/api/users", "POST", data);
+      modal.close();
+      await navigate("users");
+      toast("Benutzer angelegt.");
+    }
+    if (form.id === "user-edit-form") {
+      await api(`/api/users/${form.dataset.id}`, "PUT", {
+        role: data.role,
+        active: data.active === "on",
+      });
+      modal.close();
+      await navigate("users");
+      toast("Benutzer aktualisiert.");
+    }
+    if (form.id === "grants-form") {
+      const id = form.dataset.id;
+      for (const row of form.querySelectorAll("[data-user]")) {
+        const uid = Number(row.dataset.user);
+        if (data[`read-${uid}`] === "on")
+          await api(`/api/sources/${id}/grants`, "PUT", {
+            user_id: uid,
+            edit: data[`edit-${uid}`] === "on",
+            data: data[`data-${uid}`] === "on",
+          });
+        else await api(`/api/sources/${id}/grants/${uid}`, "DELETE");
+      }
+      modal.close();
+      toast("Freigaben gespeichert.");
+    }
+    if (form.id === "password-form") {
+      const result = await api("/api/auth/password", "POST", data);
+      state.csrf = result.csrf;
+      modal.close();
+      toast("Passwort geändert.");
+    }
+    if (form.id === "note-form") {
+      const t = state.snapshot.payload.tables[state.table];
+      await api(`/api/sources/${state.source.id}/notes`, "PUT", {
+        table_key: t.key,
+        text: data.text,
+      });
+      state.snapshot.notes[t.key] = data.text;
+      toast("Dokumentation gespeichert.");
+    }
+  } catch (error) {
+    const node = document.getElementById(
+      form.id === "login-form"
+        ? "login-error"
+        : form.id === "source-form"
+          ? "source-error"
+          : "form-error",
+    );
+    if (node) node.textContent = error.message;
+    else toast(error.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+document.addEventListener("input", (ev) => {
+  if (ev.target.id === "source-search") {
+    state.query = ev.target.value;
+    paintCards();
+  }
+  if (ev.target.id === "object-search")
+    document.getElementById("object-items").innerHTML = tableList(
+      ev.target.value,
+    );
+  if (ev.target.id === "er-zoom") {
+    state.erZoom = Number(ev.target.value);
+    drawER();
+  }
+});
+document.addEventListener("change", (ev) => {
+  if (ev.target.id === "source-filter") {
+    state.filter = ev.target.value;
+    paintCards();
+  }
+  if (ev.target.id === "f-kind") sourceFormKind();
+});
+modal.addEventListener("click", (ev) => {
+  if (ev.target === modal) {
+    const rect = modal.getBoundingClientRect();
+    if (
+      ev.clientX < rect.left ||
+      ev.clientX > rect.right ||
+      ev.clientY < rect.top ||
+      ev.clientY > rect.bottom
+    )
+      modal.close();
+  }
+});
+async function route() {
+  const [view, id] = location.hash.slice(1).split("/");
+  await navigate(
+    ["sources", "source", "users", "audit"].includes(view) ? view : "sources",
+    id,
+  );
+}
+window.addEventListener("popstate", () => {
+  if (state.user) route().catch((error) => toast(error.message));
+});
+setInterval(async () => {
+  if (
+    !state.user ||
+    !state.sources.some((s) => ["queued", "running"].includes(s.job?.status))
+  )
+    return;
+  try {
+    const old = JSON.stringify(state.sources.map((s) => s.job));
+    await loadSources();
+    if (
+      old !== JSON.stringify(state.sources.map((s) => s.job)) &&
+      !modal.open
+    ) {
+      if (state.view === "sources") renderSources();
+      else if (state.view === "source") {
+        state.source = state.sources.find((s) => s.id === state.source.id);
+        if (state.source.snapshot_id)
+          state.snapshot = await api(
+            `/api/sources/${state.source.id}/snapshot`,
+          );
+        renderSource();
+      }
+    }
+  } catch (error) {
+    toast(error.message);
+  }
+}, 4000);
+(async () => {
+  try {
+    const me = await api("/api/auth/me");
+    state.user = me.user;
+    state.csrf = me.csrf;
+    await loadSources();
+    await route();
+  } catch (error) {
+    if (!state.user) await showLogin();
+    else {
+      root.innerHTML = `<div class="empty"><h2>Anwendung konnte nicht geladen werden</h2><p>${e(error.message)}</p><button class="btn" data-action="nav" data-view="sources">Erneut versuchen</button></div>`;
+    }
+  }
+})();

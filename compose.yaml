@@ -1,0 +1,50 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_DB_HOST: mariadb
+      APP_DB_NAME: datatlas
+      APP_DB_USER: datatlas
+    ports:
+      - "${APP_BIND:-0.0.0.0}:${APP_PORT:-8090}:8000"
+    volumes:
+      - ./sources:/sources:ro
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+  mariadb:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: datatlas
+      MARIADB_USER: datatlas
+      MARIADB_PASSWORD: ${APP_DB_PASSWORD:?Bitte .env erstellen}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Bitte .env erstellen}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+volumes:
+  mariadb_data:
