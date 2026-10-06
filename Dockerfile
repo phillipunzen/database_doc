@@ -1,5 +1,5 @@
 FROM python:3.12-slim-bookworm
-RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates gnupg unixodbc tzdata && \
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates gnupg unixodbc tzdata fonts-dejavu-core && \
     curl -fsSL https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb -o /tmp/ms.deb && \
     dpkg -i /tmp/ms.deb && rm /tmp/ms.deb && apt-get update && \
     ACCEPT_EULA=Y apt-get install -y --no-install-recommends msodbcsql18 && rm -rf /var/lib/apt/lists/*

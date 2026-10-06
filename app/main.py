@@ -8,7 +8,7 @@ from collections import defaultdict, deque
 from datetime import timedelta
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
-from fastapi import FastAPI, Depends, HTTPException, Request, Response
+from fastapi import FastAPI, Depends, HTTPException, Request, Response, Query
 from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -629,14 +629,29 @@ def save_note(source_id: int, body: NoteInput, user: User = Depends(current)):
 @app.get("/api/sources/{source_id}/export")
 def export(
     source_id: int,
-    format: Literal["json", "markdown"] = "json",
+    format: Literal["json", "markdown", "pdf", "er_pdf"] = "json",
+    snapshot_id: int | None = None,
+    table_key: str | None = Query(default=None, max_length=4096),
     user: User = Depends(current),
 ):
     with Session() as db:
         source = access(db, user, source_id)
-        snap = latest(db, source_id)
-        if not snap:
+        snap = (
+            db.get(Snapshot, snapshot_id)
+            if snapshot_id is not None
+            else latest(db, source_id)
+        )
+        if not snap or snap.source_id != source_id:
             raise HTTPException(404, "Noch keine Dokumentation vorhanden.")
+        tables = snap.payload["tables"]
+        if table_key is not None:
+            if format != "pdf":
+                raise HTTPException(
+                    422, "Einzelne Objekte können als Tabellen-PDF exportiert werden."
+                )
+            tables = [t for t in tables if t["key"] == table_key]
+            if not tables:
+                raise HTTPException(404, "Objekt nicht im gewählten Schema gefunden.")
         notes = {
             n.table_key: n.text
             for n in db.scalars(select(Note).where(Note.source_id == source_id))
@@ -647,10 +662,31 @@ def export(
                 "kind": source.kind,
                 **metadata_json(db.get(SourceMetadata, source_id)),
             },
+            "snapshot_id": snap.id,
             "created": snap.created.isoformat() + "Z",
             "schema": snap.payload,
             "notes": notes,
         }
+        if format in {"pdf", "er_pdf"}:
+            from .pdf_export import tables_pdf, er_pdf
+
+            content = (
+                tables_pdf(payload, tables) if format == "pdf" else er_pdf(payload)
+            )
+            audit(db, user, "documentation_export", source_id)
+            db.commit()
+            suffix = (
+                "er"
+                if format == "er_pdf"
+                else "table" if table_key is not None else "tables"
+            )
+            return Response(
+                content,
+                media_type="application/pdf",
+                headers={
+                    "Content-Disposition": f'attachment; filename="datatlas-{source_id}-{suffix}.pdf"'
+                },
+            )
         audit(db, user, "documentation_export", source_id)
         db.commit()
         if format == "json":

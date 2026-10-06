@@ -61,7 +61,7 @@ The source dashboard defaults to a compact list with locally served database-eng
 - Manual and scheduled background scans of tables, views, columns, data types, nullability, defaults, primary and foreign keys, indexes, unique constraints, and database comments where supported by the adapter.
 - Interactive ER diagrams based on declared foreign keys, with draggable tables and background, zoom, and SVG export. Diagrams display up to 80 objects; the table browser includes all documented objects.
 - Documentation notes for each object, retained across subsequent scans.
-- Stored schema snapshots with comparisons of any two retained versions, plus JSON and Markdown exports.
+- Stored schema snapshots with comparisons of any two retained versions, plus JSON, Markdown, and PDF exports.
 - Source tags, a responsible person or team, and contact email, shown in the catalog and documentation exports.
 - Global search across the latest documented tables, columns, database comments, and object notes, restricted to sources granted to the signed-in user.
 - Separately authorized data previews of up to 50 rows. Preview values are not persisted. Individual values are limited to 2,000 characters; binary values are represented by their size. There is no arbitrary SQL console.
@@ -72,6 +72,32 @@ For MongoDB, scans collect collections, indexes, and validators by default. Opti
 Scans are limited to 2,000 objects and run on two threads in a single application process. The queue accepts up to ten active or queued jobs. After a restart, interrupted jobs are marked as failed and can be started again.
 
 PostgreSQL materialized views, stored procedures, and ETL or pipeline lineage are not yet supported.
+
+## PDF exports
+
+PDF downloads are available to anyone with documentation access to a source, including viewers without data-preview grants:
+
+- **Complete table documentation:** open a source and click **Tabellen-PDF** in the page header. The A4 landscape document includes an object inventory and a section per table, view, or collection, with columns/types, nullability, defaults, PK/FK flags, primary and foreign keys, indexes, unique constraints, database comments, saved object notes, and MongoDB validators when present. Tags and owner/contact details appear in the introduction.
+- **Single object:** select a table under **Tabellen & Felder** and click **Tabellen-PDF** inside its detail panel. Only that object's documentation is included.
+- **ER model:** open **ER-Modell** and click **PDF** next to SVG. The PDF uses A3 landscape pages with up to six objects per diagram, vector shapes and relationship arrows, an object inventory, and a complete foreign-key register. It includes all documented objects, including those beyond the 80-object limit of the screen diagram. Diagram IDs and numbered relationships connect references across pages. External targets, composite keys, and self-references remain documented.
+
+ER PDFs use an automatic print layout; dragging, zooming, and panning the browser diagram do not change their layout. Diagram cards prioritize PK/FK columns and show up to eight fields per object. The table PDF contains every documented column. Full object names and relationship definitions remain available in the PDF inventories even when card labels are abbreviated. Relationships are based on declared foreign keys; MongoDB field inference does not invent relationships.
+
+The UI exports the snapshot currently displayed, so background scan completion does not silently substitute a newer schema. The snapshot ID and timestamp appear on every page. Notes, tags, and ownership describe their currently saved values; unsaved edits are not included, and notes are not versioned with snapshots.
+
+PDF generation uses only persisted documentation metadata, never row previews or connection credentials, and does not query the source database. Successful downloads are audited. Text from database comments and notes is rendered literally; it cannot load remote URLs, local files, images, or scripts. PDFs are generated in memory and are not stored in the application database. Embedded DejaVu fonts preserve German characters and selectable text; other writing systems depend on the font's character coverage. Long tables repeat their headers across pages, and long text/cells can split across pages.
+
+API examples (authenticated requests):
+
+```text
+GET /api/sources/{id}/export?format=pdf
+GET /api/sources/{id}/export?format=pdf&snapshot_id={snapshot_id}&table_key={url_encoded_table_key}
+GET /api/sources/{id}/export?format=er_pdf&snapshot_id={snapshot_id}
+```
+
+`table_key` is the object's exact key from the snapshot API. An omitted snapshot ID uses the latest successful snapshot. Historical snapshots must belong to the requested source. `table_key` is supported only for `format=pdf`. The existing JSON and Markdown exports also accept an optional snapshot ID.
+
+Upgrading requires rebuilding the Docker image (`docker compose up -d --build app`) to install the pinned ReportLab dependencies and the local fonts. No additional database migration is required for PDF export.
 
 ## Automatic scans
 
@@ -257,10 +283,10 @@ The backend uses FastAPI and SQLAlchemy. The German-language interface uses loca
 docker compose run --rm \
   -v "$PWD/app:/app/app:ro" \
   -v "$PWD/tests:/app/tests:ro" \
-  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py
+  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py
 ```
 
-Application tests use temporary SQLite databases for both application storage and sources. They verify encrypted credentials, scanning, metadata, notes, exports, CSRF and Origin checks, roles and source grants, preview authorization, account deactivation, read-only SQLite access, path boundaries, and session revocation. The feature suite additionally covers permission-filtered global search, literal search patterns, note indexing, snapshot/index rollback, schema comparisons, persistent scheduling, duplicate-scan deferral, access revocation, daylight-saving transitions, additive migrations, and cleanup on source deletion.
+Application tests use temporary SQLite databases for both application storage and sources. They verify encrypted credentials, scanning, metadata, notes, exports, CSRF and Origin checks, roles and source grants, preview authorization, account deactivation, read-only SQLite access, path boundaries, and session revocation. The feature suite additionally covers permission-filtered global search, literal search patterns, note indexing, snapshot/index rollback, schema comparisons, persistent scheduling, duplicate-scan deferral, access revocation, daylight-saving transitions, additive migrations, and cleanup on source deletion. PDF tests parse the actual generated files and cover full/single-object and historical exports, viewer permissions, literal markup, Unicode text, long notes and oversized table cells, 85-object diagrams, cross-page references, composite/self/external foreign keys, and empty/inferred schemas.
 
 ### Connector integration tests
 
@@ -295,9 +321,17 @@ NODE_PATH=/tmp/datatlas-browser/node_modules node tests/features.cjs
 
 This browser check serves the current local JavaScript/CSS and mocked API responses without changing live records. It exercises tag/owner editing and catalog filters, scan schedule forms, comparison selectors and validation, search results and escaped snippets, reloadable object links, read-only roles, safe note editing during automatic scan completion, and mobile layouts. `docs/automatic-scans.png`, `docs/schema-comparison.png`, `docs/schema-comparison-mobile.png`, and `docs/global-search.png` show simulated feature fixtures.
 
+### PDF download checks
+
+```bash
+NODE_PATH=/tmp/datatlas-browser/node_modules node tests/pdf.cjs
+```
+
+This browser check downloads the existing example source's complete documentation, one object, and ER model, validates download filenames and PDF signatures, checks snapshot/object selection, and exercises failed exports and mobile layout. It reads sign-in settings from `.env` and requires the existing scanned example database. It does not start scans, load row previews, or edit source documentation. Downloads are saved in a private temporary directory, not `docs/` or Git.
+
 ### Verified deployment
 
-The current feature release passes **15 application and feature tests**, plus catalog and feature browser checks and the live example browser flow. Existing deployment records were verified unchanged during migration. A real scheduled scan of the example database completed against MariaDB-backed application storage; its test schedule was disabled afterward, and the non-example source was verified unchanged.
+The current feature release passes **21 application, feature, and PDF tests**, plus catalog and feature browser checks and the live example browser flow. PDF downloads were also checked in the browser and parsed against the live MariaDB-backed deployment. Existing deployment records were verified unchanged during migration. A real scheduled scan of the example database completed against MariaDB-backed application storage; its test schedule was disabled afterward, and the non-example source was verified unchanged.
 
 Earlier adapter verification passed **12 automated tests**, including actual adapter tests against SQL Server 2022, MySQL 8.4, MariaDB 11.4, PostgreSQL 17, MongoDB 8, and SQLite. Browser checks, including mobile layout, and backup/restore into a separate test database also passed. Disposable test containers were removed afterward.
 
@@ -305,6 +339,7 @@ The browser test documents six example objects and four declared relationships. 
 
 ## References
 
+- [ReportLab: PDF generation and table pagination](https://docs.reportlab.com/reportlab/userguide/ch7_tables/)
 - [SQLAlchemy: Database reflection](https://docs.sqlalchemy.org/en/20/core/reflection.html)
 - [Authlib: OIDC for Starlette](https://docs.authlib.org/en/latest/client/starlette.html)
 - [ldap3: TLS and certificate validation](https://ldap3.readthedocs.io/en/latest/ssltls.html)

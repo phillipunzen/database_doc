@@ -475,7 +475,7 @@ function tabs(items, current, action) {
 function renderSource() {
   const s = state.source;
   shell(
-    `<button class="back" data-action="nav" data-view="sources">${icon("back")} Alle Datenquellen</button><div class="page-head"><div><div class="source-heading"><div class="db-icon ${s.kind}">${databaseLogo(s.kind)}</div><div><div class="eyebrow">${names[s.kind]}</div><h1>${e(s.name)}</h1></div></div><p>${e(s.kind === "sqlite" ? s.config.path : s.config.host + " / " + s.config.database)} ${s.config.schema ? "· " + e(s.config.schema) : ""}</p></div><div class="actions">${s.snapshot_id ? `<a class="btn" href="/api/sources/${s.id}/export?format=markdown">${icon("download")} Markdown</a><a class="btn" href="/api/sources/${s.id}/export?format=json">JSON</a>` : ""}${s.can_edit ? `<button class="btn" data-action="edit-source">${icon("edit")} Bearbeiten</button><button class="btn primary" data-action="scan" ${["queued", "running"].includes(s.job?.status) ? "disabled" : ""}>${icon("refresh")} ${["queued", "running"].includes(s.job?.status) ? "Scan läuft …" : "Schema scannen"}</button>` : ""}</div></div>${s.job ? `<div class="status-message">${status(s)} <span style="margin-left:10px">${e(s.job.message)}</span></div>` : ""}${tabs(
+    `<button class="back" data-action="nav" data-view="sources">${icon("back")} Alle Datenquellen</button><div class="page-head"><div><div class="source-heading"><div class="db-icon ${s.kind}">${databaseLogo(s.kind)}</div><div><div class="eyebrow">${names[s.kind]}</div><h1>${e(s.name)}</h1></div></div><p>${e(s.kind === "sqlite" ? s.config.path : s.config.host + " / " + s.config.database)} ${s.config.schema ? "· " + e(s.config.schema) : ""}</p></div><div class="actions">${s.snapshot_id ? `<a class="btn" href="/api/sources/${s.id}/export?format=markdown">${icon("download")} Markdown</a><a class="btn" href="/api/sources/${s.id}/export?format=json">JSON</a><button class="btn" data-action="pdf-tables" title="Alle dokumentierten Tabellen als PDF exportieren">${icon("download")} Tabellen-PDF</button>` : ""}${s.can_edit ? `<button class="btn" data-action="edit-source">${icon("edit")} Bearbeiten</button><button class="btn primary" data-action="scan" ${["queued", "running"].includes(s.job?.status) ? "disabled" : ""}>${icon("refresh")} ${["queued", "running"].includes(s.job?.status) ? "Scan läuft …" : "Schema scannen"}</button>` : ""}</div></div>${s.job ? `<div class="status-message">${status(s)} <span style="margin-left:10px">${e(s.job.message)}</span></div>` : ""}${tabs(
       [
         ["overview", "Übersicht", "grid"],
         ["schema", "Tabellen & Felder", "table"],
@@ -532,7 +532,7 @@ function tableList(query = "") {
 }
 function tableDetail() {
   const t = state.snapshot.payload.tables[state.table];
-  return `<div class="panel-head"><div><div class="eyebrow" style="margin-bottom:3px">${e(t.schema || "Standard-Schema")} · ${e(t.kind)}</div><h2>${e(t.name)}</h2><p class="object-description">${e(t.comment || "")}${t.sampled_documents !== undefined ? " · " + t.sampled_documents + " Dokumente für Feldableitung untersucht" : ""}</p></div><span class="badge neutral">${t.columns.length} Felder</span></div><div class="detail-tabs">${tabs(
+  return `<div class="panel-head"><div><div class="eyebrow" style="margin-bottom:3px">${e(t.schema || "Standard-Schema")} · ${e(t.kind)}</div><h2>${e(t.name)}</h2><p class="object-description">${e(t.comment || "")}${t.sampled_documents !== undefined ? " · " + t.sampled_documents + " Dokumente für Feldableitung untersucht" : ""}</p></div><div class="actions"><span class="badge neutral">${t.columns.length} Felder</span><button class="btn" data-action="pdf-table" title="Diese Tabelle mit Spalten, Schlüsseln und Notizen als PDF exportieren">${icon("download")} Tabellen-PDF</button></div></div><div class="detail-tabs">${tabs(
     [
       ["columns", "Spalten", "columns"],
       ["keys", "Schlüssel & Indizes", "relations"],
@@ -560,7 +560,7 @@ function erView() {
   const tables = state.snapshot.payload.tables;
   if (!tables.length)
     return '<div class="empty"><h2>Keine Objekte für das ER-Modell</h2></div>';
-  return `<section class="panel"><div class="panel-head"><div><h2>Beziehungen im Überblick</h2><p class="muted small">${state.source.kind === "mongodb" ? "Collections und abgeleitete Felder. MongoDB deklariert keine Fremdschlüssel." : "Pfeile führen von Fremdschlüsseln zur referenzierten Tabelle."}</p></div><div class="er-tools"><label class="small muted" for="er-zoom">Zoom</label><input id="er-zoom" type="range" min="0.3" max="2" step="0.1" value="${state.erZoom}" style="width:95px"><button class="btn" data-action="er-reset">Anordnen</button><button class="btn" data-action="er-download">${icon("download")} SVG</button></div></div><div class="er-stage"><svg id="er-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ER-Modell der dokumentierten Datenbank"></svg></div><div class="er-footer">Tabellen und Hintergrund lassen sich verschieben. Doppelklick oder Enter öffnet die Spalten. ${tables.length > 80 ? "Die Ansicht zeigt die ersten 80 Objekte. Weitere Objekte stehen in der Tabellenübersicht." : ""}</div></section>`;
+  return `<section class="panel"><div class="panel-head"><div><h2>Beziehungen im Überblick</h2><p class="muted small">${state.source.kind === "mongodb" ? "Collections und abgeleitete Felder. MongoDB deklariert keine Fremdschlüssel." : "Pfeile führen von Fremdschlüsseln zur referenzierten Tabelle."}</p></div><div class="er-tools"><label class="small muted" for="er-zoom">Zoom</label><input id="er-zoom" type="range" min="0.3" max="2" step="0.1" value="${state.erZoom}" style="width:95px"><button class="btn" data-action="er-reset">Anordnen</button><button class="btn" data-action="er-download">${icon("download")} SVG</button><button class="btn" data-action="pdf-er" title="Alle Objekte als mehrseitiges ER-Modell im A3-Querformat exportieren">${icon("download")} PDF</button></div></div><div class="er-stage"><svg id="er-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ER-Modell der dokumentierten Datenbank"></svg></div><div class="er-footer">Tabellen und Hintergrund lassen sich verschieben. Doppelklick oder Enter öffnet die Spalten. ${tables.length > 80 ? "Die Ansicht zeigt die ersten 80 Objekte. Der PDF-Export enthält alle dokumentierten Objekte." : ""} Der PDF-Export verwendet eine druckfreundliche Anordnung und umfasst auch Verweise zwischen den Diagrammseiten.</div></section>`;
 }
 function erTables() {
   return state.snapshot.payload.tables.slice(0, 80);
@@ -740,6 +740,38 @@ function downloadER() {
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+async function downloadPdf(format, tableKey = null) {
+  const sourceId = state.source.id;
+  const params = new URLSearchParams({
+    format,
+    snapshot_id: state.snapshot?.id || state.source.snapshot_id,
+  });
+  if (tableKey !== null) params.set("table_key", tableKey);
+  const response = await fetch(`/api/sources/${sourceId}/export?${params}`, {
+    credentials: "same-origin",
+  });
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    if (response.status === 401) {
+      state.user = null;
+      await showLogin();
+    }
+    throw new Error(
+      typeof error.detail === "string"
+        ? error.detail
+        : "PDF-Export fehlgeschlagen.",
+    );
+  }
+  const url = URL.createObjectURL(await response.blob());
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `datatlas-${sourceId}-${format === "er_pdf" ? "er" : tableKey !== null ? "table" : "tables"}.pdf`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
 function renderUsers() {
   shell(
     `<div class="page-head"><div><div class="eyebrow">Administration</div><h1>Benutzer & Rechte</h1><p>Konten verwalten und Datenbanken gezielt freigeben.</p></div><button class="btn primary" data-action="add-user">${icon("plus")} Benutzer hinzufügen</button></div><section class="panel"><div class="table-wrap"><table><thead><tr><th>Benutzer</th><th>Anmeldung</th><th>Rolle</th><th>Status</th><th></th></tr></thead><tbody>${state.users.map((u) => `<tr><td><strong>${e(u.display_name)}</strong><div class="small muted">${e(u.username)}</div></td><td>${{ local: "Lokales Konto", ad: "Microsoft AD", entra: "Entra ID" }[u.provider]}</td><td>${roles[u.role]}</td><td><span class="badge ${u.active ? "" : "error"}">${u.active ? "Aktiv" : "Deaktiviert"}</span></td><td><button class="text-button" data-action="edit-user" data-id="${u.id}">Verwalten</button></td></tr>`).join("")}</tbody></table></div></section><div class="hint">${icon("shield")}<span>Administratoren sehen alle Quellen. Bearbeiter benötigen zusätzlich eine Freigabe zum Bearbeiten; Leser erhalten ausschließlich freigegebene Dokumentationen. Neue Entra- und AD-Konten starten als Leser ohne Datenbankzugriff.</span></div><section style="margin-top:28px"><div class="section-title"><h2>Datenbankfreigaben</h2></div><section class="panel"><div class="table-wrap"><table><thead><tr><th>Datenquelle</th><th>Typ</th><th></th></tr></thead><tbody>${state.sources.map((s) => `<tr><td>${e(s.name)}</td><td class="muted">${names[s.kind]}</td><td><button class="text-button" data-action="grants" data-id="${s.id}">Freigaben verwalten →</button></td></tr>`).join("")}</tbody></table>${!state.sources.length ? '<div class="panel-body muted">Lege zunächst eine Datenquelle an.</div>' : ""}</div></section></section>`,
@@ -1079,6 +1111,19 @@ document.addEventListener("click", async (ev) => {
       drawER();
     }
     if (a === "er-download") downloadER();
+    if (["pdf-tables", "pdf-table", "pdf-er"].includes(a)) {
+      button.disabled = true;
+      try {
+        await downloadPdf(
+          a === "pdf-er" ? "er_pdf" : "pdf",
+          a === "pdf-table"
+            ? state.snapshot.payload.tables[state.table].key
+            : null,
+        );
+      } finally {
+        button.disabled = false;
+      }
+    }
     if (a === "history-open") {
       state.snapshot = await api(
         `/api/sources/${state.source.id}/snapshot?snapshot_id=${button.dataset.id}`,
