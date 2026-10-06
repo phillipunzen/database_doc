@@ -1341,10 +1341,7 @@ dialog::backdrop {
 }
 .catalog-toolbar {
   display: grid;
-  grid-template-columns: minmax(210px, 1fr) minmax(130px, 220px) minmax(
-      130px,
-      185px
-    );
+  grid-template-columns: minmax(240px, 1fr) repeat(3, minmax(120px, 180px));
   gap: 12px;
   padding: 19px 20px 14px;
 }
@@ -1758,5 +1755,200 @@ dialog::backdrop {
   }
   .catalog-cards {
     padding: 12px;
+  }
+}
+
+/* Catalog organization and documentation features */
+.tag-list {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.tag {
+  display: inline-block;
+  font-size: 10px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: #edf3ec;
+  color: #436647;
+  overflow-wrap: anywhere;
+}
+.catalog-owner {
+  color: #7b897f;
+  font-size: 11px;
+  margin: 3px 0;
+}
+.source-name-cell .tag-list {
+  margin-top: 3px;
+}
+.feature-panel {
+  max-width: 980px;
+}
+.feature-form fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.feature-form .field {
+  margin-bottom: 20px;
+}
+.feature-form .check-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 25px;
+}
+.feature-form .check-line input {
+  width: auto;
+}
+.feature-form p {
+  margin-bottom: 18px;
+}
+.schedule-summary {
+  border-top: 1px solid #e4e9e2;
+  margin-top: 25px;
+  padding-top: 15px;
+}
+.comparison-form,
+.global-search-form {
+  display: flex;
+  align-items: end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.comparison-form .field,
+.global-search-form .field {
+  flex: 1;
+  min-width: 180px;
+}
+.comparison-form .error-text,
+.global-search-form .error-text {
+  flex-basis: 100%;
+}
+.diff-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin: 20px 0;
+}
+.diff-summary > div {
+  background: #fff;
+  border: 1px solid #e4e9e2;
+  padding: 18px;
+  border-radius: 8px;
+}
+.diff-summary strong {
+  display: block;
+  font-size: 27px;
+  margin-bottom: 6px;
+}
+.diff-summary span {
+  font-size: 12px;
+  color: #76837a;
+}
+.diff-object {
+  margin-top: 15px;
+}
+.diff-object summary {
+  padding: 18px 22px;
+  cursor: pointer;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.diff-object summary span {
+  margin-right: 12px;
+  font-size: 12px;
+}
+.diff-added {
+  color: #3d7445;
+}
+.diff-removed {
+  color: #af4d45;
+}
+.diff-changed {
+  color: #926f25;
+}
+.diff-column-title {
+  margin: 18px 0 12px;
+  font-size: 13px;
+}
+.diff-columns {
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+.diff-table {
+  table-layout: fixed;
+}
+.diff-table th:first-child {
+  width: 28%;
+}
+.diff-table th,
+.diff-table td {
+  overflow-wrap: anywhere;
+}
+.diff-table pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.search-highlight {
+  background: #eef6d9;
+  outline: 2px solid #c8dca3;
+  outline-offset: -2px;
+}
+.search-results {
+  margin-top: 20px;
+}
+.search-result {
+  display: flex;
+  align-items: start;
+  gap: 15px;
+  padding: 20px 24px;
+  border-bottom: 1px solid #edf0ea;
+}
+.search-result > div:nth-child(2) {
+  flex: 1;
+  min-width: 0;
+}
+.search-result p {
+  margin-top: 8px;
+  color: #758078;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.search-result .source-title {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  margin-top: 4px;
+  text-align: left;
+}
+.tabs {
+  flex-wrap: wrap;
+}
+[hidden] {
+  display: none !important;
+}
+@media (max-width: 700px) {
+  .diff-summary {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .comparison-form,
+  .global-search-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .comparison-form .field,
+  .global-search-form .field {
+    min-width: 0;
+  }
+  .search-result {
+    padding: 16px 12px;
+    gap: 10px;
+  }
+  .feature-form .form-grid {
+    grid-template-columns: 1fr;
   }
 }

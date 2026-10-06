@@ -10,3 +10,5 @@ os.environ["ADMIN_PASSWORD"] = "test-admin-password-123"
 os.environ["COOKIE_SECURE"] = "false"
 os.environ["APP_URL"] = "http://testserver"
 os.environ["SQLITE_ROOT"] = tempfile.mkdtemp()
+
+os.environ["DISABLE_SCHEDULER"] = "1"

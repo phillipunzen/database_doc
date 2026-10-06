@@ -12,6 +12,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.engine import URL
+from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 
@@ -97,6 +98,58 @@ class Audit(Base):
     user: Mapped[str] = mapped_column(String(190))
     action: Mapped[str] = mapped_column(String(190))
     target: Mapped[str] = mapped_column(String(190))
+    created: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class SourceMetadata(Base):
+    __tablename__ = "source_metadata"
+    source_id: Mapped[int] = mapped_column(
+        ForeignKey("sources.id", ondelete="CASCADE"), primary_key=True
+    )
+    tags: Mapped[list] = mapped_column(JSON, default=list)
+    owner: Mapped[str] = mapped_column(String(190), default="")
+    owner_email: Mapped[str] = mapped_column(String(190), default="")
+
+
+class ScanSchedule(Base):
+    __tablename__ = "scan_schedules"
+    source_id: Mapped[int] = mapped_column(
+        ForeignKey("sources.id", ondelete="CASCADE"), primary_key=True
+    )
+    enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    cadence: Mapped[str] = mapped_column(String(20), default="daily")
+    hour: Mapped[int] = mapped_column(Integer, default=2)
+    minute: Mapped[int] = mapped_column(Integer, default=0)
+    weekday: Mapped[int] = mapped_column(Integer, default=0)
+    timezone: Mapped[str] = mapped_column(String(64), default="Europe/Berlin")
+    next_run: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True, index=True
+    )
+    last_started: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    message: Mapped[str] = mapped_column(Text, default="")
+    created_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+
+
+class SearchEntry(Base):
+    __tablename__ = "search_entries"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_id: Mapped[int] = mapped_column(
+        ForeignKey("sources.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(20))
+    table_key: Mapped[str] = mapped_column(Text)
+    table_name: Mapped[str] = mapped_column(Text)
+    column_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    title: Mapped[str] = mapped_column(Text)
+    content: Mapped[str] = mapped_column(Text().with_variant(MEDIUMTEXT(), "mysql"))
+
+
+class SchemaVersion(Base):
+    __tablename__ = "schema_versions"
+    version: Mapped[str] = mapped_column(String(64), primary_key=True)
     created: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 

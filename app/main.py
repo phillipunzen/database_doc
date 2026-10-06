@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from collections import defaultdict, deque
 from datetime import timedelta
 from typing import Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from fastapi import FastAPI, Depends, HTTPException, Request, Response
 from fastapi.responses import FileResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -26,6 +27,9 @@ from .models import (
     Note,
     Audit,
     LoginSession,
+    SourceMetadata,
+    ScanSchedule,
+    SearchEntry,
     now,
 )
 from .security import (
@@ -41,10 +45,19 @@ from .security import (
     ad_auth,
 )
 from .connectors import validate_config, connection_test, preview, KINDS
-from .jobs import executor, run_scan
+from .jobs import (
+    scan_lock,
+    enqueue,
+    dispatch,
+    start_workers,
+    stop_workers,
+    next_due,
+    schedule_json,
+)
+from .search import migrate, reindex_source
+from .schema_diff import compare
 
 APP_URL = os.environ.get("APP_URL", "http://localhost:8090").rstrip("/")
-scan_lock = threading.Lock()
 login_lock = threading.Lock()
 login_attempts = defaultdict(deque)
 
@@ -72,8 +85,13 @@ async def lifespan(app):
             job.message = "Scan durch Neustart unterbrochen. Bitte erneut starten."
             job.finished = now()
         db.commit()
-    yield
-    executor.shutdown(wait=True)
+    with Session() as db:
+        migrate(db)
+    start_workers()
+    try:
+        yield
+    finally:
+        stop_workers()
 
 
 app = FastAPI(
@@ -347,6 +365,8 @@ def latest(db, source_id):
 
 def source_json(db, source, user):
     config = decrypt(source)
+    metadata = db.get(SourceMetadata, source.id)
+    schedule = db.get(ScanSchedule, source.id)
     snap = latest(db, source.id)
     job = db.scalar(
         select(Job).where(Job.source_id == source.id).order_by(Job.id.desc()).limit(1)
@@ -370,6 +390,10 @@ def source_json(db, source, user):
         "kind": source.kind,
         "config": visible_config,
         "mongo_infer": source.mongo_infer,
+        "tags": metadata.tags if metadata else [],
+        "owner": metadata.owner if metadata else "",
+        "owner_email": metadata.owner_email if metadata else "",
+        "schedule": schedule_json(schedule),
         "can_edit": bool(editable),
         "can_data": user.role == "admin" or bool(grant and grant.data),
         "snapshot_id": snap.id if snap else None,
@@ -440,6 +464,7 @@ def update_source(source_id: int, body: SourceInput, user: User = Depends(curren
         if target_changed:
             db.execute(delete(Snapshot).where(Snapshot.source_id == source_id))
             db.execute(delete(Note).where(Note.source_id == source_id))
+        reindex_source(db, source)
         audit(db, user, "source_updated", source_id)
         db.commit()
         return source_json(db, source, user)
@@ -456,7 +481,15 @@ def delete_source(source_id: int, user: User = Depends(current)):
             )
         ):
             raise HTTPException(409, "Bitte laufenden Scan abwarten.")
-        for model in (Grant, Snapshot, Job, Note):
+        for model in (
+            SearchEntry,
+            ScanSchedule,
+            SourceMetadata,
+            Grant,
+            Snapshot,
+            Job,
+            Note,
+        ):
             db.execute(delete(model).where(model.source_id == source_id))
         db.delete(source)
         audit(db, user, "source_deleted", source_id)
@@ -491,23 +524,10 @@ def do_test(kind, config):
 @app.post("/api/sources/{source_id}/scan", status_code=202)
 def start_scan(source_id: int, user: User = Depends(current)):
     with scan_lock, Session() as db:
-        access(db, user, source_id, edit=True)
-        active = list(
-            db.scalars(select(Job).where(Job.status.in_(["queued", "running"])))
-        )
-        if any(j.source_id == source_id for j in active):
-            raise HTTPException(409, "Für diese Quelle läuft bereits ein Scan.")
-        if len(active) >= 10:
-            raise HTTPException(
-                429, "Scan-Warteschlange ist voll. Bitte später versuchen."
-            )
-        job = Job(source_id=source_id)
-        db.add(job)
-        db.flush()
-        audit(db, user, "scan_started", source_id)
+        job = enqueue(db, source_id, user)
         db.commit()
-        executor.submit(run_scan, job.id)
-        return {"id": job.id, "status": job.status}
+        dispatch(job.id)
+        return {"id": job.id, "status": "queued"}
 
 
 @app.get("/api/sources/{source_id}/snapshot")
@@ -584,8 +604,8 @@ class NoteInput(BaseModel):
 
 @app.put("/api/sources/{source_id}/notes")
 def save_note(source_id: int, body: NoteInput, user: User = Depends(current)):
-    with Session() as db:
-        access(db, user, source_id, edit=True)
+    with scan_lock, Session() as db:
+        source = access(db, user, source_id, edit=True)
         snap = latest(db, source_id)
         if not snap or not any(
             t["key"] == body.table_key for t in snap.payload["tables"]
@@ -600,6 +620,7 @@ def save_note(source_id: int, body: NoteInput, user: User = Depends(current)):
             note.text = body.text
         else:
             db.add(Note(source_id=source_id, table_key=body.table_key, text=body.text))
+        reindex_source(db, source)
         audit(db, user, "note_updated", source_id)
         db.commit()
     return {"ok": True}
@@ -621,7 +642,11 @@ def export(
             for n in db.scalars(select(Note).where(Note.source_id == source_id))
         }
         payload = {
-            "source": {"name": source.name, "kind": source.kind},
+            "source": {
+                "name": source.name,
+                "kind": source.kind,
+                **metadata_json(db.get(SourceMetadata, source_id)),
+            },
             "created": snap.created.isoformat() + "Z",
             "schema": snap.payload,
             "notes": notes,
@@ -643,6 +668,12 @@ def export(
         lines = [
             f"# {source.name}",
             f"\nTyp: {source.kind} · Stand: {snap.created.isoformat()} UTC\n",
+        ]
+        organization = payload["source"]
+        lines += [
+            f"Tags: {cell(", ".join(organization["tags"]))}",
+            f"Owner: {cell(organization["owner"])} {cell(organization["owner_email"])}",
+            "",
         ]
         for warning in snap.payload.get("warnings", []):
             lines.append("> " + warning + "\n")
@@ -849,3 +880,189 @@ def do_discover(body, old=None):
             400,
             f"Datenbankliste konnte nicht geladen werden ({type(error).__name__}). Verbindung und Berechtigungen prüfen oder Datenbankname direkt eingeben.",
         )
+
+
+def metadata_json(metadata):
+    return {
+        "tags": metadata.tags if metadata else [],
+        "owner": metadata.owner if metadata else "",
+        "owner_email": metadata.owner_email if metadata else "",
+    }
+
+
+class MetadataInput(BaseModel):
+    tags: list[str] = Field(default_factory=list, max_length=20)
+    owner: str = Field(default="", max_length=190)
+    owner_email: str = Field(default="", max_length=190)
+
+
+@app.put("/api/sources/{source_id}/metadata")
+def save_metadata(source_id: int, body: MetadataInput, user: User = Depends(current)):
+    tags, seen = [], set()
+    for value in body.tags:
+        tag = value.strip()
+        if not tag or len(tag) > 60 or any(ord(c) < 32 for c in tag) or "," in tag:
+            raise HTTPException(
+                422,
+                "Tags müssen 1–60 Zeichen lang sein und dürfen keine Kommas oder Steuerzeichen enthalten.",
+            )
+        if tag.casefold() not in seen:
+            tags.append(tag)
+            seen.add(tag.casefold())
+    email = body.owner_email.strip()
+    if email and (
+        email.count("@") != 1
+        or any(c.isspace() for c in email)
+        or not all(email.split("@"))
+    ):
+        raise HTTPException(422, "Bitte eine gültige E-Mail-Adresse angeben.")
+    with scan_lock, Session() as db:
+        access(db, user, source_id, edit=True)
+        record = db.get(SourceMetadata, source_id)
+        if not record:
+            record = SourceMetadata(source_id=source_id)
+            db.add(record)
+        record.tags = tags
+        record.owner = body.owner.strip()
+        record.owner_email = email
+        audit(db, user, "source_metadata_updated", source_id)
+        db.commit()
+        return metadata_json(record)
+
+
+class ScheduleInput(BaseModel):
+    enabled: bool = False
+    cadence: Literal["hourly", "daily", "weekly"] = "daily"
+    hour: int = Field(default=2, ge=0, le=23)
+    minute: int = Field(default=0, ge=0, le=59)
+    weekday: int = Field(default=0, ge=0, le=6)
+    timezone: str = Field(default="Europe/Berlin", min_length=1, max_length=64)
+
+
+@app.get("/api/sources/{source_id}/schedule")
+def get_schedule(source_id: int, user: User = Depends(current)):
+    with Session() as db:
+        access(db, user, source_id)
+        return schedule_json(db.get(ScanSchedule, source_id))
+
+
+@app.put("/api/sources/{source_id}/schedule")
+def save_schedule(source_id: int, body: ScheduleInput, user: User = Depends(current)):
+    try:
+        ZoneInfo(body.timezone)
+    except (ZoneInfoNotFoundError, ValueError):
+        raise HTTPException(422, "Unbekannte Zeitzone. Beispiel: Europe/Berlin.")
+    with scan_lock, Session() as db:
+        access(db, user, source_id, edit=True)
+        record = db.get(ScanSchedule, source_id)
+        if not record:
+            record = ScanSchedule(source_id=source_id)
+            db.add(record)
+        for field, value in body.model_dump().items():
+            setattr(record, field, value)
+        record.created_by_id = user.id
+        record.next_run = next_due(record, now()) if record.enabled else None
+        record.message = (
+            "Zeitplan aktiv." if record.enabled else "Automatische Scans deaktiviert."
+        )
+        audit(db, user, "scan_schedule_updated", source_id)
+        db.commit()
+        return schedule_json(record)
+
+
+@app.get("/api/sources/{source_id}/compare")
+def compare_snapshots(
+    source_id: int, before: int, after: int, user: User = Depends(current)
+):
+    with Session() as db:
+        access(db, user, source_id)
+        old, new = db.get(Snapshot, before), db.get(Snapshot, after)
+        if (
+            not old
+            or not new
+            or old.source_id != source_id
+            or new.source_id != source_id
+        ):
+            raise HTTPException(
+                404, "Schema-Stand nicht für diese Datenquelle gefunden."
+            )
+        if before >= after:
+            raise HTTPException(
+                422, "Der Ausgangsstand muss älter als der Vergleichsstand sein."
+            )
+        return {
+            "before": {"id": old.id, "created": old.created},
+            "after": {"id": new.id, "created": new.created},
+            **compare(old.payload, new.payload),
+        }
+
+
+@app.get("/api/search")
+def global_search(
+    q: str = "",
+    source_id: int | None = None,
+    kind: Literal["all", "table", "column", "note"] = "all",
+    page: int = 1,
+    page_size: int = 50,
+    user: User = Depends(current),
+):
+    if (
+        len(q.strip()) < 2
+        or len(q) > 200
+        or page < 1
+        or page_size < 1
+        or page_size > 100
+    ):
+        raise HTTPException(422, "Suchbegriff: 2–200 Zeichen. Seitengröße: 1–100.")
+    terms = q.casefold().split()
+    with Session() as db:
+        query = select(SearchEntry, Source).join(
+            Source, Source.id == SearchEntry.source_id
+        )
+        if user.role != "admin":
+            query = query.join(Grant, Grant.source_id == Source.id).where(
+                Grant.user_id == user.id
+            )
+        if source_id is not None:
+            access(db, user, source_id)
+            query = query.where(Source.id == source_id)
+        if kind != "all":
+            query = query.where(SearchEntry.kind == kind)
+        for term in terms:
+            literal = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            query = query.where(SearchEntry.content.like(f"%{literal}%", escape="\\"))
+        total = db.scalar(select(func.count()).select_from(query.subquery()))
+        rows = db.execute(
+            query.order_by(
+                Source.name, SearchEntry.title, SearchEntry.kind, SearchEntry.id
+            )
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        ).all()
+        results = []
+        for entry, source in rows:
+            start = max(0, entry.content.find(terms[0]) - 60)
+            snippet = (
+                ("…" if start else "")
+                + entry.content[start : start + 240]
+                + ("…" if start + 240 < len(entry.content) else "")
+            )
+            results.append(
+                {
+                    "source_id": source.id,
+                    "source_name": source.name,
+                    "source_kind": source.kind,
+                    "kind": entry.kind,
+                    "table_key": entry.table_key,
+                    "table_name": entry.table_name,
+                    "column_name": entry.column_name,
+                    "title": entry.title,
+                    "snippet": snippet,
+                }
+            )
+        return {
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "results": results,
+        }
