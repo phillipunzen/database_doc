@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from pydantic import Field, ValidationError
 from sqlalchemy import select, delete, update
+from .i18n import tr
 from .models import (
     Session,
     Source,
@@ -80,7 +81,7 @@ def project_access(db, user, project_id, edit=False):
     project = db.get(WarehouseProject, project_id)
     if not project or not allowed(db, user, project, edit):
         raise HTTPException(
-            404, "DWH-Projekt nicht verfügbar oder keine ausreichende Freigabe."
+            404, tr("DWH-Projekt nicht verfügbar oder keine ausreichende Freigabe.")
         )
     return project
 
@@ -139,7 +140,9 @@ def mapping_issues(db, body):
                 else None
             )
             if latest_column is None:
-                issues.append(f"{t.name}.{c.name}: Quellfeld fehlt im aktuellen Scan.")
+                issues.append(
+                    tr("{0}.{1}: Quellfeld fehlt im aktuellen Scan.", t.name, c.name)
+                )
                 continue
             if m.snapshot_id not in originals:
                 originals[m.snapshot_id] = db.get(Snapshot, m.snapshot_id)
@@ -154,7 +157,11 @@ def mapping_issues(db, body):
                 "nullable"
             ) != old_column.get("nullable"):
                 issues.append(
-                    f"{t.name}.{c.name}: Quelltyp oder NULL-Zulässigkeit hat sich seit der Zuordnung geändert."
+                    tr(
+                        "{0}.{1}: Quelltyp oder NULL-Zulässigkeit hat sich seit der Zuordnung geändert.",
+                        t.name,
+                        c.name,
+                    )
                 )
     return issues
 
@@ -196,7 +203,9 @@ def validate_sources(db, user, body):
         if source_id == body.target_source_id and source.kind != body.target_kind:
             raise HTTPException(
                 422,
-                "Zielplattform und Zieldatenquelle müssen denselben Datenbanktyp haben.",
+                tr(
+                    "Zielplattform und Zieldatenquelle müssen denselben Datenbanktyp haben."
+                ),
             )
     snapshots = {}
     for t in body.tables:
@@ -207,14 +216,16 @@ def validate_sources(db, user, body):
             if m.source_id not in body.source_ids:
                 raise HTTPException(
                     422,
-                    "Feldzuordnungen dürfen nur ausgewählte Projektquellen verwenden.",
+                    tr(
+                        "Feldzuordnungen dürfen nur ausgewählte Projektquellen verwenden."
+                    ),
                 )
             if m.snapshot_id not in snapshots:
                 snapshots[m.snapshot_id] = db.get(Snapshot, m.snapshot_id)
             snap = snapshots[m.snapshot_id]
             if not snap or snap.source_id != m.source_id:
                 raise HTTPException(
-                    422, "Der Quellscan gehört nicht zur zugeordneten Datenquelle."
+                    422, tr("Der Quellscan gehört nicht zur zugeordneten Datenquelle.")
                 )
             table = next(
                 (x for x in snap.payload["tables"] if x["key"] == m.table_key), None
@@ -222,7 +233,9 @@ def validate_sources(db, user, body):
             if not table or not any(
                 x["name"] == m.column_name for x in table["columns"]
             ):
-                raise HTTPException(422, "Das Quellfeld fehlt im ausgewählten Scan.")
+                raise HTTPException(
+                    422, tr("Das Quellfeld fehlt im ausgewählten Scan.")
+                )
 
 
 def store_project(db, user, project, body):
@@ -238,7 +251,9 @@ def store_project(db, user, project, body):
     }
     if project.id is not None:
         if body.version is None:
-            raise HTTPException(422, "Projektversion fehlt. Bitte Projekt neu laden.")
+            raise HTTPException(
+                422, tr("Projektversion fehlt. Bitte Projekt neu laden.")
+            )
         result = db.execute(
             update(WarehouseProject)
             .where(
@@ -251,7 +266,9 @@ def store_project(db, user, project, body):
         if result.rowcount != 1:
             raise HTTPException(
                 409,
-                "Das Projekt wurde inzwischen geändert. Bitte neu laden und die Änderungen zusammenführen.",
+                tr(
+                    "Das Projekt wurde inzwischen geändert. Bitte neu laden und die Änderungen zusammenführen."
+                ),
             )
         db.expire(project)
     else:
@@ -292,7 +309,7 @@ def list_projects(user: User = Depends(current)):
 def create_project(body: ProjectInput, user: User = Depends(current)):
     if user.role not in {"admin", "editor"}:
         raise HTTPException(
-            403, "Nur Administratoren und Bearbeiter können DWH-Projekte anlegen."
+            403, tr("Nur Administratoren und Bearbeiter können DWH-Projekte anlegen.")
         )
     with scan_lock, Session() as db:
         return store_project(db, user, WarehouseProject(), body)
@@ -318,7 +335,7 @@ def delete_project(project_id: int, version: int, user: User = Depends(current))
         p = project_access(db, user, project_id, edit=True)
         if p.version != version:
             raise HTTPException(
-                409, "Projekt wurde inzwischen geändert. Bitte neu laden."
+                409, tr("Projekt wurde inzwischen geändert. Bitte neu laden.")
             )
         db.execute(
             delete(WarehouseProjectSource).where(
@@ -358,21 +375,21 @@ def import_source(project_id: int, body: ImportInput, user: User = Depends(curre
         data = as_input(db, project)
         if body.version != project.version:
             raise HTTPException(
-                409, "Projekt wurde inzwischen geändert. Bitte neu laden."
+                409, tr("Projekt wurde inzwischen geändert. Bitte neu laden.")
             )
         if body.source_id not in data.source_ids:
-            raise HTTPException(422, "Die Quelle gehört nicht zum Projekt.")
+            raise HTTPException(422, tr("Die Quelle gehört nicht zum Projekt."))
         snap = latest(db, body.source_id)
         if not snap:
             raise HTTPException(
-                422, "Die Quelle benötigt einen erfolgreichen Schema-Scan."
+                422, tr("Die Quelle benötigt einen erfolgreichen Schema-Scan.")
             )
         available = {t["key"]: t for t in snap.payload["tables"]}
         if len(set(body.table_keys)) != len(body.table_keys) or any(
             k not in available for k in body.table_keys
         ):
             raise HTTPException(
-                422, "Bitte vorhandene Quellobjekte eindeutig auswählen."
+                422, tr("Bitte vorhandene Quellobjekte eindeutig auswählen.")
             )
         selected = [available[k] for k in body.table_keys]
         if (
@@ -384,7 +401,9 @@ def import_source(project_id: int, body: ImportInput, user: User = Depends(curre
         ):
             raise HTTPException(
                 422,
-                "Projektlimit: 100 Tabellen, 200 Spalten je Tabelle und insgesamt 3.000 Spalten.",
+                tr(
+                    "Projektlimit: 100 Tabellen, 200 Spalten je Tabelle und insgesamt 3.000 Spalten."
+                ),
             )
         names = {t.name.casefold() for t in data.tables}
         warnings = []
@@ -403,7 +422,9 @@ def import_source(project_id: int, body: ImportInput, user: User = Depends(curre
                     pk = False
                     warning = (
                         warning
-                        + " Primärschlüssel nicht übernommen; Zieltyp und Schlüssel prüfen."
+                        + tr(
+                            " Primärschlüssel nicht übernommen; Zieltyp und Schlüssel prüfen."
+                        )
                     ).strip()
                 if warning:
                     warnings.append(f'{t["name"]}.{c["name"]}: {warning}')
@@ -436,7 +457,9 @@ def import_source(project_id: int, body: ImportInput, user: User = Depends(curre
         except ValidationError:
             raise HTTPException(
                 422,
-                "Projektlimit erreicht: 100 Tabellen, 200 Spalten je Tabelle und insgesamt 3.000 Spalten.",
+                tr(
+                    "Projektlimit erreicht: 100 Tabellen, 200 Spalten je Tabelle und insgesamt 3.000 Spalten."
+                ),
             )
         result = store_project(db, user, project, data)
         return {"project": result, "warnings": warnings, "snapshot_id": snap.id}
@@ -448,17 +471,17 @@ def compare_project(project_id: int, user: User = Depends(current)):
         p = project_access(db, user, project_id)
         if not p.target_source_id:
             raise HTTPException(
-                422, "Bitte zuerst eine Zieldatenquelle im Projekt auswählen."
+                422, tr("Bitte zuerst eine Zieldatenquelle im Projekt auswählen.")
             )
         target = db.get(Source, p.target_source_id)
         if not target or target.kind != p.target_kind:
             raise HTTPException(
-                422, "Zieldatenquelle passt nicht mehr zur geplanten Plattform."
+                422, tr("Zieldatenquelle passt nicht mehr zur geplanten Plattform.")
             )
         snap = latest(db, p.target_source_id)
         if not snap:
             raise HTTPException(
-                422, "Die Zieldatenquelle benötigt einen erfolgreichen Schema-Scan."
+                422, tr("Die Zieldatenquelle benötigt einen erfolgreichen Schema-Scan.")
             )
         return compare_target(as_input(db, p), snap)
 
@@ -489,18 +512,25 @@ def export_project(
             lines = [
                 f"# {text(p.name)}",
                 f"\n{p.goal}\n",
-                f"Ziel: {p.target_kind} / {p.target_schema} · Projektversion {p.version}",
-                "\nFeldzuordnungen und Transformationen sind Planungsangaben.\n",
+                tr(
+                    "Ziel: {0} / {1} · Projektversion {2}",
+                    p.target_kind,
+                    p.target_schema,
+                    p.version,
+                ),
+                tr("\nFeldzuordnungen und Transformationen sind Planungsangaben.\n"),
             ]
             by_id = {t.id: t for t in data.tables}
             for t in data.tables:
                 lines += [
                     f"## {t.name}",
-                    f"{ROLES[t.role]} · {LAYERS[t.layer]} · {STATUSES[t.status]}",
-                    f"Granularität: {text(t.grain)}",
+                    f"{tr(ROLES[t.role])} · {LAYERS[t.layer]} · {tr(STATUSES[t.status])}",
+                    tr("Granularität: {0}", text(t.grain)),
                     text(t.description),
-                    f"Laden: {t.load_mode} · {text(t.load_strategy)}",
-                    "\n| Zielfeld | Typ | Zweck | Quelle / Scan | Transformation | Beschreibung |",
+                    tr("Laden: {0} · {1}", t.load_mode, text(t.load_strategy)),
+                    tr(
+                        "\n| Zielfeld | Typ | Zweck | Quelle / Scan | Transformation | Beschreibung |"
+                    ),
                     "|---|---|---|---|---|---|",
                 ]
                 for c in t.columns:
@@ -508,7 +538,7 @@ def export_project(
                     source = (
                         f"#{m.source_id} {m.table_key}.{m.column_name} / #{m.snapshot_id}"
                         if m
-                        else "Abgeleitet / manuell"
+                        else tr("Abgeleitet / manuell")
                     )
                     lines.append(
                         f"| {c.name} | {c.data_type} | {c.purpose} | {text(source)} | {text(c.transformation)} | {text(c.description)} |"
@@ -517,13 +547,13 @@ def export_project(
                     lines.append(
                         f'\nFK {", ".join(r.columns)} → {by_id[r.target_table_id].name} ({", ".join(r.target_columns)})'
                     )
-            lines += ["\n## Offene Modellierungsfragen"] + [
+            lines += [tr("\n## Offene Modellierungsfragen")] + [
                 f"- {text(i)}" for i in planning_issues(data) + mapping_issues(db, data)
             ]
             content = "\n".join(lines) + "\n"
             media = "text/markdown"
         else:
-            raise HTTPException(422, "Exportformat: json, markdown oder sql.")
+            raise HTTPException(422, tr("Exportformat: json, markdown oder sql."))
         audit(db, user, "dwh_project_exported", project_id)
         db.commit()
         suffix = "md" if format == "markdown" else format

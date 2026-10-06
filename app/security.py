@@ -9,6 +9,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError, InvalidHashError
 from fastapi import HTTPException, Request
 from sqlalchemy import select, delete
+from .i18n import tr
 from .models import Session, User, LoginSession, Grant, Source, Audit, now
 
 hasher = PasswordHasher()
@@ -79,27 +80,29 @@ def current(request: Request):
     with Session() as db:
         session = db.get(LoginSession, hashlib.sha256(token.encode()).hexdigest())
         if not session or session.expires < now():
-            raise HTTPException(401, "Bitte anmelden.")
+            raise HTTPException(401, tr("Bitte anmelden."))
         user = db.get(User, session.user_id)
         if not user or not user.active:
-            raise HTTPException(401, "Konto ist deaktiviert.")
+            raise HTTPException(401, tr("Konto ist deaktiviert."))
         if request.method not in {"GET", "HEAD", "OPTIONS"}:
             if not secrets.compare_digest(
                 request.headers.get("x-csrf-token", ""), session.csrf
             ):
-                raise HTTPException(403, "Ungültiger CSRF-Token.")
+                raise HTTPException(403, tr("Ungültiger CSRF-Token."))
         return user
 
 
 def require_admin(user):
     if user.role != "admin":
-        raise HTTPException(403, "Nur Administratoren dürfen diese Aktion ausführen.")
+        raise HTTPException(
+            403, tr("Nur Administratoren dürfen diese Aktion ausführen.")
+        )
 
 
 def access(db, user, source_id, edit=False, data=False):
     source = db.get(Source, source_id)
     if not source:
-        raise HTTPException(404, "Datenquelle nicht gefunden.")
+        raise HTTPException(404, tr("Datenquelle nicht gefunden."))
     if user.role == "admin":
         return source
     grant = db.scalar(
@@ -110,7 +113,7 @@ def access(db, user, source_id, edit=False, data=False):
         or (edit and (user.role != "editor" or not grant.edit))
         or (data and not grant.data)
     ):
-        raise HTTPException(403, "Keine Berechtigung für diese Datenquelle.")
+        raise HTTPException(403, tr("Keine Berechtigung für diese Datenquelle."))
     return source
 
 

@@ -22,6 +22,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.dialects import mssql, postgresql, mysql
 from sqlalchemy.schema import CreateTable, AddConstraint
+from .i18n import tr
 
 EngineKind = Literal["mssql", "postgresql", "mariadb"]
 Identifier = str
@@ -44,7 +45,9 @@ STATUSES = {
 def identifier(value):
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,62}", value):
         raise ValueError(
-            "Zielnamen: 1–63 Zeichen, Buchstaben, Ziffern und Unterstriche; mit Buchstabe oder Unterstrich beginnen."
+            tr(
+                "Zielnamen: 1–63 Zeichen, Buchstaben, Ziffern und Unterstriche; mit Buchstabe oder Unterstrich beginnen."
+            )
         )
     return value
 
@@ -92,18 +95,24 @@ class ColumnPlan(Input):
     def valid(self):
         identifier(self.name)
         if self.scale > self.precision:
-            raise ValueError("Dezimalstellen dürfen die Präzision nicht überschreiten.")
+            raise ValueError(
+                tr("Dezimalstellen dürfen die Präzision nicht überschreiten.")
+            )
         if self.primary_key and (self.nullable or self.data_type in {"text", "binary"}):
             raise ValueError(
-                "Primärschlüssel müssen NOT NULL sein und einen indexierbaren Datentyp haben."
+                tr(
+                    "Primärschlüssel müssen NOT NULL sein und einen indexierbaren Datentyp haben."
+                )
             )
         if self.primary_key and self.data_type == "varchar" and self.length > 190:
-            raise ValueError("Text-Primärschlüssel sind auf 190 Zeichen begrenzt.")
+            raise ValueError(tr("Text-Primärschlüssel sind auf 190 Zeichen begrenzt."))
         if self.identity and (
             self.data_type not in {"int", "bigint"} or not self.primary_key
         ):
             raise ValueError(
-                "Automatische Schlüssel benötigen INT/BIGINT und einen Primärschlüssel."
+                tr(
+                    "Automatische Schlüssel benötigen INT/BIGINT und einen Primärschlüssel."
+                )
             )
         return self
 
@@ -133,13 +142,13 @@ class TablePlan(Input):
         identifier(self.name)
         if len({c.name.casefold() for c in self.columns}) != len(self.columns):
             raise ValueError(
-                "Spaltennamen müssen innerhalb einer Tabelle eindeutig sein."
+                tr("Spaltennamen müssen innerhalb einer Tabelle eindeutig sein.")
             )
         if len({c.id for c in self.columns}) != len(self.columns):
-            raise ValueError("Spalten-IDs müssen eindeutig sein.")
+            raise ValueError(tr("Spalten-IDs müssen eindeutig sein."))
         if sum(c.identity for c in self.columns) > 1:
             raise ValueError(
-                "Pro Tabelle ist höchstens ein automatischer Schlüssel erlaubt."
+                tr("Pro Tabelle ist höchstens ein automatischer Schlüssel erlaubt.")
             )
         return self
 
@@ -158,18 +167,20 @@ class ProjectInput(Input):
     def valid(self):
         self.name = self.name.strip()
         if not self.name:
-            raise ValueError("Bitte einen Projektnamen angeben.")
+            raise ValueError(tr("Bitte einen Projektnamen angeben."))
         identifier(self.target_schema)
         if any(i < 1 for i in self.source_ids) or len(set(self.source_ids)) != len(
             self.source_ids
         ):
-            raise ValueError("Quellen müssen eindeutig und gültig sein.")
+            raise ValueError(tr("Quellen müssen eindeutig und gültig sein."))
         if len({t.name.casefold() for t in self.tables}) != len(self.tables) or len(
             {t.id for t in self.tables}
         ) != len(self.tables):
-            raise ValueError("Tabellennamen und IDs müssen im Projekt eindeutig sein.")
+            raise ValueError(
+                tr("Tabellennamen und IDs müssen im Projekt eindeutig sein.")
+            )
         if sum(len(t.columns) for t in self.tables) > 3000:
-            raise ValueError("Ein Projekt unterstützt bis zu 3.000 Zielspalten.")
+            raise ValueError(tr("Ein Projekt unterstützt bis zu 3.000 Zielspalten."))
         by_id = {t.id: t for t in self.tables}
         seen_relations = set()
         for table in self.tables:
@@ -177,7 +188,7 @@ class ProjectInput(Input):
             for relation in table.relations:
                 target = by_id.get(relation.target_table_id)
                 if not target or relation.id in seen_relations:
-                    raise ValueError("Beziehungsziele und IDs müssen gültig sein.")
+                    raise ValueError(tr("Beziehungsziele und IDs müssen gültig sein."))
                 seen_relations.add(relation.id)
                 target_cols = {c.name: c for c in target.columns}
                 if (
@@ -188,12 +199,16 @@ class ProjectInput(Input):
                     != [c.name for c in target.columns if c.primary_key]
                 ):
                     raise ValueError(
-                        "Beziehungen benötigen vorhandene Spalten und den vollständigen Ziel-Primärschlüssel in gleicher Reihenfolge."
+                        tr(
+                            "Beziehungen benötigen vorhandene Spalten und den vollständigen Ziel-Primärschlüssel in gleicher Reihenfolge."
+                        )
                     )
                 for left, right in zip(relation.columns, relation.target_columns):
                     if type_signature(cols[left]) != type_signature(target_cols[right]):
                         raise ValueError(
-                            "Verknüpfte Spalten müssen denselben geplanten Datentyp haben."
+                            tr(
+                                "Verknüpfte Spalten müssen denselben geplanten Datentyp haben."
+                            )
                         )
         return self
 
@@ -251,7 +266,7 @@ def sql_type(column, kind):
 def sql_script(project):
     if not project.tables or any(not t.columns for t in project.tables):
         raise ValueError(
-            "Für den SQL-Export benötigen alle Zieltabellen mindestens eine Spalte."
+            tr("Für den SQL-Export benötigen alle Zieltabellen mindestens eine Spalte.")
         )
     d = dialect(project.target_kind)
     metadata = MetaData()
@@ -336,7 +351,7 @@ def inferred_type(value):
             "data_type": "decimal",
             "precision": 20,
             "scale": 0,
-        }, "UNSIGNED: Wertebereich und Zieltyp prüfen."
+        }, tr("UNSIGNED: Wertebereich und Zieltyp prüfen.")
     if base == "TINYINT" and args and int(args[1]) == 1:
         return {"data_type": "boolean"}, ""
     if base in {"INTEGER", "INT", "SMALLINT", "TINYINT", "MEDIUMINT", "INT4", "INT2"}:
@@ -381,30 +396,30 @@ def inferred_type(value):
         return {"data_type": "uuid"}, ""
     if base in {"BYTEA", "BLOB", "LONGBLOB", "VARBINARY", "BINARY"}:
         return {"data_type": "binary"}, ""
-    return {
-        "data_type": "text"
-    }, f"Quelltyp {value}: Zieltyp fachlich prüfen; vorläufig TEXT."
+    return {"data_type": "text"}, tr(
+        "Quelltyp {0}: Zieltyp fachlich prüfen; vorläufig TEXT.", value
+    )
 
 
 def planning_issues(project):
     issues = []
     if not project.goal.strip():
-        issues.append("Fachliches Projektziel fehlt.")
+        issues.append(tr("Fachliches Projektziel fehlt."))
     for t in project.tables:
         if not t.columns:
-            issues.append(f"{t.name}: Zielspalten fehlen.")
+            issues.append(tr("{0}: Zielspalten fehlen.", t.name))
         if t.role in {"fact", "dimension", "aggregate"} and not t.grain.strip():
-            issues.append(f"{t.name}: Granularität fehlt.")
+            issues.append(tr("{0}: Granularität fehlt.", t.name))
         if not any(c.primary_key for c in t.columns):
-            issues.append(f"{t.name}: Primärschlüssel noch nicht geplant.")
+            issues.append(tr("{0}: Primärschlüssel noch nicht geplant.", t.name))
         if t.role == "fact" and not any(c.purpose == "measure" for c in t.columns):
-            issues.append(f"{t.name}: Kennzahlenspalten fehlen.")
+            issues.append(tr("{0}: Kennzahlenspalten fehlen.", t.name))
         if t.role == "dimension" and not any(
             c.purpose == "business_key" for c in t.columns
         ):
-            issues.append(f"{t.name}: Fachlicher Schlüssel fehlt.")
+            issues.append(tr("{0}: Fachlicher Schlüssel fehlt.", t.name))
         if t.load_mode == "incremental" and not t.load_strategy.strip():
-            issues.append(f"{t.name}: Inkrementelle Ladestrategie fehlt.")
+            issues.append(tr("{0}: Inkrementelle Ladestrategie fehlt.", t.name))
     return issues
 
 
@@ -415,15 +430,15 @@ def compare_target(project, snapshot):
         table = actual.get((project.target_schema, plan.name))
         issues = []
         if table is None:
-            issues.append("Tabelle fehlt im gescannten Zielschema.")
+            issues.append(tr("Tabelle fehlt im gescannten Zielschema."))
         else:
             if table.get("kind") != "table":
-                issues.append("Das Zielobjekt ist keine Tabelle.")
+                issues.append(tr("Das Zielobjekt ist keine Tabelle."))
             cols = {c["name"]: c for c in table["columns"]}
             for column in plan.columns:
                 c = cols.get(column.name)
                 if c is None:
-                    issues.append(f"{column.name}: Spalte fehlt.")
+                    issues.append(tr("{0}: Spalte fehlt.", column.name))
                     continue
                 suggested, warning = inferred_type(c["type"])
                 normalized = ColumnPlan(name=column.name, **suggested)
@@ -439,14 +454,23 @@ def compare_target(project, snapshot):
                     )
                 if not same or warning:
                     issues.append(
-                        f'{column.name}: Datentyp prüfen (Soll {str(sql_type(column,project.target_kind).compile(dialect=dialect(project.target_kind)))} / Ist {c["type"]}).'
+                        tr(
+                            "{0}: Datentyp prüfen (Soll {1} / Ist {2}).",
+                            column.name,
+                            str(
+                                sql_type(column, project.target_kind).compile(
+                                    dialect=dialect(project.target_kind)
+                                )
+                            ),
+                            c["type"],
+                        )
                     )
                 if bool(c.get("nullable", True)) != column.nullable:
-                    issues.append(f"{column.name}: NULL-Zulässigkeit weicht ab.")
+                    issues.append(tr("{0}: NULL-Zulässigkeit weicht ab.", column.name))
             if table.get("primary_key", []) != [
                 c.name for c in plan.columns if c.primary_key
             ]:
-                issues.append("Primärschlüssel weicht ab.")
+                issues.append(tr("Primärschlüssel weicht ab."))
             by_id = {t.id: t for t in project.tables}
             for r in plan.relations:
                 name = by_id[r.target_table_id].name
@@ -458,7 +482,7 @@ def compare_target(project, snapshot):
                     and f.get("target_columns") == r.target_columns
                     for f in table.get("foreign_keys", [])
                 ):
-                    issues.append(f"Beziehung zu {name} fehlt.")
+                    issues.append(tr("Beziehung zu {0} fehlt.", name))
         results.append(
             {
                 "table_id": str(plan.id),
@@ -488,5 +512,7 @@ def compare_target(project, snapshot):
             if t.get("schema") == project.target_schema
             and t["name"] not in {p.name for p in project.tables}
         ],
-        "limitations": "Strukturvergleich aus dem gespeicherten Scan; Dateninhalte, Ladeprozesse, Identity-Eigenschaften und fachliche Richtigkeit werden nicht geprüft.",
+        "limitations": tr(
+            "Strukturvergleich aus dem gespeicherten Scan; Dateninhalte, Ladeprozesse, Identity-Eigenschaften und fachliche Richtigkeit werden nicht geprüft."
+        ),
     }

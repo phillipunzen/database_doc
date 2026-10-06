@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select, func, delete
 from starlette.middleware.sessions import SessionMiddleware
 from authlib.integrations.starlette_client import OAuth
+from .i18n import tr, tr_message
 from .models import (
     Base,
     engine,
@@ -60,6 +61,8 @@ from .search import migrate, reindex_source
 from .schema_diff import compare
 from .warehouse_api import router as warehouse_router
 
+from .i18n import LANGUAGE, MESSAGES, negotiate_language
+
 APP_URL = os.environ.get("APP_URL", "http://localhost:8090").rstrip("/")
 login_lock = threading.Lock()
 login_attempts = defaultdict(deque)
@@ -85,7 +88,7 @@ async def lifespan(app):
             )
         for job in db.scalars(select(Job).where(Job.status.in_(["queued", "running"]))):
             job.status = "failed"
-            job.message = "Scan durch Neustart unterbrochen. Bitte erneut starten."
+            job.message = tr("Scan durch Neustart unterbrochen. Bitte erneut starten.")
             job.finished = now()
         db.commit()
     with Session() as db:
@@ -113,6 +116,16 @@ app.add_middleware(
     session_cookie="datatlas_oidc",
 )
 
+
+@app.get("/api/i18n/en.js", include_in_schema=False)
+def english_catalog():
+    return Response(
+        "const UI_TRANSLATIONS = " + json.dumps(MESSAGES, ensure_ascii=False) + ";",
+        media_type="application/javascript",
+        headers={"Cache-Control": "public, max-age=0, must-revalidate"},
+    )
+
+
 app.include_router(warehouse_router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 oauth = OAuth()
@@ -133,14 +146,16 @@ if (
 def origin_check(request):
     origin = request.headers.get("origin")
     if origin and origin != APP_URL:
-        raise HTTPException(403, "Unerlaubter Ursprung.")
+        raise HTTPException(403, tr("Unerlaubter Ursprung."))
 
 
 @app.middleware("http")
 async def headers(request, call_next):
     if request.method not in {"GET", "HEAD", "OPTIONS"}:
         if request.headers.get("origin") and request.headers["origin"] != APP_URL:
-            return JSONResponse({"detail": "Unerlaubter Ursprung."}, status_code=403)
+            return JSONResponse(
+                {"detail": tr("Unerlaubter Ursprung.")}, status_code=403
+            )
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -151,6 +166,17 @@ async def headers(request, call_next):
     if request.url.path.startswith("/api/") or request.url.path.startswith("/auth/"):
         response.headers["Cache-Control"] = "no-store"
     return response
+
+
+@app.middleware("http")
+async def localized_request(request: Request, call_next):
+    token = LANGUAGE.set(negotiate_language(request.headers.get("accept-language")))
+    try:
+        response = await call_next(request)
+        response.headers["Content-Language"] = LANGUAGE.get()
+        return response
+    finally:
+        LANGUAGE.reset(token)
 
 
 @app.get("/")
@@ -191,7 +217,8 @@ def login(body: LoginInput, request: Request, response: Response):
             attempts.popleft()
         if len(attempts) >= 10:
             raise HTTPException(
-                429, "Zu viele Anmeldeversuche. Bitte in fünf Minuten erneut versuchen."
+                429,
+                tr("Zu viele Anmeldeversuche. Bitte in fünf Minuten erneut versuchen."),
             )
         attempts.append(time.monotonic())
     with Session() as db:
@@ -223,7 +250,7 @@ def login(body: LoginInput, request: Request, response: Response):
         if not user or not user.active:
             audit(db, body.username, "login_failed")
             db.commit()
-            raise HTTPException(401, "Anmeldung fehlgeschlagen.")
+            raise HTTPException(401, tr("Anmeldung fehlgeschlagen."))
         csrf = issue_session(db, user, response)
         return {"user": user_json(user), "csrf": csrf}
 
@@ -244,7 +271,7 @@ def provision(db, info):
 async def entra_start(request: Request):
     client = oauth.create_client("entra")
     if not client:
-        raise HTTPException(404, "Entra ID ist noch nicht eingerichtet.")
+        raise HTTPException(404, tr("Entra ID ist noch nicht eingerichtet."))
     return await client.authorize_redirect(request, APP_URL + "/auth/entra/callback")
 
 
@@ -252,7 +279,7 @@ async def entra_start(request: Request):
 async def entra_callback(request: Request):
     client = oauth.create_client("entra")
     if not client:
-        raise HTTPException(404, "Entra ID ist noch nicht eingerichtet.")
+        raise HTTPException(404, tr("Entra ID ist noch nicht eingerichtet."))
     try:
         token = await client.authorize_access_token(request)
         claims = token["userinfo"]
@@ -265,11 +292,11 @@ async def entra_callback(request: Request):
                 {
                     "identity": identity,
                     "username": "entra:" + claims["oid"],
-                    "display_name": str(claims.get("name", "Entra-Benutzer"))[:190],
+                    "display_name": str(claims.get("name", tr("Entra-Benutzer")))[:190],
                 },
             )
             if not user.active:
-                raise ValueError("Konto deaktiviert")
+                raise ValueError(tr("Konto deaktiviert"))
             response = RedirectResponse("/")
             issue_session(db, user, response)
             request.session.clear()
@@ -327,7 +354,8 @@ def password(
                 raise ValueError()
         except Exception:
             raise HTTPException(
-                400, "Aktuelles Passwort ist falsch oder Konto ist extern verwaltet."
+                400,
+                tr("Aktuelles Passwort ist falsch oder Konto ist extern verwaltet."),
             )
         record.password_hash = hasher.hash(body.password)
         db.execute(delete(LoginSession).where(LoginSession.user_id == user.id))
@@ -430,7 +458,7 @@ def source_json(db, source, user):
             sum(len(t["foreign_keys"]) for t in snap.payload["tables"]) if snap else 0
         ),
         "job": (
-            {"id": job.id, "status": job.status, "message": job.message}
+            {"id": job.id, "status": job.status, "message": tr_message(job.message)}
             if job
             else None
         ),
@@ -473,7 +501,7 @@ def update_source(source_id: int, body: SourceInput, user: User = Depends(curren
                 Job.source_id == source_id, Job.status.in_(["queued", "running"])
             )
         ):
-            raise HTTPException(409, "Bitte laufenden Scan abwarten.")
+            raise HTTPException(409, tr("Bitte laufenden Scan abwarten."))
         previous = decrypt(source)
         updated = cfg(body, previous)
         target_changed = source.kind != body.kind or any(
@@ -483,7 +511,9 @@ def update_source(source_id: int, body: SourceInput, user: User = Depends(curren
         if target_changed and warehouse_uses_source(db, source_id):
             raise HTTPException(
                 409,
-                "Diese Quelle gehört zu einem DWH-Projekt. Für eine andere Datenbank bitte eine neue Datenquelle anlegen oder zuerst die Projektzuordnungen entfernen.",
+                tr(
+                    "Diese Quelle gehört zu einem DWH-Projekt. Für eine andere Datenbank bitte eine neue Datenquelle anlegen oder zuerst die Projektzuordnungen entfernen."
+                ),
             )
         source.name = body.name
         source.config_encrypted = encrypt(updated)
@@ -509,11 +539,13 @@ def delete_source(source_id: int, user: User = Depends(current)):
                 Job.source_id == source_id, Job.status.in_(["queued", "running"])
             )
         ):
-            raise HTTPException(409, "Bitte laufenden Scan abwarten.")
+            raise HTTPException(409, tr("Bitte laufenden Scan abwarten."))
         if warehouse_uses_source(db, source_id):
             raise HTTPException(
                 409,
-                "Diese Datenquelle gehört zu einem DWH-Projekt. Bitte zuerst die Projektzuordnungen entfernen.",
+                tr(
+                    "Diese Datenquelle gehört zu einem DWH-Projekt. Bitte zuerst die Projektzuordnungen entfernen."
+                ),
             )
         for model in (
             SearchEntry,
@@ -547,11 +579,14 @@ def test_saved(source_id: int, user: User = Depends(current)):
 def do_test(kind, config):
     try:
         connection_test(kind, config)
-        return {"ok": True, "message": "Verbindung erfolgreich."}
+        return {"ok": True, "message": tr("Verbindung erfolgreich.")}
     except Exception as error:
         raise HTTPException(
             400,
-            f"Verbindung fehlgeschlagen ({type(error).__name__}). Host, Port, TLS und Zugangsdaten prüfen.",
+            tr(
+                "Verbindung fehlgeschlagen ({0}). Host, Port, TLS und Zugangsdaten prüfen.",
+                type(error).__name__,
+            ),
         )
 
 
@@ -573,7 +608,7 @@ def snapshot(
         snap = db.get(Snapshot, snapshot_id) if snapshot_id else latest(db, source_id)
         if not snap or snap.source_id != source_id:
             raise HTTPException(
-                404, "Noch keine Dokumentation vorhanden. Bitte Scan starten."
+                404, tr("Noch keine Dokumentation vorhanden. Bitte Scan starten.")
             )
         notes = {
             n.table_key: n.text
@@ -619,7 +654,7 @@ def data_preview(source_id: int, body: PreviewInput, user: User = Depends(curren
             else None
         )
         if not table:
-            raise HTTPException(404, "Objekt nicht im aktuellen Schema gefunden.")
+            raise HTTPException(404, tr("Objekt nicht im aktuellen Schema gefunden."))
         audit(db, user, "data_preview", f'{source_id}:{table["name"]}'[:190])
         db.commit()
         try:
@@ -627,7 +662,10 @@ def data_preview(source_id: int, body: PreviewInput, user: User = Depends(curren
         except Exception as error:
             raise HTTPException(
                 400,
-                f"Datenvorschau fehlgeschlagen ({type(error).__name__}). Leserechte prüfen und Schema erneut scannen.",
+                tr(
+                    "Datenvorschau fehlgeschlagen ({0}). Leserechte prüfen und Schema erneut scannen.",
+                    type(error).__name__,
+                ),
             )
 
 
@@ -644,7 +682,7 @@ def save_note(source_id: int, body: NoteInput, user: User = Depends(current)):
         if not snap or not any(
             t["key"] == body.table_key for t in snap.payload["tables"]
         ):
-            raise HTTPException(404, "Objekt nicht im aktuellen Schema gefunden.")
+            raise HTTPException(404, tr("Objekt nicht im aktuellen Schema gefunden."))
         note = db.scalar(
             select(Note).where(
                 Note.source_id == source_id, Note.table_key == body.table_key
@@ -676,16 +714,19 @@ def export(
             else latest(db, source_id)
         )
         if not snap or snap.source_id != source_id:
-            raise HTTPException(404, "Noch keine Dokumentation vorhanden.")
+            raise HTTPException(404, tr("Noch keine Dokumentation vorhanden."))
         tables = snap.payload["tables"]
         if table_key is not None:
             if format != "pdf":
                 raise HTTPException(
-                    422, "Einzelne Objekte können als Tabellen-PDF exportiert werden."
+                    422,
+                    tr("Einzelne Objekte können als Tabellen-PDF exportiert werden."),
                 )
             tables = [t for t in tables if t["key"] == table_key]
             if not tables:
-                raise HTTPException(404, "Objekt nicht im gewählten Schema gefunden.")
+                raise HTTPException(
+                    404, tr("Objekt nicht im gewählten Schema gefunden.")
+                )
         notes = {
             n.table_key: n.text
             for n in db.scalars(select(Note).where(Note.source_id == source_id))
@@ -737,7 +778,7 @@ def export(
 
         lines = [
             f"# {source.name}",
-            f"\nTyp: {source.kind} · Stand: {snap.created.isoformat()} UTC\n",
+            tr("\nTyp: {0} · Stand: {1} UTC\n", source.kind, snap.created.isoformat()),
         ]
         organization = payload["source"]
         lines += [
@@ -746,6 +787,7 @@ def export(
             "",
         ]
         for warning in snap.payload.get("warnings", []):
+            warning = tr_message(warning)
             lines.append("> " + warning + "\n")
         for t in snap.payload["tables"]:
             lines += [
@@ -753,7 +795,7 @@ def export(
                 t.get("comment") or "",
                 notes.get(t["key"], ""),
                 "",
-                "| Spalte | Typ | NULL | PK | Standard |",
+                tr("| Spalte | Typ | NULL | PK | Standard |"),
                 "|---|---|---|---|---|",
             ]
             lines += [
@@ -765,7 +807,7 @@ def export(
                     f'\nFK {", ".join(f["columns"])} → {f["target_schema"]}.{f["target_table"]} ({", ".join(f["target_columns"])})'
                 )
             lines += [
-                "\nIndizes: "
+                tr("\nIndizes: ")
                 + ", ".join(
                     (i["name"] or "")
                     + " ("
@@ -808,7 +850,7 @@ def add_user(body: UserInput, user: User = Depends(current)):
     require_admin(user)
     with Session() as db:
         if db.scalar(select(User).where(User.username == body.username)):
-            raise HTTPException(409, "Benutzername ist bereits vergeben.")
+            raise HTTPException(409, tr("Benutzername ist bereits vergeben."))
         created = User(
             username=body.username,
             display_name=body.display_name,
@@ -828,11 +870,13 @@ def edit_user(user_id: int, body: UserUpdate, user: User = Depends(current)):
     with Session() as db:
         record = db.get(User, user_id)
         if not record:
-            raise HTTPException(404, "Benutzer nicht gefunden.")
+            raise HTTPException(404, tr("Benutzer nicht gefunden."))
         if record.id == user.id and (body.role != "admin" or not body.active):
             raise HTTPException(
                 400,
-                "Das eigene Administratorkonto kann nicht herabgestuft oder deaktiviert werden.",
+                tr(
+                    "Das eigene Administratorkonto kann nicht herabgestuft oder deaktiviert werden."
+                ),
             )
         record.role = body.role
         record.active = body.active
@@ -865,7 +909,7 @@ def set_grant(source_id: int, body: GrantInput, user: User = Depends(current)):
     with Session() as db:
         access(db, user, source_id)
         if not db.get(User, body.user_id):
-            raise HTTPException(404, "Benutzer nicht gefunden.")
+            raise HTTPException(404, tr("Benutzer nicht gefunden."))
         grant = db.scalar(
             select(Grant).where(
                 Grant.source_id == source_id, Grant.user_id == body.user_id
@@ -948,7 +992,10 @@ def do_discover(body, old=None):
     except Exception as error:
         raise HTTPException(
             400,
-            f"Datenbankliste konnte nicht geladen werden ({type(error).__name__}). Verbindung und Berechtigungen prüfen oder Datenbankname direkt eingeben.",
+            tr(
+                "Datenbankliste konnte nicht geladen werden ({0}). Verbindung und Berechtigungen prüfen oder Datenbankname direkt eingeben.",
+                type(error).__name__,
+            ),
         )
 
 
@@ -974,7 +1021,9 @@ def save_metadata(source_id: int, body: MetadataInput, user: User = Depends(curr
         if not tag or len(tag) > 60 or any(ord(c) < 32 for c in tag) or "," in tag:
             raise HTTPException(
                 422,
-                "Tags müssen 1–60 Zeichen lang sein und dürfen keine Kommas oder Steuerzeichen enthalten.",
+                tr(
+                    "Tags müssen 1–60 Zeichen lang sein und dürfen keine Kommas oder Steuerzeichen enthalten."
+                ),
             )
         if tag.casefold() not in seen:
             tags.append(tag)
@@ -985,7 +1034,7 @@ def save_metadata(source_id: int, body: MetadataInput, user: User = Depends(curr
         or any(c.isspace() for c in email)
         or not all(email.split("@"))
     ):
-        raise HTTPException(422, "Bitte eine gültige E-Mail-Adresse angeben.")
+        raise HTTPException(422, tr("Bitte eine gültige E-Mail-Adresse angeben."))
     with scan_lock, Session() as db:
         access(db, user, source_id, edit=True)
         record = db.get(SourceMetadata, source_id)
@@ -1021,7 +1070,7 @@ def save_schedule(source_id: int, body: ScheduleInput, user: User = Depends(curr
     try:
         ZoneInfo(body.timezone)
     except (ZoneInfoNotFoundError, ValueError):
-        raise HTTPException(422, "Unbekannte Zeitzone. Beispiel: Europe/Berlin.")
+        raise HTTPException(422, tr("Unbekannte Zeitzone. Beispiel: Europe/Berlin."))
     with scan_lock, Session() as db:
         access(db, user, source_id, edit=True)
         record = db.get(ScanSchedule, source_id)
@@ -1054,11 +1103,11 @@ def compare_snapshots(
             or new.source_id != source_id
         ):
             raise HTTPException(
-                404, "Schema-Stand nicht für diese Datenquelle gefunden."
+                404, tr("Schema-Stand nicht für diese Datenquelle gefunden.")
             )
         if before >= after:
             raise HTTPException(
-                422, "Der Ausgangsstand muss älter als der Vergleichsstand sein."
+                422, tr("Der Ausgangsstand muss älter als der Vergleichsstand sein.")
             )
         return {
             "before": {"id": old.id, "created": old.created},
@@ -1083,7 +1132,7 @@ def global_search(
         or page_size < 1
         or page_size > 100
     ):
-        raise HTTPException(422, "Suchbegriff: 2–200 Zeichen. Seitengröße: 1–100.")
+        raise HTTPException(422, tr("Suchbegriff: 2–200 Zeichen. Seitengröße: 1–100."))
     terms = q.casefold().split()
     with Session() as db:
         query = select(SearchEntry, Source).join(

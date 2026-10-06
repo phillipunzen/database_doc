@@ -31,7 +31,7 @@ from app.schema_diff import compare
 @pytest.fixture(scope="module")
 def client():
     login_attempts.clear()
-    with TestClient(app) as admin:
+    with TestClient(app, headers={"Accept-Language": "de-DE"}) as admin:
         result = admin.post(
             "/api/auth/login",
             json={"username": "admin", "password": os.environ["ADMIN_PASSWORD"]},

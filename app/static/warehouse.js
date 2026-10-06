@@ -15,9 +15,9 @@ const dwhEngines = {
 const dwhRoles = {
   staging: "Staging",
   dimension: "Dimension",
-  fact: "Fakt",
-  reference: "Referenz",
-  aggregate: "Aggregat",
+  fact: uiText("Fakt"),
+  reference: uiText("Referenz"),
+  aggregate: uiText("Aggregat"),
 };
 const dwhLayers = {
   raw: "Raw",
@@ -26,16 +26,16 @@ const dwhLayers = {
   mart: "Data Mart",
 };
 const dwhStatuses = {
-  planned: "Geplant",
-  in_progress: "In Umsetzung",
-  implemented: "Umgesetzt",
-  accepted: "Fachlich abgenommen",
+  planned: uiText("Geplant"),
+  in_progress: uiText("In Umsetzung"),
+  implemented: uiText("Umgesetzt"),
+  accepted: uiText("Fachlich abgenommen"),
 };
 const dwhPurposes = {
-  attribute: "Attribut",
-  measure: "Kennzahl",
-  business_key: "Fachlicher Schlüssel",
-  technical_key: "Technischer Schlüssel",
+  attribute: uiText("Attribut"),
+  measure: uiText("Kennzahl"),
+  business_key: uiText("Fachlicher Schlüssel"),
+  technical_key: uiText("Technischer Schlüssel"),
 };
 const dwhTypes = {
   int: "INT",
@@ -63,7 +63,7 @@ function dwhSelect(label, name, items, selected) {
 function dwhArea(label, name, value, placeholder = "", length = 4000) {
   return `<div class="field"><label for="dwh-${name}">${label}</label><textarea id="dwh-${name}" name="${name}" rows="3" maxlength="${length}" placeholder="${e(placeholder)}">${e(value || "")}</textarea></div>`;
 }
-function dwhFooter(label = "Speichern") {
+function dwhFooter(label = uiText("Speichern")) {
   return `<div id="form-error" class="error-text" role="alert"></div><div class="modal-footer"><button type="submit" class="btn primary">${label}</button></div>`;
 }
 function dwhBody() {
@@ -87,13 +87,13 @@ async function dwhSave(body) {
   state.dwhComparison = null;
   modal.close();
   renderDwhProject();
-  toast("DWH-Projekt gespeichert.");
+  toast(uiText("DWH-Projekt gespeichert."));
 }
 function renderDwhProjects() {
   const projects = state.dwhProjects || [];
-  shell(`<div class="page-head"><div><div class="eyebrow">Vom Quellsystem zum Zielmodell</div><h1>DWH-Projekte</h1><p>Data Warehouses konzipieren und ihre Umsetzung begleiten.</p></div>${state.user.role !== "viewer" ? `<button class="btn primary" data-action="dwh-create">${icon("plus")} Projekt anlegen</button>` : ""}</div>
+  shell(localize`<div class="page-head"><div><div class="eyebrow">Vom Quellsystem zum Zielmodell</div><h1>DWH-Projekte</h1><p>Data Warehouses konzipieren und ihre Umsetzung begleiten.</p></div>${state.user.role !== "viewer" ? localize`<button class="btn primary" data-action="dwh-create">${icon("plus")} Projekt anlegen</button>` : ""}</div>
     <div class="dwh-steps"><div><strong>01 · Konzeption</strong><span>Fachliche Ziele und Quellen</span></div><div><strong>02 · Zielmodell</strong><span>Fakten, Dimensionen und Feldzuordnungen</span></div><div><strong>03 · Umsetzung</strong><span>SQL-Entwurf und Fortschritt</span></div><div><strong>04 · Abgleich</strong><span>Sollmodell gegen gescanntes Ziel</span></div></div>
-    <section class="panel"><div class="panel-head"><h2>Deine Projekte</h2><span class="badge neutral">${projects.length}</span></div>${projects.length ? `<div class="table-wrap"><table><thead><tr><th>Projekt / Ziel</th><th>Plattform</th><th>Zieltabellen</th><th>Umgesetzt</th><th></th></tr></thead><tbody>${projects.map((p) => `<tr><td><strong>${e(p.name)}</strong><div class="small muted dwh-excerpt">${e(p.goal || "Fachliches Ziel noch offen")}</div></td><td>${databaseLogo(p.target_kind)} ${e(dwhEngines[p.target_kind])}<div class="small muted">${e(p.target_schema)}</div></td><td>${p.table_count}</td><td>${p.implemented_count} / ${p.table_count}</td><td><button class="text-button" data-action="dwh-open" data-id="${p.id}">Projekt öffnen →</button></td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">${icon("relations")}<h2>Dein erstes DWH-Projekt</h2><p>Wähle dokumentierte Quellen aus und entwickle daraus ein Zielmodell für SQL Server, PostgreSQL oder MariaDB.</p></div>`}</section>
+    <section class="panel"><div class="panel-head"><h2>Deine Projekte</h2><span class="badge neutral">${projects.length}</span></div>${projects.length ? localize`<div class="table-wrap"><table><thead><tr><th>Projekt / Ziel</th><th>Plattform</th><th>Zieltabellen</th><th>Umgesetzt</th><th></th></tr></thead><tbody>${projects.map((p) => localize`<tr><td><strong>${e(p.name)}</strong><div class="small muted dwh-excerpt">${e(p.goal || uiText("Fachliches Ziel noch offen"))}</div></td><td>${databaseLogo(p.target_kind)} ${e(dwhEngines[p.target_kind])}<div class="small muted">${e(p.target_schema)}</div></td><td>${p.table_count}</td><td>${p.implemented_count} / ${p.table_count}</td><td><button class="text-button" data-action="dwh-open" data-id="${p.id}">Projekt öffnen →</button></td></tr>`).join("")}</tbody></table></div>` : localize`<div class="empty">${icon("relations")}<h2>Dein erstes DWH-Projekt</h2><p>Wähle dokumentierte Quellen aus und entwickle daraus ein Zielmodell für SQL Server, PostgreSQL oder MariaDB.</p></div>`}</section>
     <div class="hint">${icon("info")}<span>Quellstrukturen liefern einen Ausgangspunkt. Fachliche Kennzahlen, Granularität, Historisierung und Ladeverfahren werden im Projekt festgelegt.</span></div>`);
 }
 function dwhProjectModal(edit = false) {
@@ -109,11 +109,11 @@ function dwhProjectModal(edit = false) {
       };
   const sources = state.sources.filter((s) => s.can_edit);
   openModal(
-    edit ? "DWH-Projekt bearbeiten" : "DWH-Projekt anlegen",
-    `<form id="dwh-project-form" data-edit="${edit}">
-    ${field("Projektname", "name", p.name, "text", 'required maxlength="190"')}
-    ${dwhArea("Fachliches Ziel & Anforderungen", "goal", p.goal, "Welche Auswertungen, Kennzahlen und Historisierung werden benötigt?", 10000)}
-    <div class="form-grid">${dwhSelect("Zielplattform", "target_kind", dwhEngines, p.target_kind)}${field("Zielschema / Zieldatenbank", "target_schema", p.target_schema, "text", 'required maxlength="63" pattern="[A-Za-z_][A-Za-z0-9_]*"')}</div>
+    edit ? uiText("DWH-Projekt bearbeiten") : uiText("DWH-Projekt anlegen"),
+    localize`<form id="dwh-project-form" data-edit="${edit}">
+    ${field(uiText("Projektname"), "name", p.name, "text", 'required maxlength="190"')}
+    ${dwhArea(uiText("Fachliches Ziel & Anforderungen"), "goal", p.goal, uiText("Welche Auswertungen, Kennzahlen und Historisierung werden benötigt?"), 10000)}
+    <div class="form-grid">${dwhSelect(uiText("Zielplattform"), "target_kind", dwhEngines, p.target_kind)}${field(uiText("Zielschema / Zieldatenbank"), "target_schema", p.target_schema, "text", 'required maxlength="63" pattern="[A-Za-z_][A-Za-z0-9_]*"')}</div>
     <div class="field"><label for="dwh-source-ids">Quellen für die Konzeption</label><select id="dwh-source-ids" name="source_ids" multiple size="5">${sources.map((s) => `<option value="${s.id}" ${p.source_ids.includes(s.id) ? "selected" : ""}>${e(s.name)} · ${e(names[s.kind])}</option>`).join("")}</select><small>Mehrfachauswahl möglich. Bestehende Feldzuordnungen benötigen ihre jeweilige Quelle.</small></div>
     <div class="field"><label for="dwh-target-source">Zieldatenquelle für Soll-Ist-Vergleich</label><select id="dwh-target-source" name="target_source_id"><option value="">Noch nicht verbunden</option>${sources
       .filter((s) => s.kind === p.target_kind)
@@ -124,20 +124,20 @@ function dwhProjectModal(edit = false) {
       .join(
         "",
       )}</select><small>Optional: Hinterlege und scanne das umgesetzte DWH als Datenquelle, um es mit dem Plan zu vergleichen.</small></div>
-    <p class="muted small">Projektrechte folgen den Freigaben aller zugeordneten Quellen einschließlich des Ziels. Projekte ohne Quellen sind nur für Ersteller und Administratoren sichtbar.</p>${edit ? '<button type="button" class="text-button danger" data-action="dwh-delete-project">Projekt entfernen</button>' : ""}${dwhFooter(edit ? "Projekt speichern" : "Projekt anlegen")}</form>`,
+    <p class="muted small">Projektrechte folgen den Freigaben aller zugeordneten Quellen einschließlich des Ziels. Projekte ohne Quellen sind nur für Ersteller und Administratoren sichtbar.</p>${edit ? localize('<button type="button" class="text-button danger" data-action="dwh-delete-project">Projekt entfernen</button>') : ""}${dwhFooter(edit ? uiText("Projekt speichern") : uiText("Projekt anlegen"))}</form>`,
   );
 }
 function renderDwhProject() {
   const p = state.dwhProject;
   const tab = state.dwhTab || "overview";
-  shell(`<button class="back" data-action="nav" data-view="warehouse">${icon("back")} Alle DWH-Projekte</button><div class="page-head"><div><div class="eyebrow">${e(dwhEngines[p.target_kind])} · ${e(p.target_schema)}</div><h1 class="dwh-project-title">${e(p.name)}</h1><p>Zielmodell und Umsetzung · Projektversion ${p.version}</p></div><div class="actions"><button class="btn" data-action="dwh-reload">${icon("refresh")} Neu laden</button><button class="btn" data-action="dwh-export" data-format="markdown">${icon("download")} Dokumentation</button><button class="btn" data-action="dwh-export" data-format="json">JSON</button><button class="btn primary" data-action="dwh-export" data-format="sql">${icon("download")} SQL-Entwurf</button>${p.can_edit ? '<button class="btn" data-action="dwh-settings">Projekt bearbeiten</button>' : ""}</div></div>
+  shell(localize`<button class="back" data-action="nav" data-view="warehouse">${icon("back")} Alle DWH-Projekte</button><div class="page-head"><div><div class="eyebrow">${e(dwhEngines[p.target_kind])} · ${e(p.target_schema)}</div><h1 class="dwh-project-title">${e(p.name)}</h1><p>Zielmodell und Umsetzung · Projektversion ${p.version}</p></div><div class="actions"><button class="btn" data-action="dwh-reload">${icon("refresh")} Neu laden</button><button class="btn" data-action="dwh-export" data-format="markdown">${icon("download")} Dokumentation</button><button class="btn" data-action="dwh-export" data-format="json">JSON</button><button class="btn primary" data-action="dwh-export" data-format="sql">${icon("download")} SQL-Entwurf</button>${p.can_edit ? localize('<button class="btn" data-action="dwh-settings">Projekt bearbeiten</button>') : ""}</div></div>
     ${tabs(
       [
-        ["overview", "Konzeption", "file"],
-        ["model", "Zielmodell", "relations"],
-        ["mappings", "Feldzuordnungen", "columns"],
-        ["progress", "Umsetzung", "clock"],
-        ["check", "Soll-Ist-Vergleich", "shield"],
+        ["overview", uiText("Konzeption"), "file"],
+        ["model", uiText("Zielmodell"), "relations"],
+        ["mappings", uiText("Feldzuordnungen"), "columns"],
+        ["progress", uiText("Umsetzung"), "clock"],
+        ["check", uiText("Soll-Ist-Vergleich"), "shield"],
       ],
       tab,
       "dwh-tab",
@@ -148,17 +148,19 @@ function dwhOverview() {
   const p = state.dwhProject;
   const count = (role) => p.tables.filter((t) => t.role === role).length;
   const issues = [...p.issues, ...p.mapping_issues];
-  return `<div class="stats">${stat("Zieltabellen", p.tables.length, "table", "Geplantes Warehouse")}${stat("Fakten", count("fact"), "grid", "Ereignisse und Kennzahlen")}${stat("Dimensionen", count("dimension"), "relations", "Fachlicher Kontext")}${stat("Umgesetzt", p.implemented_count, "clock", "Manuell gemeldeter Fortschritt")}</div>
-    <div class="info-grid"><section class="panel"><div class="panel-head"><h2>Fachliche Anforderungen</h2></div><div class="panel-body"><p class="dwh-prose">${e(p.goal || "Halte im Projektziel fest, welche Auswertungen und Kennzahlen benötigt werden, wie lange Daten historisiert werden und wie aktuell sie sein müssen.")}</p><h3 style="margin-top:24px">Projektquellen</h3><div class="tag-list" style="margin-top:12px">${p.source_ids.map((id) => `<span class="tag">${e(state.sources.find((s) => s.id === id)?.name || "Quelle #" + id)}</span>`).join("") || '<span class="muted">Noch keine Quellen ausgewählt</span>'}</div><p class="small muted" style="margin-top:18px">Ziel für den Abgleich: ${e(state.sources.find((s) => s.id === p.target_source_id)?.name || "Noch nicht verbunden")}</p></div></section>
+  return localize`<div class="stats">${stat(uiText("Zieltabellen"), p.tables.length, "table", uiText("Geplantes Warehouse"))}${stat(uiText("Fakten"), count("fact"), "grid", uiText("Ereignisse und Kennzahlen"))}${stat(uiText("Dimensionen"), count("dimension"), "relations", uiText("Fachlicher Kontext"))}${stat(uiText("Umgesetzt"), p.implemented_count, "clock", uiText("Manuell gemeldeter Fortschritt"))}</div>
+    <div class="info-grid"><section class="panel"><div class="panel-head"><h2>Fachliche Anforderungen</h2></div><div class="panel-body"><p class="dwh-prose">${e(p.goal || uiText("Halte im Projektziel fest, welche Auswertungen und Kennzahlen benötigt werden, wie lange Daten historisiert werden und wie aktuell sie sein müssen."))}</p><h3 style="margin-top:24px">Projektquellen</h3><div class="tag-list" style="margin-top:12px">${p.source_ids.map((id) => `<span class="tag">${e(state.sources.find((s) => s.id === id)?.name || uiText("Quelle #") + id)}</span>`).join("") || localize('<span class="muted">Noch keine Quellen ausgewählt</span>')}</div><p class="small muted" style="margin-top:18px">Ziel für den Abgleich: ${e(state.sources.find((s) => s.id === p.target_source_id)?.name || uiText("Noch nicht verbunden"))}</p></div></section>
     <section class="panel"><div class="panel-head"><h2>Offene Modellierungsfragen</h2><span class="badge neutral">${issues.length}</span></div><div class="panel-body">${
       issues.length
         ? `<ul class="dwh-issues">${issues
             .slice(0, 30)
-            .map((i) => `<li>${e(i)}</li>`)
+            .map((i) => `<li>${e(uiMessage(i))}</li>`)
             .join(
               "",
-            )}</ul>${issues.length > 30 ? `<p class="muted small">${issues.length - 30} weitere Hinweise im Dokumentationsexport.</p>` : ""}`
-        : "<p>Die grundlegenden Modellierungsangaben sind vollständig.</p>"
+            )}</ul>${issues.length > 30 ? localize`<p class="muted small">${issues.length - 30} weitere Hinweise im Dokumentationsexport.</p>` : ""}`
+        : localize(
+            "<p>Die grundlegenden Modellierungsangaben sind vollständig.</p>",
+          )
     }<p class="muted small" style="margin-top:18px">Diese Hinweise unterstützen die Planung. Die fachliche Abnahme und Datenqualität bewertet euer Team.</p></div></section></div>`;
 }
 function dwhSelectedTable() {
@@ -168,14 +170,16 @@ function dwhSelectedTable() {
 function dwhModelView() {
   const p = state.dwhProject;
   const t = dwhSelectedTable();
-  return `<div class="dwh-model-actions">${p.can_edit ? `<button class="btn primary" data-action="dwh-add-table">${icon("plus")} Zieltabelle anlegen</button><button class="btn" data-action="dwh-import">${icon("database")} Aus Quellstruktur übernehmen</button>` : '<span class="muted">Leserechte für dieses Zielmodell</span>'}</div>
+  return `<div class="dwh-model-actions">${p.can_edit ? localize`<button class="btn primary" data-action="dwh-add-table">${icon("plus")} Zieltabelle anlegen</button><button class="btn" data-action="dwh-import">${icon("database")} Aus Quellstruktur übernehmen</button>` : localize('<span class="muted">Leserechte für dieses Zielmodell</span>')}</div>
     ${
       p.tables.length
-        ? `<section class="panel dwh-diagram-panel"><div class="panel-head"><h2>Geplantes Datenmodell</h2><span class="small muted">${p.tables.reduce((n, t) => n + t.relations.length, 0)} geplante Beziehungen</span></div><div class="dwh-diagram">${dwhDiagram()}</div><div class="er-footer">Tabellen auswählen, um Details zu bearbeiten. ${p.tables.length > 30 ? "Das Diagramm zeigt die ersten 30 Tabellen; Liste und SQL-Export enthalten alle Tabellen." : ""}</div></section>
-    <div class="schema-layout"><aside class="object-list"><div class="object-items">${p.tables.map((x) => `<button class="object-item ${x.id === t.id ? "active" : ""}" data-action="dwh-select-table" data-id="${x.id}">${icon("table")}<span>${e(x.name)}</span><small>${e(dwhRoles[x.role])}</small></button>`).join("")}</div></aside><section class="panel object-detail"><div class="panel-head"><div><div class="eyebrow">${e(dwhLayers[t.layer])} · ${e(dwhRoles[t.role])}</div><h2>${e(t.name)}</h2></div>${p.can_edit ? '<button class="btn" data-action="dwh-edit-table">Tabelle bearbeiten</button>' : ""}</div><div class="panel-body"><p class="dwh-prose">${e(t.description || "Noch keine fachliche Beschreibung")}</p>${info("Granularität", e(t.grain || "Noch offen"))}${info("Ladeverfahren", t.load_mode === "incremental" ? "Inkrementell" : "Vollständig")}${info("Ladestrategie", e(t.load_strategy || "Noch offen"))}</div>
-    <div class="panel-head"><h3>Zielspalten</h3>${p.can_edit ? '<button class="btn" data-action="dwh-add-column">Spalte hinzufügen</button>' : ""}</div><div class="table-wrap"><table><thead><tr><th>Zielfeld</th><th>Typ</th><th>Zweck</th><th>NULL</th><th></th></tr></thead><tbody>${t.columns.map((c) => `<tr><td class="mono">${c.primary_key ? '<span class="key-label">PK</span>' : ""}${e(c.name)}${c.identity ? '<div class="small muted">Automatischer Schlüssel</div>' : ""}</td><td class="mono">${e(dwhTypeLabel(c))}</td><td>${e(dwhPurposes[c.purpose])}</td><td>${c.nullable ? "Ja" : "Nein"}</td><td>${p.can_edit ? `<button class="text-button" data-action="dwh-edit-column" data-id="${c.id}">Bearbeiten</button>` : ""}</td></tr>`).join("") || '<tr><td colspan="5">Noch keine Spalten geplant.</td></tr>'}</tbody></table></div>
-    <div class="panel-head"><h3>Geplante Beziehungen</h3>${p.can_edit ? '<button class="btn" data-action="dwh-add-relation">Beziehung anlegen</button>' : ""}</div><div class="panel-body">${t.relations.map((r) => `<div class="dwh-relation"><span class="mono">${e(r.columns.join(", "))} → ${e(p.tables.find((x) => x.id === r.target_table_id)?.name)} (${e(r.target_columns.join(", "))})</span>${p.can_edit ? `<button class="text-button danger" data-action="dwh-remove-relation" data-id="${r.id}">Entfernen</button>` : ""}</div>`).join("") || '<p class="muted">Noch keine Beziehungen geplant.</p>'}</div>${p.can_edit ? '<div class="panel-body"><button class="text-button danger" data-action="dwh-remove-table">Zieltabelle aus dem Plan entfernen</button></div>' : ""}</section></div>`
-        : '<div class="empty"><h2>Entwickle dein Zielmodell</h2><p>Übernimm Quelltabellen als Ausgangspunkt für Staging oder lege fachliche Fakten und Dimensionen an.</p></div>'
+        ? localize`<section class="panel dwh-diagram-panel"><div class="panel-head"><h2>Geplantes Datenmodell</h2><span class="small muted">${p.tables.reduce((n, t) => n + t.relations.length, 0)} geplante Beziehungen</span></div><div class="dwh-diagram">${dwhDiagram()}</div><div class="er-footer">Tabellen auswählen, um Details zu bearbeiten. ${p.tables.length > 30 ? uiText("Das Diagramm zeigt die ersten 30 Tabellen; Liste und SQL-Export enthalten alle Tabellen.") : ""}</div></section>
+    <div class="schema-layout"><aside class="object-list"><div class="object-items">${p.tables.map((x) => `<button class="object-item ${x.id === t.id ? "active" : ""}" data-action="dwh-select-table" data-id="${x.id}">${icon("table")}<span>${e(x.name)}</span><small>${e(dwhRoles[x.role])}</small></button>`).join("")}</div></aside><section class="panel object-detail"><div class="panel-head"><div><div class="eyebrow">${e(dwhLayers[t.layer])} · ${e(dwhRoles[t.role])}</div><h2>${e(t.name)}</h2></div>${p.can_edit ? localize('<button class="btn" data-action="dwh-edit-table">Tabelle bearbeiten</button>') : ""}</div><div class="panel-body"><p class="dwh-prose">${e(t.description || uiText("Noch keine fachliche Beschreibung"))}</p>${info(uiText("Granularität"), e(t.grain || uiText("Noch offen")))}${info(uiText("Ladeverfahren"), t.load_mode === "incremental" ? uiText("Inkrementell") : uiText("Vollständig"))}${info(uiText("Ladestrategie"), e(t.load_strategy || uiText("Noch offen")))}</div>
+    <div class="panel-head"><h3>Zielspalten</h3>${p.can_edit ? localize('<button class="btn" data-action="dwh-add-column">Spalte hinzufügen</button>') : ""}</div><div class="table-wrap"><table><thead><tr><th>Zielfeld</th><th>Typ</th><th>Zweck</th><th>NULL</th><th></th></tr></thead><tbody>${t.columns.map((c) => `<tr><td class="mono">${c.primary_key ? '<span class="key-label">PK</span>' : ""}${e(c.name)}${c.identity ? localize('<div class="small muted">Automatischer Schlüssel</div>') : ""}</td><td class="mono">${e(dwhTypeLabel(c))}</td><td>${e(dwhPurposes[c.purpose])}</td><td>${c.nullable ? uiText("Ja") : uiText("Nein")}</td><td>${p.can_edit ? localize`<button class="text-button" data-action="dwh-edit-column" data-id="${c.id}">Bearbeiten</button>` : ""}</td></tr>`).join("") || localize('<tr><td colspan="5">Noch keine Spalten geplant.</td></tr>')}</tbody></table></div>
+    <div class="panel-head"><h3>Geplante Beziehungen</h3>${p.can_edit ? localize('<button class="btn" data-action="dwh-add-relation">Beziehung anlegen</button>') : ""}</div><div class="panel-body">${t.relations.map((r) => `<div class="dwh-relation"><span class="mono">${e(r.columns.join(", "))} → ${e(p.tables.find((x) => x.id === r.target_table_id)?.name)} (${e(r.target_columns.join(", "))})</span>${p.can_edit ? localize`<button class="text-button danger" data-action="dwh-remove-relation" data-id="${r.id}">Entfernen</button>` : ""}</div>`).join("") || localize('<p class="muted">Noch keine Beziehungen geplant.</p>')}</div>${p.can_edit ? localize('<div class="panel-body"><button class="text-button danger" data-action="dwh-remove-table">Zieltabelle aus dem Plan entfernen</button></div>') : ""}</section></div>`
+        : localize(
+            '<div class="empty"><h2>Entwickle dein Zielmodell</h2><p>Übernimm Quelltabellen als Ausgangspunkt für Staging oder lege fachliche Fakten und Dimensionen an.</p></div>',
+          )
     }`;
 }
 function dwhTypeLabel(c) {
@@ -231,7 +235,7 @@ function dwhDiagram() {
         .join("")}</g>`;
     })
     .join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="${height}" role="img" aria-label="Geplantes DWH-Modell"><defs><marker id="dwh-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10" fill="#739b7c"/></marker></defs>${links}${nodes}</svg>`;
+  return localize`<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="${height}" role="img" aria-label="Geplantes DWH-Modell"><defs><marker id="dwh-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10" fill="#739b7c"/></marker></defs>${links}${nodes}</svg>`;
 }
 function dwhTableModal(edit = false) {
   const t = edit
@@ -247,8 +251,8 @@ function dwhTableModal(edit = false) {
         status: "planned",
       };
   openModal(
-    edit ? "Zieltabelle bearbeiten" : "Zieltabelle anlegen",
-    `<form id="dwh-table-form" data-id="${edit ? t.id : ""}">${field("Tabellenname", "name", t.name, "text", 'required maxlength="63" pattern="[A-Za-z_][A-Za-z0-9_]*" placeholder="dim_customer oder fact_sales"')}<div class="form-grid">${dwhSelect("Modellrolle", "role", dwhRoles, t.role)}${dwhSelect("Warehouse-Schicht", "layer", dwhLayers, t.layer)}</div>${dwhArea("Granularität – was beschreibt eine Zeile?", "grain", t.grain, "Eine Zeile je Bestellposition oder je Kunde und Gültigkeitszeitraum", 2000)}${dwhArea("Fachliche Beschreibung", "description", t.description)}<div class="form-grid">${dwhSelect("Ladeverfahren", "load_mode", { full: "Vollständig", incremental: "Inkrementell" }, t.load_mode)}${dwhSelect("Umsetzungsstatus", "status", dwhStatuses, t.status)}</div>${dwhArea("Ladestrategie & Historisierung", "load_strategy", t.load_strategy, "Z. B. täglicher Lauf, Änderungserkennung über updated_at, SCD Typ 2, Löschbehandlung und Wiederanlauf")}${dwhFooter()}</form>`,
+    edit ? uiText("Zieltabelle bearbeiten") : uiText("Zieltabelle anlegen"),
+    `<form id="dwh-table-form" data-id="${edit ? t.id : ""}">${field(uiText("Tabellenname"), "name", t.name, "text", localize('required maxlength="63" pattern="[A-Za-z_][A-Za-z0-9_]*" placeholder="dim_customer oder fact_sales"'))}<div class="form-grid">${dwhSelect(uiText("Modellrolle"), "role", dwhRoles, t.role)}${dwhSelect(uiText("Warehouse-Schicht"), "layer", dwhLayers, t.layer)}</div>${dwhArea(uiText("Granularität – was beschreibt eine Zeile?"), "grain", t.grain, uiText("Eine Zeile je Bestellposition oder je Kunde und Gültigkeitszeitraum"), 2000)}${dwhArea(uiText("Fachliche Beschreibung"), "description", t.description)}<div class="form-grid">${dwhSelect(uiText("Ladeverfahren"), "load_mode", { full: uiText("Vollständig"), incremental: uiText("Inkrementell") }, t.load_mode)}${dwhSelect(uiText("Umsetzungsstatus"), "status", dwhStatuses, t.status)}</div>${dwhArea(uiText("Ladestrategie & Historisierung"), "load_strategy", t.load_strategy, uiText("Z. B. täglicher Lauf, Änderungserkennung über updated_at, SCD Typ 2, Löschbehandlung und Wiederanlauf"))}${dwhFooter()}</form>`,
   );
 }
 async function dwhColumnModal(columnId = null) {
@@ -276,10 +280,10 @@ async function dwhColumnModal(columnId = null) {
     mapping: c.mapping ? structuredClone(c.mapping) : null,
   };
   openModal(
-    columnId ? "Zielspalte bearbeiten" : "Zielspalte anlegen",
-    `<form id="dwh-column-form">${field("Spaltenname", "name", c.name, "text", 'required maxlength="63" pattern="[A-Za-z_][A-Za-z0-9_]*"')}<div class="form-grid">${dwhSelect("Datentyp", "data_type", dwhTypes, c.data_type)}${dwhSelect("Fachlicher Zweck", "purpose", dwhPurposes, c.purpose)}</div><div class="form-grid">${field("Textlänge", "length", c.length, "number", 'required min="1" max="4000"')}${field("Dezimalpräzision", "precision", c.precision, "number", 'required min="1" max="38"')}${field("Dezimalstellen", "scale", c.scale, "number", 'required min="0" max="38"')}</div><div class="dwh-checks"><label><input type="checkbox" name="nullable" ${c.nullable ? "checked" : ""}> NULL erlaubt</label><label><input type="checkbox" name="primary_key" ${c.primary_key ? "checked" : ""}> Primärschlüssel</label><label><input type="checkbox" name="identity" ${c.identity ? "checked" : ""}> Automatischer Schlüssel</label></div>
-    <div class="field"><label for="dwh-mapping-source">Quellzuordnung</label><select id="dwh-mapping-source"><option value="">Abgeleitet / manuell</option>${p.source_ids.map((id) => `<option value="${id}" ${c.mapping?.source_id === id ? "selected" : ""}>${e(state.sources.find((s) => s.id === id)?.name || "Quelle #" + id)}</option>`).join("")}</select><small id="dwh-mapping-saved">${c.mapping ? `Gespeicherte Zuordnung aus Scan #${c.mapping.snapshot_id}: ${e(c.mapping.column_name)}. Eine neue Auswahl verwendet den aktuellen Scan.` : "Wähle Quelle, Objekt und Feld oder beschreibe eine Ableitung."}</small></div><div id="dwh-mapping-fields"></div>
-    ${dwhArea("Transformation / Ableitungsregel", "transformation", c.transformation, "Fachliche Regel, z. B. Netto = Menge × Einzelpreis. Wird dokumentiert, nicht ausgeführt.", 2000)}${dwhArea("Beschreibung", "description", c.description, "Bedeutung, Einheit und fachliche Definition", 2000)}${columnId ? '<button type="button" class="text-button danger" data-action="dwh-remove-column">Spalte aus dem Plan entfernen</button>' : ""}${dwhFooter()}</form>`,
+    columnId ? uiText("Zielspalte bearbeiten") : uiText("Zielspalte anlegen"),
+    localize`<form id="dwh-column-form">${field(uiText("Spaltenname"), "name", c.name, "text", 'required maxlength="63" pattern="[A-Za-z_][A-Za-z0-9_]*"')}<div class="form-grid">${dwhSelect(uiText("Datentyp"), "data_type", dwhTypes, c.data_type)}${dwhSelect(uiText("Fachlicher Zweck"), "purpose", dwhPurposes, c.purpose)}</div><div class="form-grid">${field(uiText("Textlänge"), "length", c.length, "number", 'required min="1" max="4000"')}${field(uiText("Dezimalpräzision"), "precision", c.precision, "number", 'required min="1" max="38"')}${field(uiText("Dezimalstellen"), "scale", c.scale, "number", 'required min="0" max="38"')}</div><div class="dwh-checks"><label><input type="checkbox" name="nullable" ${c.nullable ? "checked" : ""}> NULL erlaubt</label><label><input type="checkbox" name="primary_key" ${c.primary_key ? "checked" : ""}> Primärschlüssel</label><label><input type="checkbox" name="identity" ${c.identity ? "checked" : ""}> Automatischer Schlüssel</label></div>
+    <div class="field"><label for="dwh-mapping-source">Quellzuordnung</label><select id="dwh-mapping-source"><option value="">Abgeleitet / manuell</option>${p.source_ids.map((id) => `<option value="${id}" ${c.mapping?.source_id === id ? "selected" : ""}>${e(state.sources.find((s) => s.id === id)?.name || uiText("Quelle #") + id)}</option>`).join("")}</select><small id="dwh-mapping-saved">${c.mapping ? localize`Gespeicherte Zuordnung aus Scan #${c.mapping.snapshot_id}: ${e(c.mapping.column_name)}. Eine neue Auswahl verwendet den aktuellen Scan.` : uiText("Wähle Quelle, Objekt und Feld oder beschreibe eine Ableitung.")}</small></div><div id="dwh-mapping-fields"></div>
+    ${dwhArea(uiText("Transformation / Ableitungsregel"), "transformation", c.transformation, uiText("Fachliche Regel, z. B. Netto = Menge × Einzelpreis. Wird dokumentiert, nicht ausgeführt."), 2000)}${dwhArea(uiText("Beschreibung"), "description", c.description, uiText("Bedeutung, Einheit und fachliche Definition"), 2000)}${columnId ? localize('<button type="button" class="text-button danger" data-action="dwh-remove-column">Spalte aus dem Plan entfernen</button>') : ""}${dwhFooter()}</form>`,
   );
   dwhTypeFields();
 }
@@ -309,7 +313,7 @@ async function dwhMappingSource() {
     return;
   context.snapshot = snap;
   document.getElementById("dwh-mapping-fields").innerHTML =
-    `<div class="field"><label for="dwh-mapping-table">Quellobjekt</label><select id="dwh-mapping-table"><option value="">Objekt wählen</option>${snap.payload.tables.map((t, i) => `<option value="${i}">${e(t.schema ? t.schema + "." + t.name : t.name)}</option>`).join("")}</select></div><div class="field"><label for="dwh-mapping-column">Quellfeld</label><select id="dwh-mapping-column"><option value="">Feld wählen</option></select></div>`;
+    localize`<div class="field"><label for="dwh-mapping-table">Quellobjekt</label><select id="dwh-mapping-table"><option value="">Objekt wählen</option>${snap.payload.tables.map((t, i) => `<option value="${i}">${e(t.schema ? t.schema + "." + t.name : t.name)}</option>`).join("")}</select></div><div class="field"><label for="dwh-mapping-column">Quellfeld</label><select id="dwh-mapping-column"><option value="">Feld wählen</option></select></div>`;
 }
 function dwhMappingColumn() {
   const context = state.dwhColumnContext;
@@ -333,20 +337,21 @@ function dwhRelationModal() {
     x.columns.some((c) => c.primary_key),
   );
   openModal(
-    "Beziehung planen",
-    `<form id="dwh-relation-form"><div class="field"><label for="dwh-relation-columns">Spalten dieser Tabelle</label><input id="dwh-relation-columns" name="columns" required placeholder="customer_id oder key_a, key_b"><small>Vorhandene Zielspalten, durch Kommas getrennt. Reihenfolge entspricht dem Ziel-Primärschlüssel.</small></div>${dwhSelect("Referenzierte Tabelle", "target_table_id", Object.fromEntries(targets.map((x) => [x.id, x.name])), targets[0]?.id)}<p class="small muted" id="dwh-relation-key">${e(
+    uiText("Beziehung planen"),
+    localize`<form id="dwh-relation-form"><div class="field"><label for="dwh-relation-columns">Spalten dieser Tabelle</label><input id="dwh-relation-columns" name="columns" required placeholder="customer_id oder key_a, key_b"><small>Vorhandene Zielspalten, durch Kommas getrennt. Reihenfolge entspricht dem Ziel-Primärschlüssel.</small></div>${dwhSelect(uiText("Referenzierte Tabelle"), "target_table_id", Object.fromEntries(targets.map((x) => [x.id, x.name])), targets[0]?.id)}<p class="small muted" id="dwh-relation-key">${e(
       targets[0]?.columns
         .filter((c) => c.primary_key)
         .map((c) => c.name)
-        .join(", ") || "Die Zieltabelle benötigt einen Primärschlüssel.",
-    )}</p>${dwhFooter("Beziehung speichern")}</form>`,
+        .join(", ") ||
+        uiText("Die Zieltabelle benötigt einen Primärschlüssel."),
+    )}</p>${dwhFooter(uiText("Beziehung speichern"))}</form>`,
   );
 }
 async function dwhImportModal() {
   const p = state.dwhProject;
   openModal(
-    "Quellstruktur als Staging übernehmen",
-    `<form id="dwh-import-form">${dwhSelect("Projektquelle", "import_source", Object.fromEntries(p.source_ids.map((id) => [id, state.sources.find((s) => s.id === id)?.name || "Quelle #" + id])), String(p.source_ids[0] || ""))}<div id="dwh-import-tables"><p class="muted">Quellobjekte werden geladen …</p></div><p class="muted small">Spalten und Feldzuordnungen werden aus dem aktuellen Scan übernommen. Zieltypen sind Vorschläge; Modellrolle, Kennzahlen, Historisierung und Beziehungen legst du anschließend fest.</p>${dwhFooter("Als Staging übernehmen")}</form>`,
+    uiText("Quellstruktur als Staging übernehmen"),
+    localize`<form id="dwh-import-form">${dwhSelect(uiText("Projektquelle"), "import_source", Object.fromEntries(p.source_ids.map((id) => [id, state.sources.find((s) => s.id === id)?.name || uiText("Quelle #") + id])), String(p.source_ids[0] || ""))}<div id="dwh-import-tables"><p class="muted">Quellobjekte werden geladen …</p></div><p class="muted small">Spalten und Feldzuordnungen werden aus dem aktuellen Scan übernommen. Zieltypen sind Vorschläge; Modellrolle, Kennzahlen, Historisierung und Beziehungen legst du anschließend fest.</p>${dwhFooter(uiText("Als Staging übernehmen"))}</form>`,
   );
   await dwhImportTables();
 }
@@ -354,27 +359,28 @@ async function dwhImportTables() {
   const select = document.getElementById("dwh-import_source");
   const id = Number(select.value);
   if (!id) {
-    document.getElementById("dwh-import-tables").innerHTML =
-      "<p>Wähle zuerst Projektquellen unter „Projekt bearbeiten“ aus.</p>";
+    document.getElementById("dwh-import-tables").innerHTML = localize(
+      "<p>Wähle zuerst Projektquellen unter „Projekt bearbeiten“ aus.</p>",
+    );
     return;
   }
   const snap = await api(`/api/sources/${id}/snapshot`);
   if (!modal.open || Number(select.value) !== id) return;
   document.getElementById("dwh-import-tables").innerHTML =
-    `<div class="field"><label for="dwh-import-keys">Quellobjekte · Scan #${snap.id}</label><select id="dwh-import-keys" name="table_keys" multiple required size="8">${snap.payload.tables.map((t) => `<option value="${e(t.key)}">${e(t.schema ? t.schema + "." + t.name : t.name)} · ${t.columns.length} Felder</option>`).join("")}</select><small>Bis zu 50 Objekte je Übernahme; Mehrfachauswahl möglich.</small></div>`;
+    localize`<div class="field"><label for="dwh-import-keys">Quellobjekte · Scan #${snap.id}</label><select id="dwh-import-keys" name="table_keys" multiple required size="8">${snap.payload.tables.map((t) => localize`<option value="${e(t.key)}">${e(t.schema ? t.schema + "." + t.name : t.name)} · ${t.columns.length} Felder</option>`).join("")}</select><small>Bis zu 50 Objekte je Übernahme; Mehrfachauswahl möglich.</small></div>`;
 }
 function dwhMappingView() {
   const p = state.dwhProject;
-  return `<section class="panel"><div class="panel-head"><div><h2>Quelle → Zielfeld</h2><p class="muted small">Gespeicherter Quellscan, fachlicher Zweck und Transformation je Zielspalte.</p></div></div><div class="table-wrap"><table><thead><tr><th>Zieltabelle / Feld</th><th>Quelle / Scan</th><th>Quellfeld</th><th>Transformation</th></tr></thead><tbody>${p.tables.flatMap((t) => t.columns.map((c) => `<tr><td><strong>${e(t.name)}</strong><div class="mono">${e(c.name)}</div><div class="small muted">${e(dwhPurposes[c.purpose])}</div></td><td>${c.mapping ? `${e(state.sources.find((s) => s.id === c.mapping.source_id)?.name || "Quelle #" + c.mapping.source_id)}<div class="small muted">Scan #${c.mapping.snapshot_id}</div>` : "Abgeleitet / manuell"}</td><td class="mono">${c.mapping ? `${e(JSON.parse(c.mapping.table_key).filter(Boolean).join("."))}<div>${e(c.mapping.column_name)}</div>` : "—"}</td><td class="dwh-prose">${e(c.transformation || "—")}</td></tr>`)).join("") || '<tr><td colspan="4">Lege Zielspalten an oder übernimm eine Quellstruktur.</td></tr>'}</tbody></table></div></section>${p.mapping_issues.length ? `<div class="hint">${icon("info")}<span>${p.mapping_issues.map(e).join("<br>")}</span></div>` : ""}`;
+  return localize`<section class="panel"><div class="panel-head"><div><h2>Quelle → Zielfeld</h2><p class="muted small">Gespeicherter Quellscan, fachlicher Zweck und Transformation je Zielspalte.</p></div></div><div class="table-wrap"><table><thead><tr><th>Zieltabelle / Feld</th><th>Quelle / Scan</th><th>Quellfeld</th><th>Transformation</th></tr></thead><tbody>${p.tables.flatMap((t) => t.columns.map((c) => `<tr><td><strong>${e(t.name)}</strong><div class="mono">${e(c.name)}</div><div class="small muted">${e(dwhPurposes[c.purpose])}</div></td><td>${c.mapping ? `${e(state.sources.find((s) => s.id === c.mapping.source_id)?.name || uiText("Quelle #") + c.mapping.source_id)}<div class="small muted">Scan #${c.mapping.snapshot_id}</div>` : uiText("Abgeleitet / manuell")}</td><td class="mono">${c.mapping ? `${e(JSON.parse(c.mapping.table_key).filter(Boolean).join("."))}<div>${e(c.mapping.column_name)}</div>` : "—"}</td><td class="dwh-prose">${e(c.transformation || "—")}</td></tr>`)).join("") || localize('<tr><td colspan="4">Lege Zielspalten an oder übernimm eine Quellstruktur.</td></tr>')}</tbody></table></div></section>${p.mapping_issues.length ? `<div class="hint">${icon("info")}<span>${p.mapping_issues.map(e).join("<br>")}</span></div>` : ""}`;
 }
 function dwhProgressView() {
   const p = state.dwhProject;
-  return `<section class="panel"><div class="panel-head"><div><h2>Umsetzung begleiten</h2><p class="muted small">Status je Zieltabelle; „Fachlich abgenommen“ ist eine Entscheidung eures Teams.</p></div></div><div class="table-wrap"><table><thead><tr><th>Zieltabelle</th><th>Modellrolle</th><th>Laden / Historisierung</th><th>Status</th></tr></thead><tbody>${p.tables.map((t) => `<tr><td><strong>${e(t.name)}</strong><div class="small muted">${e(t.grain || "Granularität offen")}</div></td><td>${e(dwhRoles[t.role])}</td><td class="dwh-prose">${e(t.load_strategy || "Ladestrategie noch offen")}</td><td><select aria-label="Umsetzungsstatus ${e(t.name)}" data-dwh-status="${t.id}" ${p.can_edit ? "" : "disabled"}>${dwhOptions(dwhStatuses, t.status)}</select></td></tr>`).join("") || '<tr><td colspan="4">Noch keine Zieltabellen geplant.</td></tr>'}</tbody></table></div></section><div class="hint">${icon("info")}<span>SQL-Export erstellt einen Entwurf für die initiale Tabellenstruktur. Ladejobs, Transformationen und Datenqualitätsprüfungen werden in dieser Version geplant und außerhalb von DatabaseDoc umgesetzt.</span></div>`;
+  return localize`<section class="panel"><div class="panel-head"><div><h2>Umsetzung begleiten</h2><p class="muted small">Status je Zieltabelle; „Fachlich abgenommen“ ist eine Entscheidung eures Teams.</p></div></div><div class="table-wrap"><table><thead><tr><th>Zieltabelle</th><th>Modellrolle</th><th>Laden / Historisierung</th><th>Status</th></tr></thead><tbody>${p.tables.map((t) => localize`<tr><td><strong>${e(t.name)}</strong><div class="small muted">${e(t.grain || uiText("Granularität offen"))}</div></td><td>${e(dwhRoles[t.role])}</td><td class="dwh-prose">${e(t.load_strategy || uiText("Ladestrategie noch offen"))}</td><td><select aria-label="Umsetzungsstatus ${e(t.name)}" data-dwh-status="${t.id}" ${p.can_edit ? "" : "disabled"}>${dwhOptions(dwhStatuses, t.status)}</select></td></tr>`).join("") || localize('<tr><td colspan="4">Noch keine Zieltabellen geplant.</td></tr>')}</tbody></table></div></section><div class="hint">${icon("info")}<span>SQL-Export erstellt einen Entwurf für die initiale Tabellenstruktur. Ladejobs, Transformationen und Datenqualitätsprüfungen werden in dieser Version geplant und außerhalb von DatabaseDoc umgesetzt.</span></div>`;
 }
 function dwhCheckView() {
   const p = state.dwhProject,
     c = state.dwhComparison;
-  return `<section class="panel"><div class="panel-head"><div><h2>Geplantes Modell gegen Zielsystem</h2><p class="muted small">${e(state.sources.find((s) => s.id === p.target_source_id)?.name || "Noch keine Zieldatenquelle zugeordnet")}</p></div><button class="btn primary" data-action="dwh-compare" ${p.target_source_id ? "" : "disabled"}>${icon("shield")} Jetzt vergleichen</button></div><div class="panel-body"><p>Nach der Umsetzung das Zielsystem als Datenquelle hinterlegen und scannen. Der Vergleich prüft Tabellen, Spalten, Datentypen, NULL-Zulässigkeit, Primärschlüssel und geplante Beziehungen.</p>${c ? `<p style="margin:18px 0"><strong>${c.matched} / ${c.total} Tabellen entsprechen dem Plan</strong> · Scan #${c.snapshot_id} vom ${e(dt(c.created))}</p>${c.tables.map((t) => `<div class="dwh-check-result"><h3>${e(t.table_name)} <span class="badge ${t.matches ? "" : "error"}">${t.matches ? "Struktur entspricht dem Plan" : "Abweichungen"}</span></h3>${t.issues.length ? `<ul class="dwh-issues">${t.issues.map((i) => `<li>${e(i)}</li>`).join("")}</ul>` : ""}${t.extra_columns.length ? `<p class="muted small">Zusätzliche Spalten: ${e(t.extra_columns.join(", "))}</p>` : ""}</div>`).join("")}${c.extra_tables.length ? `<p>Zusätzliche Zieltabellen: ${e(c.extra_tables.join(", "))}</p>` : ""}<p class="small muted">${e(c.limitations)}</p>` : ""}</div></section>`;
+  return localize`<section class="panel"><div class="panel-head"><div><h2>Geplantes Modell gegen Zielsystem</h2><p class="muted small">${e(state.sources.find((s) => s.id === p.target_source_id)?.name || uiText("Noch keine Zieldatenquelle zugeordnet"))}</p></div><button class="btn primary" data-action="dwh-compare" ${p.target_source_id ? "" : "disabled"}>${icon("shield")} Jetzt vergleichen</button></div><div class="panel-body"><p>Nach der Umsetzung das Zielsystem als Datenquelle hinterlegen und scannen. Der Vergleich prüft Tabellen, Spalten, Datentypen, NULL-Zulässigkeit, Primärschlüssel und geplante Beziehungen.</p>${c ? localize`<p style="margin:18px 0"><strong>${c.matched} / ${c.total} Tabellen entsprechen dem Plan</strong> · Scan #${c.snapshot_id} vom ${e(dt(c.created))}</p>${c.tables.map((t) => `<div class="dwh-check-result"><h3>${e(t.table_name)} <span class="badge ${t.matches ? "" : "error"}">${t.matches ? uiText("Struktur entspricht dem Plan") : uiText("Abweichungen")}</span></h3>${t.issues.length ? `<ul class="dwh-issues">${t.issues.map((i) => `<li>${e(uiMessage(i))}</li>`).join("")}</ul>` : ""}${t.extra_columns.length ? localize`<p class="muted small">Zusätzliche Spalten: ${e(t.extra_columns.join(", "))}</p>` : ""}</div>`).join("")}${c.extra_tables.length ? localize`<p>Zusätzliche Zieltabellen: ${e(c.extra_tables.join(", "))}</p>` : ""}<p class="small muted">${e(c.limitations)}</p>` : ""}</div></section>`;
 }
 async function dwhDownload(format) {
   const id = state.dwhProject.id;
@@ -389,7 +395,9 @@ async function dwhDownload(format) {
       await showLogin();
     }
     throw new Error(
-      typeof err.detail === "string" ? err.detail : "Export fehlgeschlagen.",
+      typeof err.detail === "string"
+        ? err.detail
+        : uiText("Export fehlgeschlagen."),
     );
   }
   const url = URL.createObjectURL(await response.blob()),
@@ -411,15 +419,15 @@ async function warehouseClick(button) {
   if (action === "dwh-delete-project") {
     modal.close();
     openModal(
-      "DWH-Projekt entfernen",
-      `<p>Das Projekt „${e(p.name)}“ mit allen Zieltabellen, Feldzuordnungen und Statusangaben aus DatabaseDoc entfernen?</p><p class="muted small">Quell- und Zieldatenbanken bleiben erhalten.</p><button class="btn danger" data-action="dwh-confirm-delete-project">Projekt entfernen</button>`,
+      uiText("DWH-Projekt entfernen"),
+      localize`<p>Das Projekt „${e(p.name)}“ mit allen Zieltabellen, Feldzuordnungen und Statusangaben aus DatabaseDoc entfernen?</p><p class="muted small">Quell- und Zieldatenbanken bleiben erhalten.</p><button class="btn danger" data-action="dwh-confirm-delete-project">Projekt entfernen</button>`,
     );
   }
   if (action === "dwh-confirm-delete-project") {
     await api(`/api/dwh/projects/${p.id}?version=${p.version}`, "DELETE");
     modal.close();
     await navigate("warehouse");
-    toast("DWH-Projekt entfernt.");
+    toast(uiText("DWH-Projekt entfernt."));
   }
 
   if (action === "dwh-reload") {
@@ -473,15 +481,17 @@ async function warehouseClick(button) {
         ),
       )
     )
-      throw new Error("Bitte zuerst die Beziehungen dieser Spalte entfernen.");
+      throw new Error(
+        uiText("Bitte zuerst die Beziehungen dieser Spalte entfernen."),
+      );
     t.columns = t.columns.filter((c) => c.id !== context.columnId);
     await dwhSave(body);
   }
   if (action === "dwh-remove-table") {
     const t = dwhSelectedTable();
     openModal(
-      "Zieltabelle entfernen",
-      `<p>${e(t.name)} mit ${t.columns.length} geplanten Spalten aus dem Projekt entfernen? Zugehörige geplante Beziehungen werden ebenfalls entfernt.</p><p class="muted small">Dieser Schritt ändert nur den Projektplan.</p><button class="btn danger" data-action="dwh-confirm-remove-table" data-id="${t.id}">Aus dem Plan entfernen</button>`,
+      uiText("Zieltabelle entfernen"),
+      localize`<p>${e(t.name)} mit ${t.columns.length} geplanten Spalten aus dem Projekt entfernen? Zugehörige geplante Beziehungen werden ebenfalls entfernt.</p><p class="muted small">Dieser Schritt ändert nur den Projektplan.</p><button class="btn danger" data-action="dwh-confirm-remove-table" data-id="${t.id}">Aus dem Plan entfernen</button>`,
     );
   }
   if (action === "dwh-confirm-remove-table") {
@@ -542,13 +552,15 @@ async function warehouseSubmit(form) {
         context.version !== state.dwhProject.version
       )
         throw new Error(
-          "Projekt wurde inzwischen geändert. Bitte Spalteneditor neu öffnen.",
+          uiText(
+            "Projekt wurde inzwischen geändert. Bitte Spalteneditor neu öffnen.",
+          ),
         );
       if (
         document.getElementById("dwh-mapping-source").value &&
         !context.mapping
       )
-        throw new Error("Bitte Quellobjekt und Quellfeld auswählen.");
+        throw new Error(uiText("Bitte Quellobjekt und Quellfeld auswählen."));
       const body = dwhBody(),
         t = body.tables.find((t) => t.id === context.tableId);
       const c = t.columns.find((c) => c.id === context.columnId) || {
@@ -591,7 +603,9 @@ async function warehouseSubmit(form) {
         t = body.tables.find((x) => x.id === dwhSelectedTable().id),
         target = body.tables.find((x) => x.id === data.target_table_id);
       if (!target)
-        throw new Error("Bitte eine Zieltabelle mit Primärschlüssel anlegen.");
+        throw new Error(
+          uiText("Bitte eine Zieltabelle mit Primärschlüssel anlegen."),
+        );
       t.relations.push({
         id: dwhUUID(),
         columns: data.columns
@@ -618,13 +632,13 @@ async function warehouseSubmit(form) {
       renderDwhProject();
       toast(
         result.warnings.length
-          ? "Übernommen. Einige Datentypen bitte prüfen."
-          : "Quellstruktur mit Feldzuordnungen übernommen.",
+          ? uiText("Übernommen. Einige Datentypen bitte prüfen.")
+          : uiText("Quellstruktur mit Feldzuordnungen übernommen."),
       );
       if (result.warnings.length)
         openModal(
-          "Zieltypen prüfen",
-          `<ul class="dwh-issues">${result.warnings.map((w) => `<li>${e(w)}</li>`).join("")}</ul>`,
+          uiText("Zieltypen prüfen"),
+          `<ul class="dwh-issues">${result.warnings.map((w) => `<li>${e(uiMessage(w))}</li>`).join("")}</ul>`,
         );
     }
   } catch (error) {
@@ -647,7 +661,7 @@ async function warehouseChange(target) {
           mariadb: "warehouse",
         }[target.value];
       document.getElementById("dwh-target-source").innerHTML =
-        '<option value="">Noch nicht verbunden</option>' +
+        localize('<option value="">Noch nicht verbunden</option>') +
         state.sources
           .filter((s) => s.can_edit && s.kind === target.value)
           .map((s) => `<option value="${s.id}">${e(s.name)}</option>`)
@@ -661,7 +675,7 @@ async function warehouseChange(target) {
           ? state.dwhColumnContext.snapshot.payload.tables[Number(target.value)]
           : null;
       document.getElementById("dwh-mapping-column").innerHTML =
-        '<option value="">Feld wählen</option>' +
+        localize('<option value="">Feld wählen</option>') +
         (t?.columns || [])
           .map(
             (c) =>

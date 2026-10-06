@@ -122,7 +122,7 @@ def blueprint(kind="postgresql"):
 @pytest.fixture(scope="module")
 def client():
     login_attempts.clear()
-    with TestClient(app) as c:
+    with TestClient(app, headers={"Accept-Language": "de-DE"}) as c:
         r = c.post(
             "/api/auth/login",
             json={"username": "admin", "password": os.environ["ADMIN_PASSWORD"]},
@@ -305,7 +305,7 @@ def test_permissions_revocation_csrf_bound_target_and_source_deletion(client, ca
         },
     )
     user = r.json()
-    with TestClient(app) as viewer:
+    with TestClient(app, headers={"Accept-Language": "de-DE"}) as viewer:
         login = viewer.post(
             "/api/auth/login",
             json={

@@ -21,6 +21,7 @@ from reportlab.platypus import (
     TableStyle,
     Flowable,
 )
+from .i18n import tr, tr_message
 
 FONT = "DatabaseDoc"
 BOLD = "DatabaseDocBold"
@@ -159,13 +160,15 @@ def footer(payload, page_size):
         canvas.line(36, height - 33, width - 36, height - 33)
         canvas.setFont(BOLD, 9)
         canvas.setFillColor(GREEN)
-        canvas.drawString(36, height - 25, "DatabaseDoc · Datenbankdokumentation")
+        canvas.drawString(36, height - 25, tr("DatabaseDoc · Datenbankdokumentation"))
         canvas.setFont(FONT, 8)
         canvas.setFillColor(MUTED)
         canvas.drawString(
-            36, 24, f'Schema-Stand #{payload["snapshot_id"]} · {payload["created"]}'
+            36,
+            24,
+            tr("Schema-Stand #{0} · {1}", payload["snapshot_id"], payload["created"]),
         )
-        canvas.drawRightString(width - 36, 24, f"Seite {canvas.getPageNumber()}")
+        canvas.drawRightString(width - 36, 24, tr("Seite {0}", canvas.getPageNumber()))
         canvas.restoreState()
 
     return draw
@@ -212,26 +215,36 @@ def tables_pdf(payload, tables):
     size = landscape(A4)
     width = size[0] - 72
     source = payload["source"]
-    doc = document(buffer, payload, size, f'{source["name"]} · Tabellendokumentation')
+    doc = document(
+        buffer, payload, size, tr("{0} · Tabellendokumentation", source["name"])
+    )
     story = [
-        para("Tabellendokumentation", "title"),
+        para(tr("Tabellendokumentation"), "title"),
         para(source["name"], "h1"),
-        para(f'Typ: {source["kind"]} · Schema-Stand: {payload["created"]}'),
+        para(tr("Typ: {0} · Schema-Stand: {1}", source["kind"], payload["created"])),
         para(
-            f'Tags: {", ".join(source.get("tags", [])) or "—"}\nVerantwortlich: {source.get("owner") or "—"}\nKontakt: {source.get("owner_email") or "—"}'
+            tr(
+                "Tags: {0}\nVerantwortlich: {1}\nKontakt: {2}",
+                ", ".join(source.get("tags", [])) or "—",
+                source.get("owner") or "—",
+                source.get("owner_email") or "—",
+            )
         ),
         para(
-            f"{len(tables)} dokumentierte Objekte · Gespeicherte Metadaten und aktuelle Dokumentationsnotizen. Keine Datenzeilen oder Zugangsdaten.",
+            tr(
+                "{0} dokumentierte Objekte · Gespeicherte Metadaten und aktuelle Dokumentationsnotizen. Keine Datenzeilen oder Zugangsdaten.",
+                len(tables),
+            ),
             "small",
         ),
     ]
     for warning in payload["schema"].get("warnings", []):
-        story.append(para(warning, "small"))
+        story.append(para(tr_message(warning), "small"))
     if tables:
         story += [
-            para("Objektübersicht", "h2"),
+            para(tr("Objektübersicht"), "h2"),
             grid(
-                ["Objekt", "Typ", "Spalten", "Fremdschlüssel"],
+                [tr("Objekt"), tr("Typ"), tr("Spalten"), tr("Fremdschlüssel")],
                 [
                     [
                         full_name(t),
@@ -246,38 +259,48 @@ def tables_pdf(payload, tables):
         ]
     else:
         story.append(
-            para("Keine zugänglichen Objekte im gespeicherten Schema gefunden.")
+            para(tr("Keine zugänglichen Objekte im gespeicherten Schema gefunden."))
         )
     for index, table in enumerate(tables):
         story += [
             PageBreak(),
             heading(full_name(table), f"table-{index}"),
             para(
-                f'Objekttyp: {table["kind"]} · {len(table["columns"])} Spalten / Felder',
+                tr(
+                    "Objekttyp: {0} · {1} Spalten / Felder",
+                    table["kind"],
+                    len(table["columns"]),
+                ),
                 "small",
             ),
         ]
         if table.get("comment"):
             story += [para("Datenbankkommentar", "h2"), para(table["comment"])]
         if payload["notes"].get(table["key"]):
-            story += [para("Dokumentation", "h2"), para(payload["notes"][table["key"]])]
+            story += [
+                para(tr("Dokumentation"), "h2"),
+                para(payload["notes"][table["key"]]),
+            ]
         if "sampled_documents" in table:
             story.append(
                 para(
-                    f'Feldableitung aus {table["sampled_documents"]} MongoDB-Dokumenten; Stichproben können seltene Felder übersehen.',
+                    tr(
+                        "Feldableitung aus {0} MongoDB-Dokumenten; Stichproben können seltene Felder übersehen.",
+                        table["sampled_documents"],
+                    ),
                     "small",
                 )
             )
         foreign_columns = {
             c for fk in table.get("foreign_keys", []) for c in fk.get("columns", [])
         }
-        story.append(para("Spalten & Felder", "h2"))
+        story.append(para(tr("Spalten & Felder"), "h2"))
         if table["columns"]:
             rows = [
                 [
                     c["name"],
                     c["type"],
-                    "Ja" if c.get("nullable") else "Nein",
+                    tr("Ja") if c.get("nullable") else tr("Nein"),
                     ", ".join(
                         label
                         for flag, label in [
@@ -295,12 +318,12 @@ def tables_pdf(payload, tables):
             story.append(
                 grid(
                     [
-                        "Spalte / Feld",
-                        "Datentyp",
+                        tr("Spalte / Feld"),
+                        tr("Datentyp"),
                         "NULL",
-                        "Schlüssel",
-                        "Standard",
-                        "Kommentar",
+                        tr("Schlüssel"),
+                        tr("Standard"),
+                        tr("Kommentar"),
                     ],
                     rows,
                     [
@@ -314,20 +337,20 @@ def tables_pdf(payload, tables):
                 )
             )
         else:
-            story.append(para("Keine Felder dokumentiert."))
+            story.append(para(tr("Keine Felder dokumentiert.")))
         story += [
-            para("Primärschlüssel", "h2"),
+            para(tr("Primärschlüssel"), "h2"),
             para(
                 ", ".join(table.get("primary_key", []))
-                or "Kein Primärschlüssel erkannt."
+                or tr("Kein Primärschlüssel erkannt.")
             ),
         ]
         foreign_keys = table.get("foreign_keys", [])
         if foreign_keys:
             story += [
-                para("Fremdschlüssel", "h2"),
+                para(tr("Fremdschlüssel"), "h2"),
                 grid(
-                    ["Name", "Spalten", "Zielobjekt", "Zielspalten"],
+                    ["Name", tr("Spalten"), tr("Zielobjekt"), tr("Zielspalten")],
                     [
                         [
                             fk.get("name") or "—",
@@ -352,7 +375,7 @@ def tables_pdf(payload, tables):
             [
                 i.get("name") or "—",
                 ", ".join(str(c) for c in i.get("columns", [])),
-                "Ja" if i.get("unique") else "Nein",
+                tr("Ja") if i.get("unique") else tr("Nein"),
                 "Index",
             ]
             for i in table.get("indexes", [])
@@ -361,22 +384,22 @@ def tables_pdf(payload, tables):
             [
                 i.get("name") or "—",
                 ", ".join(str(c) for c in i.get("columns", [])),
-                "Ja",
+                tr("Ja"),
                 "Unique Constraint",
             ]
             for i in table.get("unique_constraints", [])
         ]
         if indexes:
             story += [
-                para("Indizes & eindeutige Constraints", "h2"),
+                para(tr("Indizes & eindeutige Constraints"), "h2"),
                 grid(
-                    ["Name", "Spalten", "Eindeutig", "Typ"],
+                    ["Name", tr("Spalten"), tr("Eindeutig"), tr("Typ")],
                     indexes,
                     [width * 0.30, width * 0.40, width * 0.12, width * 0.18],
                 ),
             ]
         if table.get("validator"):
-            story += [para("MongoDB-Validator", "h2"), para(table["validator"])]
+            story += [para(tr("MongoDB-Validator"), "h2"), para(table["validator"])]
     draw_footer = footer(payload, size)
     doc.build(story, onFirstPage=draw_footer, onLaterPages=draw_footer)
     return buffer.getvalue()
@@ -458,7 +481,7 @@ class Diagram(Flowable):
         canvas = self.canv
         canvas.bookmarkPage(f"diagram-{self.number}")
         canvas.addOutlineEntry(
-            f"ER-Diagramm {self.number}", f"diagram-{self.number}", level=0
+            tr("ER-Diagramm {0}", self.number), f"diagram-{self.number}", level=0
         )
         node_width = (self.width - 160) / 3
         node_height = 220
@@ -538,7 +561,7 @@ class Diagram(Flowable):
             canvas.drawString(
                 x + 12,
                 y + node_height - 37,
-                f'{table["kind"]} · {len(table["columns"])} Felder',
+                tr("{0} · {1} Felder", table["kind"], len(table["columns"])),
             )
             foreign = {
                 c for fk in table.get("foreign_keys", []) for c in fk.get("columns", [])
@@ -579,7 +602,7 @@ class Diagram(Flowable):
                 canvas.drawString(
                     x + 12,
                     y + 25,
-                    f"+ {len(columns)-8} weitere Felder · siehe Tabellen-PDF",
+                    tr("+ {0} weitere Felder · siehe Tabellen-PDF", len(columns) - 8),
                 )
             outgoing = [
                 r
@@ -592,13 +615,13 @@ class Diagram(Flowable):
                     (
                         f'[{r["number"]}] → D.{self.pages[r["target"]["key"]]}'
                         if r["target"]
-                        else f'[{r["number"]}] → extern'
+                        else tr("[{0}] → extern", r["number"])
                     )
                     for r in outgoing
                 )
                 canvas.drawString(x + 12, y + 11, fit(refs, node_width - 24, size=7))
                 canvas.linkRect(
-                    "Beziehungsverzeichnis",
+                    tr("Beziehungsverzeichnis"),
                     "relations",
                     (x + 8, y + 5, x + node_width - 8, y + 22),
                     relative=1,
@@ -618,20 +641,29 @@ def er_pdf(payload):
         by_source[relation["source"]["key"]].append(relation)
     pages = {t["key"]: number for number, group in enumerate(groups, 1) for t in group}
     ids = {t["key"]: f"T{number}" for number, t in enumerate(tables, 1)}
-    doc = document(buffer, payload, size, f'{payload["source"]["name"]} · ER-Modell')
+    doc = document(
+        buffer, payload, size, tr("{0} · ER-Modell", payload["source"]["name"])
+    )
     story = []
     for number, group in enumerate(groups, 1):
         if story:
             story.append(PageBreak())
         story += [
-            para(f"ER-Modell · Diagramm {number} von {len(groups)}", "h1"),
+            para(tr("ER-Modell · Diagramm {0} von {1}", number, len(groups)), "h1"),
             para(payload["source"]["name"]),
             para(
-                f'{len(tables)} Objekte · {len(relations)} deklarierte Beziehungen · Stand: {payload["created"]}',
+                tr(
+                    "{0} Objekte · {1} deklarierte Beziehungen · Stand: {2}",
+                    len(tables),
+                    len(relations),
+                    payload["created"],
+                ),
                 "small",
             ),
             para(
-                "PK = Primärschlüssel · FK = Fremdschlüssel · Pfeile zeigen auf das Zielobjekt. [Nr.] verweist auf das Beziehungsverzeichnis; D.N bezeichnet ein anderes Diagramm.",
+                tr(
+                    "PK = Primärschlüssel · FK = Fremdschlüssel · Pfeile zeigen auf das Zielobjekt. [Nr.] verweist auf das Beziehungsverzeichnis; D.N bezeichnet ein anderes Diagramm."
+                ),
                 "small",
             ),
             Diagram(
@@ -645,20 +677,22 @@ def er_pdf(payload):
         ]
     if not tables:
         story = [
-            para("ER-Modell", "title"),
+            para(tr("ER-Modell"), "title"),
             para(payload["source"]["name"]),
-            para("Keine zugänglichen Objekte im gespeicherten Schema gefunden."),
+            para(tr("Keine zugänglichen Objekte im gespeicherten Schema gefunden.")),
         ]
     if tables:
         story += [
             PageBreak(),
-            heading("Objektverzeichnis", "objects"),
+            heading(tr("Objektverzeichnis"), "objects"),
             para(
-                "Vollständige Objektnamen und ihre Diagrammzuordnung. Die PDF enthält alle dokumentierten Objekte; die Grenze von 80 Objekten der Bildschirmansicht gilt hier nicht.",
+                tr(
+                    "Vollständige Objektnamen und ihre Diagrammzuordnung. Die PDF enthält alle dokumentierten Objekte; die Grenze von 80 Objekten der Bildschirmansicht gilt hier nicht."
+                ),
                 "small",
             ),
             grid(
-                ["ID", "Objekt", "Typ", "Felder", "Diagramm"],
+                ["ID", tr("Objekt"), tr("Typ"), tr("Felder"), tr("Diagramm")],
                 [
                     [
                         ids[t["key"]],
@@ -675,18 +709,20 @@ def er_pdf(payload):
     if relations:
         story += [
             PageBreak(),
-            heading("Beziehungsverzeichnis", "relations"),
+            heading(tr("Beziehungsverzeichnis"), "relations"),
             para(
-                "Alle deklarierten Fremdschlüssel, einschließlich zusammengesetzter Schlüssel und Verweisen außerhalb des dokumentierten Schemas.",
+                tr(
+                    "Alle deklarierten Fremdschlüssel, einschließlich zusammengesetzter Schlüssel und Verweisen außerhalb des dokumentierten Schemas."
+                ),
                 "small",
             ),
             grid(
                 [
                     "Nr.",
-                    "Quelle / FK-Spalten",
-                    "Ziel / Zielspalten",
+                    tr("Quelle / FK-Spalten"),
+                    tr("Ziel / Zielspalten"),
                     "Constraint",
-                    "Diagramme",
+                    tr("Diagramme"),
                 ],
                 [
                     [
@@ -698,7 +734,7 @@ def er_pdf(payload):
                         + (
                             f'D.{pages[r["target"]["key"]]}'
                             if r["target"]
-                            else "Extern / nicht im Scan"
+                            else tr("Extern / nicht im Scan")
                         ),
                     ]
                     for r in relations
@@ -710,16 +746,20 @@ def er_pdf(payload):
         story += [
             Spacer(1, 12),
             para(
-                "Keine deklarierten Fremdschlüssel. Beziehungen werden nicht aus Feldnamen abgeleitet.",
+                tr(
+                    "Keine deklarierten Fremdschlüssel. Beziehungen werden nicht aus Feldnamen abgeleitet."
+                ),
                 "small",
             ),
         ]
     for warning in payload["schema"].get("warnings", []):
-        story.append(para(warning, "small"))
+        story.append(para(tr_message(warning), "small"))
     if payload["schema"].get("inferred"):
         story.append(
             para(
-                "MongoDB-Felder wurden aus Stichproben abgeleitet und können unvollständig sein.",
+                tr(
+                    "MongoDB-Felder wurden aus Stichproben abgeleitet und können unvollständig sein."
+                ),
                 "small",
             )
         )

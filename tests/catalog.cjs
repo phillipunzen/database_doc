@@ -50,6 +50,7 @@ const sources = Array.from({ length: 67 }, (_, i) => {
   });
   try {
     const page = await browser.newPage({
+      locale: "de-DE",
       viewport: { width: 1440, height: 1000 },
     });
     const errors = [];

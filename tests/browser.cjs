@@ -19,6 +19,7 @@ const env = Object.fromEntries(
     args: ["--no-sandbox"],
   });
   const page = await browser.newPage({
+    locale: "de-DE",
     viewport: { width: 1440, height: 1000 },
   });
   const errors = [];

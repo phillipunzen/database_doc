@@ -72,7 +72,7 @@ def read_pdf(content):
 @pytest.fixture(scope="module")
 def client():
     login_attempts.clear()
-    with TestClient(app) as client:
+    with TestClient(app, headers={"Accept-Language": "de-DE"}) as client:
         result = client.post(
             "/api/auth/login",
             json={"username": "admin", "password": os.environ["ADMIN_PASSWORD"]},

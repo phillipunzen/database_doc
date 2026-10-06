@@ -9,6 +9,7 @@ from sqlalchemy import create_engine, inspect, MetaData, Table, select, text, ev
 from sqlalchemy.engine import URL
 from sqlalchemy.pool import NullPool
 from pymongo import MongoClient
+from .i18n import tr
 
 KINDS = {"mssql", "mysql", "mariadb", "postgresql", "mongodb", "sqlite"}
 SYSTEM_SCHEMAS = {
@@ -26,12 +27,12 @@ class ConnectorError(Exception):
 
 def validate_config(kind, config):
     if kind not in KINDS:
-        raise ValueError("Nicht unterstützter Datenbanktyp.")
+        raise ValueError(tr("Nicht unterstützter Datenbanktyp."))
     if kind == "sqlite":
         sqlite_path(config)
         return
     if not config.get("host") or not config.get("database"):
-        raise ValueError("Host und Datenbank sind erforderlich.")
+        raise ValueError(tr("Host und Datenbank sind erforderlich."))
     if (
         not 1
         <= int(
@@ -46,9 +47,9 @@ def validate_config(kind, config):
         )
         <= 65535
     ):
-        raise ValueError("Ungültiger Port.")
+        raise ValueError(tr("Ungültiger Port."))
     if len(config.get("host", "")) > 253 or any(c in config["host"] for c in "/;?@"):
-        raise ValueError("Ungültiger Hostname.")
+        raise ValueError(tr("Ungültiger Hostname."))
 
 
 def sqlite_path(config):
@@ -56,7 +57,9 @@ def sqlite_path(config):
     path = Path(config.get("path", "")).resolve()
     if not path.is_relative_to(root) or not path.is_file():
         raise ValueError(
-            "SQLite-Datei muss innerhalb des freigegebenen sources-Verzeichnisses liegen."
+            tr(
+                "SQLite-Datei muss innerhalb des freigegebenen sources-Verzeichnisses liegen."
+            )
         )
     return path
 
@@ -213,7 +216,9 @@ def scan(kind, cfg, infer=False):
             for name, object_type in names:
                 if len(tables) >= 2000:
                     raise ConnectorError(
-                        "Scan-Limit von 2.000 Objekten erreicht. Bitte ein einzelnes Schema auswählen."
+                        tr(
+                            "Scan-Limit von 2.000 Objekten erreicht. Bitte ein einzelnes Schema auswählen."
+                        )
                     )
                 columns = inspector.get_columns(name, schema=schema)
                 pk = optional(
@@ -291,7 +296,7 @@ def scan_mongo(cfg, infer):
     with mongo(cfg) as db:
         infos = list(db.list_collections())
         if len(infos) > 2000:
-            raise ConnectorError("Scan-Limit von 2.000 Collections erreicht.")
+            raise ConnectorError(tr("Scan-Limit von 2.000 Collections erreicht."))
         for info in infos:
             name = info["name"]
             fields = {}
@@ -354,9 +359,13 @@ def scan_mongo(cfg, infer):
         "tables": tables,
         "warnings": [
             (
-                "MongoDB-Felder werden aus maximal 100 Dokumenten pro Collection abgeleitet; dies ist kein vollständiges Schema. Dokumentwerte werden nicht gespeichert."
+                tr(
+                    "MongoDB-Felder werden aus maximal 100 Dokumenten pro Collection abgeleitet; dies ist kein vollständiges Schema. Dokumentwerte werden nicht gespeichert."
+                )
                 if infer
-                else "Feldableitung ist deaktiviert. Es werden nur Collections, Indizes und Validatoren dokumentiert."
+                else tr(
+                    "Feldableitung ist deaktiviert. Es werden nur Collections, Indizes und Validatoren dokumentiert."
+                )
             )
         ],
         "inferred": infer,
@@ -367,7 +376,7 @@ def safe_value(value):
     if value is None or isinstance(value, (int, float, bool)):
         return value
     if isinstance(value, bytes):
-        return f"[Binärdaten: {len(value)} Bytes]"
+        return tr("[Binärdaten: {0} Bytes]", len(value))
     rendered = (
         json.dumps(value, default=str, ensure_ascii=False)
         if isinstance(value, (dict, list))

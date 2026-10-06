@@ -4,7 +4,13 @@ DatabaseDoc is a web application for documenting databases and data warehouses. 
 
 Supported database adapters: **Microsoft SQL Server, MySQL, MariaDB, PostgreSQL, MongoDB, and SQLite**.
 
-The application interface is currently in German. This README and the configuration documentation are in English.
+The interface supports English and German and automatically uses the first supported language in your browser preferences. Regional variants such as `de-DE`, `de-AT`, `en-US`, and `en-GB` are supported; English is the fallback when no supported language is listed. Reload the page after changing your browser language. This README and the configuration documentation are in English.
+
+## Interface language
+
+Navigation, forms, application messages, source documentation, global search, user administration, and warehouse planning are available in English and German. Dates, numbers, sorting and weekday names use the selected language. The document's `lang` attribute and page title are set accordingly. Application messages and PDF/Markdown export labels follow the request's `Accept-Language` preferences; JSON keys, database identifiers, and generated SQL identifiers remain stable. Technical SQL comments are in English.
+
+Database names, comments, tags, owners, notes, business requirements, transformation descriptions, and preview values are shown exactly as recorded; they are not automatically translated. A shared English catalog lives in `app/static/translations.json`, with German application text as the source keys. Frontend translation helpers process application literals before interpolating user content. Backend language state is isolated per request, so users with different browser languages can work concurrently.
 
 ## Quick start
 
@@ -305,7 +311,7 @@ Do not remove Docker volumes with `docker compose down -v` if you want to retain
 
 ## Development and verification
 
-The backend uses FastAPI and SQLAlchemy. The German-language interface uses locally served HTML, CSS, and JavaScript without external CDN dependencies. Container dependencies are pinned in `requirements.lock`; direct requirements are listed in `requirements.txt`.
+The backend uses FastAPI and SQLAlchemy. The bilingual interface uses locally served HTML, CSS, and JavaScript without external CDN dependencies. Container dependencies are pinned in `requirements.lock`; direct requirements are listed in `requirements.txt`.
 
 ### Application tests
 
@@ -313,7 +319,7 @@ The backend uses FastAPI and SQLAlchemy. The German-language interface uses loca
 docker compose run --rm \
   -v "$PWD/app:/app/app:ro" \
   -v "$PWD/tests:/app/tests:ro" \
-  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py
+  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py
 ```
 
 Application tests use temporary SQLite databases for both application storage and sources. They verify encrypted credentials, scanning, metadata, notes, exports, CSRF and Origin checks, roles and source grants, preview authorization, account deactivation, read-only SQLite access, path boundaries, and session revocation. The feature suite additionally covers permission-filtered global search, literal search patterns, note indexing, snapshot/index rollback, schema comparisons, persistent scheduling, duplicate-scan deferral, access revocation, daylight-saving transitions, additive migrations, and cleanup on source deletion. PDF tests parse the actual generated files and cover full/single-object and historical exports, viewer permissions, literal markup, Unicode text, long notes and oversized table cells, 85-object diagrams, cross-page references, composite/self/external foreign keys, and empty/inferred schemas.
@@ -359,9 +365,20 @@ NODE_PATH=/tmp/datatlas-browser/node_modules node tests/pdf.cjs
 
 This browser check downloads the existing example source's complete documentation, one object, and ER model, validates download filenames and PDF signatures, checks snapshot/object selection, and exercises failed exports and mobile layout. It reads sign-in settings from `.env` and requires the existing scanned example database. It does not start scans, load row previews, or edit source documentation. Downloads are saved in a private temporary directory, not `docs/` or Git.
 
+### Language checks
+
+`tests/test_i18n.py` verifies regional language negotiation, preference weights and fallbacks, concurrent requests in different languages, catalog placeholders, and localized PDFs with unchanged user content. Existing browser fixtures explicitly select `de-DE`.
+
+```bash
+I18N_TEST_URL=http://127.0.0.1:8091 \
+  NODE_PATH=/tmp/datatlas-browser/node_modules node tests/i18n.cjs
+```
+
+Point `I18N_TEST_URL` at a disposable application instance, with its own temporary application database. The browser suite mocks business APIs and checks login, source catalogs, connection forms, metadata, tags/owners, scheduling, DWH modeling, search, administration and mobile layout in `de-DE`, `de-AT`, `en-US`, `en-GB` and an unsupported language (`fr-FR`, falling back to English). It also checks that database names and user-authored German text remain unchanged in the English interface. It does not write business records.
+
 ### Verified deployment
 
-The current feature release passes **21 application, feature, and PDF tests**, plus catalog and feature browser checks and the live example browser flow. PDF downloads were also checked in the browser and parsed against the live MariaDB-backed deployment. Existing deployment records were verified unchanged during migration. A real scheduled scan of the example database completed against MariaDB-backed application storage; its test schedule was disabled afterward, and the non-example source was verified unchanged.
+The earlier PDF feature release passed **21 application, feature, and PDF tests**, plus catalog and feature browser checks and the live example browser flow. PDF downloads were also checked in the browser and parsed against the live MariaDB-backed deployment. Existing deployment records were verified unchanged during migration. A real scheduled scan of the example database completed against MariaDB-backed application storage; its test schedule was disabled afterward, and the non-example source was verified unchanged.
 
 Earlier adapter verification passed **12 automated tests**, including actual adapter tests against SQL Server 2022, MySQL 8.4, MariaDB 11.4, PostgreSQL 17, MongoDB 8, and SQLite. Browser checks, including mobile layout, and backup/restore into a separate test database also passed. Disposable test containers were removed afterward.
 

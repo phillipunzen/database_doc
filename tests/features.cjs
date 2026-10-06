@@ -18,6 +18,7 @@ const baseURL =
   });
   try {
     const page = await browser.newPage({
+      locale: "de-DE",
       viewport: { width: 1440, height: 1100 },
     });
     const errors = [],
@@ -99,6 +100,7 @@ const baseURL =
         url = new URL(req.url()),
         method = req.method(),
         body = method === "GET" ? null : req.postDataJSON();
+      if (url.pathname === "/api/i18n/en.js") return route.continue();
       if (method !== "GET") writes.push({ path: url.pathname, body });
       let json;
       if (url.pathname === "/api/auth/me")

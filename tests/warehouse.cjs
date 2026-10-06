@@ -17,6 +17,7 @@ const out = path.resolve(__dirname, "../docs");
   });
   try {
     const page = await browser.newPage({
+      locale: "de-DE",
       viewport: { width: 1440, height: 1000 },
       acceptDownloads: true,
     });

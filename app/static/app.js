@@ -51,7 +51,11 @@ const names = {
   mongodb: "MongoDB",
   sqlite: "SQLite",
 };
-const roles = { admin: "Administrator", editor: "Bearbeiter", viewer: "Leser" };
+const roles = {
+  admin: "Administrator",
+  editor: uiText("Bearbeiter"),
+  viewer: uiText("Leser"),
+};
 const paths = {
   database:
     '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/>',
@@ -102,15 +106,15 @@ function e(v) {
 }
 function dt(v) {
   return v
-    ? new Date(v.endsWith("Z") ? v : v + "Z").toLocaleString("de-DE", {
+    ? new Date(v.endsWith("Z") ? v : v + "Z").toLocaleString(uiLocale, {
         dateStyle: "medium",
         timeStyle: "short",
       })
-    : "Noch kein Scan";
+    : uiText("Noch kein Scan");
 }
 function toast(message) {
   const node = document.getElementById("toast");
-  node.textContent = message;
+  node.textContent = uiMessage(message);
   node.classList.add("visible");
   clearTimeout(toast.timer);
   toast.timer = setTimeout(() => node.classList.remove("visible"), 4500);
@@ -130,10 +134,10 @@ async function api(url, method = "GET", body) {
     }
     throw new Error(
       typeof result.detail === "string"
-        ? result.detail
+        ? uiMessage(result.detail)
         : Array.isArray(result.detail)
-          ? "Bitte die Eingaben prüfen."
-          : `Anfrage fehlgeschlagen (${res.status}).`,
+          ? uiText("Bitte die Eingaben prüfen.")
+          : localize`Anfrage fehlgeschlagen (${res.status}).`,
     );
   }
   return result;
@@ -143,60 +147,64 @@ function brand() {
 }
 async function showLogin() {
   const options = await api("/api/auth/options");
-  root.innerHTML = `<div class="login-shell"><aside class="login-art">${brand()}<div><div class="eyebrow" style="color:#b5d7a2">Wissen, wie Daten zusammenhängen</div><h1>Deine Datenbanken.<br>Ein klarer Überblick.</h1><p>Strukturen entdecken, Beziehungen verstehen und Datenwissen gemeinsam festhalten.</p><svg class="art-nodes" viewBox="0 0 440 200" aria-hidden="true"><g fill="none" stroke="#739b7c"><path d="M130 60H200V150H275M130 60H310V40"/></g><g fill="#244d40" stroke="#739b7c"><rect x="0" y="18" width="130" height="90" rx="8"/><rect x="275" y="110" width="140" height="85" rx="8"/><rect x="280" y="5" width="140" height="75" rx="8"/></g><g fill="#c0e8aa" font-size="12" font-family="monospace"><text x="15" y="42">customers</text><text x="295" y="28">addresses</text><text x="290" y="134">orders</text></g><g stroke="#6f9779"><path d="M15 58h90M15 73h65M15 88h78M295 43h100M295 58h70M290 150h100M290 166h65M290 181h80"/></g></svg></div><small>Metadaten · ER-Modelle · Dokumentation</small></aside><main class="login-main"><div class="login-box"><div class="eyebrow">Willkommen bei DatabaseDoc</div><h2>Anmelden</h2><p>Öffne deine Datenbankdokumentation.</p><form id="login-form" class="login-form"><div class="field"><label for="login-user">Benutzername</label><input id="login-user" name="username" autocomplete="username" required autofocus></div><div class="field"><label for="login-pass">Passwort</label><input id="login-pass" name="password" type="password" autocomplete="current-password" required></div>${options.ad ? '<div class="field"><label for="provider">Anmeldung</label><select id="provider" name="provider"><option value="local">Lokales Konto</option><option value="ad">Microsoft Active Directory</option></select></div>' : ""}<button class="btn primary" type="submit">Anmelden ${icon("arrow")}</button><div class="error-text" id="login-error" role="alert">${location.search.includes("auth_error") ? "Entra-Anmeldung fehlgeschlagen. Bitte Einrichtung oder Kontostatus prüfen." : ""}</div></form>${options.entra ? '<div class="divider">oder</div><a class="btn" style="width:100%" href="/auth/entra">Mit Microsoft Entra ID anmelden</a>' : ""}<p class="login-foot">Der Zugriff richtet sich nach den Freigaben deines Administrators.</p></div></main></div>`;
+  root.innerHTML = localize`<div class="login-shell"><aside class="login-art">${brand()}<div><div class="eyebrow" style="color:#b5d7a2">Wissen, wie Daten zusammenhängen</div><h1>Deine Datenbanken.<br>Ein klarer Überblick.</h1><p>Strukturen entdecken, Beziehungen verstehen und Datenwissen gemeinsam festhalten.</p><svg class="art-nodes" viewBox="0 0 440 200" aria-hidden="true"><g fill="none" stroke="#739b7c"><path d="M130 60H200V150H275M130 60H310V40"/></g><g fill="#244d40" stroke="#739b7c"><rect x="0" y="18" width="130" height="90" rx="8"/><rect x="275" y="110" width="140" height="85" rx="8"/><rect x="280" y="5" width="140" height="75" rx="8"/></g><g fill="#c0e8aa" font-size="12" font-family="monospace"><text x="15" y="42">customers</text><text x="295" y="28">addresses</text><text x="290" y="134">orders</text></g><g stroke="#6f9779"><path d="M15 58h90M15 73h65M15 88h78M295 43h100M295 58h70M290 150h100M290 166h65M290 181h80"/></g></svg></div><small>Metadaten · ER-Modelle · Dokumentation</small></aside><main class="login-main"><div class="login-box"><div class="eyebrow">Willkommen bei DatabaseDoc</div><h2>Anmelden</h2><p>Öffne deine Datenbankdokumentation.</p><form id="login-form" class="login-form"><div class="field"><label for="login-user">Benutzername</label><input id="login-user" name="username" autocomplete="username" required autofocus></div><div class="field"><label for="login-pass">Passwort</label><input id="login-pass" name="password" type="password" autocomplete="current-password" required></div>${options.ad ? localize('<div class="field"><label for="provider">Anmeldung</label><select id="provider" name="provider"><option value="local">Lokales Konto</option><option value="ad">Microsoft Active Directory</option></select></div>') : ""}<button class="btn primary" type="submit">Anmelden ${icon("arrow")}</button><div class="error-text" id="login-error" role="alert">${location.search.includes("auth_error") ? uiText("Entra-Anmeldung fehlgeschlagen. Bitte Einrichtung oder Kontostatus prüfen.") : ""}</div></form>${options.entra ? localize('<div class="divider">oder</div><a class="btn" style="width:100%" href="/auth/entra">Mit Microsoft Entra ID anmelden</a>') : ""}<p class="login-foot">Der Zugriff richtet sich nach den Freigaben deines Administrators.</p></div></main></div>`;
 }
 function shell(content) {
-  root.innerHTML = `<div class="layout"><aside class="sidebar">${brand()}<nav><div class="nav-label">Arbeitsbereich</div><button class="nav-button ${["sources", "source"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="sources">${icon("database")}<span>Datenquellen</span></button>${`<button class="nav-button ${state.view === "search" ? "active" : ""}" data-action="nav" data-view="search">${icon("search")}<span>Globale Suche</span></button>`}<button class="nav-button ${["warehouse", "warehouse-project"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="warehouse" title="DWH-Projekte">${icon("relations")}<span>DWH-Projekte</span></button>${state.user.role === "admin" ? `<div class="nav-label" style="margin-top:30px">Administration</div><button class="nav-button ${state.view === "users" ? "active" : ""}" data-action="nav" data-view="users">${icon("users")}<span>Benutzer & Rechte</span></button><button class="nav-button ${state.view === "audit" ? "active" : ""}" data-action="nav" data-view="audit">${icon("shield")}<span>Aktivitätsprotokoll</span></button>` : ""}</nav><div class="sidebar-bottom"><div class="user-line"><div class="avatar">${e(state.user.display_name.slice(0, 1).toUpperCase())}</div><div><div class="small">${e(state.user.display_name)}</div><div style="font-size:10px;color:#a7c0b3">${roles[state.user.role]}</div></div></div>${state.user.provider === "local" ? '<button data-action="password">Passwort ändern</button>' : ""}<button data-action="logout">Abmelden</button></div></aside><main class="main"><header class="topbar"><div class="breadcrumb">Arbeitsbereich <span>/</span> <strong>${state.view === "source" ? e(state.source.name) : state.view === "search" ? "Globale Suche" : ["warehouse", "warehouse-project"].includes(state.view) ? "DWH-Projekte" : state.view === "users" ? "Benutzer & Rechte" : state.view === "audit" ? "Aktivitätsprotokoll" : "Datenquellen"}</strong></div><div class="env-pill"><span class="dot"></span> ${roles[state.user.role]}</div><button class="btn ghost mobile-logout" data-action="logout" style="display:none">Abmelden</button></header><div class="content">${content}</div></main></div>`;
+  root.innerHTML = localize`<div class="layout"><aside class="sidebar">${brand()}<nav><div class="nav-label">Arbeitsbereich</div><button class="nav-button ${["sources", "source"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="sources">${icon("database")}<span>Datenquellen</span></button>${localize`<button class="nav-button ${state.view === "search" ? "active" : ""}" data-action="nav" data-view="search">${icon("search")}<span>Globale Suche</span></button>`}<button class="nav-button ${["warehouse", "warehouse-project"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="warehouse" title="DWH-Projekte">${icon("relations")}<span>DWH-Projekte</span></button>${state.user.role === "admin" ? localize`<div class="nav-label" style="margin-top:30px">Administration</div><button class="nav-button ${state.view === "users" ? "active" : ""}" data-action="nav" data-view="users">${icon("users")}<span>Benutzer & Rechte</span></button><button class="nav-button ${state.view === "audit" ? "active" : ""}" data-action="nav" data-view="audit">${icon("shield")}<span>Aktivitätsprotokoll</span></button>` : ""}</nav><div class="sidebar-bottom"><div class="user-line"><div class="avatar">${e(state.user.display_name.slice(0, 1).toUpperCase())}</div><div><div class="small">${e(state.user.display_name)}</div><div style="font-size:10px;color:#a7c0b3">${roles[state.user.role]}</div></div></div>${state.user.provider === "local" ? localize('<button data-action="password">Passwort ändern</button>') : ""}<button data-action="logout">Abmelden</button></div></aside><main class="main"><header class="topbar"><div class="breadcrumb">Arbeitsbereich <span>/</span> <strong>${state.view === "source" ? e(state.source.name) : state.view === "search" ? uiText("Globale Suche") : ["warehouse", "warehouse-project"].includes(state.view) ? uiText("DWH-Projekte") : state.view === "users" ? uiText("Benutzer & Rechte") : state.view === "audit" ? uiText("Aktivitätsprotokoll") : uiText("Datenquellen")}</strong></div><div class="env-pill"><span class="dot"></span> ${roles[state.user.role]}</div><button class="btn ghost mobile-logout" data-action="logout" style="display:none">Abmelden</button></header><div class="content">${content}</div></main></div>`;
 }
 function status(source) {
   const job = source.job;
   if (job?.status === "failed")
-    return '<span class="badge error">Scan fehlgeschlagen</span>';
+    return localize('<span class="badge error">Scan fehlgeschlagen</span>');
   if (["queued", "running"].includes(job?.status))
-    return '<span class="badge busy"><span class="dot" style="background:#b79043"></span> Scan läuft</span>';
+    return localize(
+      '<span class="badge busy"><span class="dot" style="background:#b79043"></span> Scan läuft</span>',
+    );
   if (source.snapshot_id)
-    return '<span class="badge"><span class="dot"></span> Dokumentiert</span>';
-  return '<span class="badge neutral">Bereit zum Scan</span>';
+    return localize(
+      '<span class="badge"><span class="dot"></span> Dokumentiert</span>',
+    );
+  return localize('<span class="badge neutral">Bereit zum Scan</span>');
 }
 function stat(label, value, ic, bottom) {
-  return `<div class="stat"><div class="stat-top">${label}${icon(ic)}</div><strong>${value.toLocaleString("de-DE")}</strong><span class="bottom">${bottom}</span></div>`;
+  return `<div class="stat"><div class="stat-top">${label}${icon(ic)}</div><strong>${value.toLocaleString(uiLocale)}</strong><span class="bottom">${bottom}</span></div>`;
 }
 function sourceStats(sources) {
-  return `<div class="stats">${stat("Datenquellen", sources.length, "database", "Verbundene Datenbanken")}${stat(
-    "Tabellen & Collections",
+  return `<div class="stats">${stat(uiText("Datenquellen"), sources.length, "database", uiText("Verbundene Datenbanken"))}${stat(
+    uiText("Tabellen & Collections"),
     sources.reduce((n, s) => n + s.table_count, 0),
     "table",
-    "In der Dokumentation",
+    uiText("In der Dokumentation"),
   )}${stat(
-    "Spalten & Felder",
+    uiText("Spalten & Felder"),
     sources.reduce((n, s) => n + s.column_count, 0),
     "columns",
-    "Dokumentierte Attribute",
+    uiText("Dokumentierte Attribute"),
   )}${stat(
-    "Beziehungen",
+    uiText("Beziehungen"),
     sources.reduce((n, s) => n + s.relation_count, 0),
     "relations",
-    "Erkannte Fremdschlüssel",
+    uiText("Erkannte Fremdschlüssel"),
   )}</div>`;
 }
 function card(s) {
-  return `<article class="source-card"><div class="source-card-top"><div class="db-icon ${s.kind}">${databaseLogo(s.kind)}</div><div style="flex:1;min-width:0"><button class="source-title" data-action="open" data-id="${s.id}">${e(s.name)}</button><div class="small muted">${names[s.kind]}</div></div>${status(s)}</div><div class="source-meta">${icon("server")}<span>${e(s.kind === "sqlite" ? s.config.path : s.config.host + (s.config.port ? ":" + s.config.port : "") + " / " + s.config.database)}</span></div><div class="card-stats"><div><strong>${s.table_count}</strong><span>Objekte</span></div><div><strong>${s.column_count}</strong><span>Spalten</span></div><div><strong>${s.relation_count}</strong><span>Beziehungen</span></div></div><div class="card-footer"><span>${e(dt(s.scanned_at))}</span><button data-action="open" data-id="${s.id}">Öffnen ${icon("arrow")}</button></div></article>`;
+  return localize`<article class="source-card"><div class="source-card-top"><div class="db-icon ${s.kind}">${databaseLogo(s.kind)}</div><div style="flex:1;min-width:0"><button class="source-title" data-action="open" data-id="${s.id}">${e(s.name)}</button><div class="small muted">${names[s.kind]}</div></div>${status(s)}</div><div class="source-meta">${icon("server")}<span>${e(s.kind === "sqlite" ? s.config.path : s.config.host + (s.config.port ? ":" + s.config.port : "") + " / " + s.config.database)}</span></div><div class="card-stats"><div><strong>${s.table_count}</strong><span>Objekte</span></div><div><strong>${s.column_count}</strong><span>Spalten</span></div><div><strong>${s.relation_count}</strong><span>Beziehungen</span></div></div><div class="card-footer"><span>${e(dt(s.scanned_at))}</span><button data-action="open" data-id="${s.id}">Öffnen ${icon("arrow")}</button></div></article>`;
 }
 const sourceSortLabels = {
   name: "Name",
-  kind: "Datenbanksystem",
+  kind: uiText("Datenbanksystem"),
   host: "Server",
-  table_count: "Objekte",
+  table_count: uiText("Objekte"),
   status: "Status",
-  scanned_at: "Letzter Scan",
+  scanned_at: uiText("Letzter Scan"),
 };
 const sourceStatusLabels = {
-  documented: "Dokumentiert",
-  unscanned: "Ohne Scan",
-  running: "Scan läuft",
-  failed: "Scan fehlgeschlagen",
+  documented: uiText("Dokumentiert"),
+  unscanned: uiText("Ohne Scan"),
+  running: uiText("Scan läuft"),
+  failed: uiText("Scan fehlgeschlagen"),
 };
-const sourceCollator = new Intl.Collator("de", {
+const sourceCollator = new Intl.Collator(uiLanguage, {
   numeric: true,
   sensitivity: "base",
 });
@@ -207,13 +215,13 @@ function sourceStatus(s) {
 }
 function sourceHost(s) {
   return s.kind === "sqlite"
-    ? "SQLite-Dateien"
-    : s.config.host || "Unbekannter Server";
+    ? uiText("SQLite-Dateien")
+    : s.config.host || uiText("Unbekannter Server");
 }
 function filteredSources() {
   const terms = state.query
     .trim()
-    .toLocaleLowerCase("de")
+    .toLocaleLowerCase(uiLanguage)
     .split(/\s+/)
     .filter(Boolean);
   const list = state.sources.filter((s) => {
@@ -231,7 +239,7 @@ function filteredSources() {
     ]
       .filter((v) => v !== undefined && v !== null)
       .join(" ")
-      .toLocaleLowerCase("de");
+      .toLocaleLowerCase(uiLanguage);
     return (
       (state.filter === "all" || state.filter === s.kind) &&
       (state.statusFilter === "all" ||
@@ -279,7 +287,7 @@ function sortHeader(key, label, extraClass = "") {
 }
 function sourceRow(s) {
   const target = s.kind === "sqlite" ? s.config.path : s.config.database;
-  return `<tr data-source-id="${s.id}">
+  return localize`<tr data-source-id="${s.id}">
     <td class="source-name-cell"><div class="source-name-wrap"><div class="db-icon ${s.kind}">${databaseLogo(s.kind)}</div><div><button class="source-title" data-action="open" data-id="${s.id}">${e(s.name)}</button><div class="catalog-owner">${e(s.owner || "")}</div><div class="tag-list">${(
       s.tags || []
     )
@@ -290,14 +298,14 @@ function sourceRow(s) {
       )}${(s.tags || []).length > 3 ? `<span class="tag">+${s.tags.length - 3}</span>` : ""}</div></div></div></td>
     <td class="engine-cell">${e(names[s.kind])}</td>
     <td class="source-target-cell"><span class="source-host" title="${e(sourceHost(s))}">${e(sourceHost(s))}${s.config.port && s.kind !== "sqlite" ? ":" + e(s.config.port) : ""}</span><span class="source-database" title="${e(target)}">${e(target || "—")}${s.config.schema ? " · " + e(s.config.schema) : ""}</span></td>
-    <td class="numeric">${s.snapshot_id ? s.table_count.toLocaleString("de-DE") : "—"}</td>
+    <td class="numeric">${s.snapshot_id ? s.table_count.toLocaleString(uiLocale) : "—"}</td>
     <td class="source-status-cell">${status(s)}</td>
     <td class="source-scan-cell">${e(dt(s.scanned_at))}</td>
     <td class="source-open-cell"><button class="btn ghost" data-action="open" data-id="${s.id}" aria-label="${e(s.name)} öffnen">${icon("arrow")}</button></td>
   </tr>`;
 }
 function sourceEmpty() {
-  return `<div class="empty">${icon("database")}<h2>${state.sources.length ? "Keine passenden Quellen" : "Deine erste Datenquelle"}</h2><p>${state.sources.length ? "Passe die Suche oder Filter an, um weitere Datenbanken zu sehen." : state.user.role === "admin" ? "Hinterlege eine Datenbankverbindung und starte einen Scan. DatabaseDoc erstellt daraus die Dokumentation." : "Hier erscheinen Datenbanken, die für dich freigegeben wurden."}</p>${state.sources.length ? '<button class="btn" data-action="reset-source-filters">Filter zurücksetzen</button>' : state.user.role === "admin" ? `<button class="btn primary" data-action="add-source">${icon("plus")} Datenquelle hinzufügen</button>` : ""}</div>`;
+  return `<div class="empty">${icon("database")}<h2>${state.sources.length ? uiText("Keine passenden Quellen") : uiText("Deine erste Datenquelle")}</h2><p>${state.sources.length ? uiText("Passe die Suche oder Filter an, um weitere Datenbanken zu sehen.") : state.user.role === "admin" ? uiText("Hinterlege eine Datenbankverbindung und starte einen Scan. DatabaseDoc erstellt daraus die Dokumentation.") : uiText("Hier erscheinen Datenbanken, die für dich freigegeben wurden.")}</p>${state.sources.length ? localize('<button class="btn" data-action="reset-source-filters">Filter zurücksetzen</button>') : state.user.role === "admin" ? localize`<button class="btn primary" data-action="add-source">${icon("plus")} Datenquelle hinzufügen</button>` : ""}</div>`;
 }
 function paintSources() {
   const list = filteredSources();
@@ -311,16 +319,16 @@ function paintSources() {
     ? sourceEmpty()
     : state.catalogView === "cards"
       ? `<div class="source-grid catalog-cards">${shown.map(card).join("")}</div>`
-      : `<div class="table-wrap source-list-scroll"><table class="source-list" aria-label="Datenquellen"><thead><tr>${sortHeader("name", "Datenquelle")}${sortHeader("kind", "System")}${sortHeader("host", "Server / Datenbank")}${sortHeader("table_count", "Objekte", "numeric")}${sortHeader("status", "Status")}${sortHeader("scanned_at", "Letzter Scan")}<th><span class="sr-only">Öffnen</span></th></tr></thead><tbody>${shown.map(sourceRow).join("")}</tbody></table></div>`;
+      : localize`<div class="table-wrap source-list-scroll"><table class="source-list" aria-label="Datenquellen"><thead><tr>${sortHeader("name", uiText("Datenquelle"))}${sortHeader("kind", uiText("System"))}${sortHeader("host", uiText("Server / Datenbank"))}${sortHeader("table_count", uiText("Objekte"), "numeric")}${sortHeader("status", "Status")}${sortHeader("scanned_at", uiText("Letzter Scan"))}<th><span class="sr-only">Öffnen</span></th></tr></thead><tbody>${shown.map(sourceRow).join("")}</tbody></table></div>`;
   document.getElementById("source-count").textContent =
     list.length === state.sources.length
-      ? `${list.length} Datenquellen`
-      : `${list.length} von ${state.sources.length} Datenquellen`;
+      ? localize`${list.length} Datenquellen`
+      : localize`${list.length} von ${state.sources.length} Datenquellen`;
   document.getElementById("source-range").textContent = list.length
-    ? `${start + 1}–${Math.min(start + state.sourcePageSize, list.length)} von ${list.length}`
-    : "0 Ergebnisse";
+    ? localize`${start + 1}–${Math.min(start + state.sourcePageSize, list.length)} von ${list.length}`
+    : uiText("0 Ergebnisse");
   document.getElementById("source-pages").innerHTML =
-    `<button class="btn" data-action="source-page" data-page="${state.sourcePage - 1}" ${state.sourcePage === 1 ? "disabled" : ""} aria-label="Vorherige Seite">${icon("back")}</button><span>Seite ${state.sourcePage} von ${pageCount}</span><button class="btn" data-action="source-page" data-page="${state.sourcePage + 1}" ${state.sourcePage === pageCount ? "disabled" : ""} aria-label="Nächste Seite">${icon("arrow")}</button>`;
+    localize`<button class="btn" data-action="source-page" data-page="${state.sourcePage - 1}" ${state.sourcePage === 1 ? "disabled" : ""} aria-label="Vorherige Seite">${icon("back")}</button><span>Seite ${state.sourcePage} von ${pageCount}</span><button class="btn" data-action="source-page" data-page="${state.sourcePage + 1}" ${state.sourcePage === pageCount ? "disabled" : ""} aria-label="Nächste Seite">${icon("arrow")}</button>`;
   document.querySelectorAll('[data-action="source-kind"]').forEach((button) => {
     const selected = button.dataset.kind === state.filter;
     button.classList.toggle("active", selected);
@@ -338,8 +346,8 @@ function paintSources() {
   direction.setAttribute(
     "aria-label",
     state.sourceSortDirection === "asc"
-      ? "Absteigend sortieren"
-      : "Aufsteigend sortieren",
+      ? uiText("Absteigend sortieren")
+      : uiText("Aufsteigend sortieren"),
   );
   document.getElementById("source-sort").value = state.sourceSort;
   document.getElementById("source-page-size").value = String(
@@ -372,8 +380,8 @@ function renderSources() {
   const tags = [...new Set(state.sources.flatMap((s) => s.tags || []))].sort(
     sourceCollator.compare,
   );
-  shell(`<div class="catalog-dashboard">
-    <div class="page-head"><div><div class="eyebrow">Datenkatalog</div><h1>Datenquellen</h1><p>Datenbanken finden, Schema-Stände prüfen und Dokumentationen öffnen.</p></div>${state.user.role === "admin" ? `<button class="btn primary" data-action="add-source">${icon("plus")} Datenquelle hinzufügen</button>` : ""}</div>
+  shell(localize`<div class="catalog-dashboard">
+    <div class="page-head"><div><div class="eyebrow">Datenkatalog</div><h1>Datenquellen</h1><p>Datenbanken finden, Schema-Stände prüfen und Dokumentationen öffnen.</p></div>${state.user.role === "admin" ? localize`<button class="btn primary" data-action="add-source">${icon("plus")} Datenquelle hinzufügen</button>` : ""}</div>
     ${sourceStats(state.sources)}
     <div class="engine-filters" role="group" aria-label="Nach Datenbanksystem filtern"><button class="engine-filter" data-action="source-kind" data-kind="all">Alle Systeme <span>${state.sources.length}</span></button>${Object.entries(
       names,
@@ -416,7 +424,7 @@ async function navigate(view, id, target = {}) {
       await loadSources();
       state.source = state.sources.find((s) => s.id === Number(id));
     }
-    if (!state.source) throw new Error("Datenquelle nicht verfügbar.");
+    if (!state.source) throw new Error(uiText("Datenquelle nicht verfügbar."));
     state.view = "source";
     state.tab = "overview";
     state.table = 0;
@@ -439,7 +447,8 @@ async function navigate(view, id, target = {}) {
         state.table = index;
         state.tableTab = target.section === "notes" ? "notes" : "columns";
         state.highlightColumn = target.column || null;
-      } else toast("Objekt ist im aktuellen Schema nicht mehr vorhanden.");
+      } else
+        toast(uiText("Objekt ist im aktuellen Schema nicht mehr vorhanden."));
     }
     renderSource();
   } else {
@@ -493,15 +502,15 @@ function tabs(items, current, action) {
 function renderSource() {
   const s = state.source;
   shell(
-    `<button class="back" data-action="nav" data-view="sources">${icon("back")} Alle Datenquellen</button><div class="page-head"><div><div class="source-heading"><div class="db-icon ${s.kind}">${databaseLogo(s.kind)}</div><div><div class="eyebrow">${names[s.kind]}</div><h1>${e(s.name)}</h1></div></div><p>${e(s.kind === "sqlite" ? s.config.path : s.config.host + " / " + s.config.database)} ${s.config.schema ? "· " + e(s.config.schema) : ""}</p></div><div class="actions">${s.snapshot_id ? `<a class="btn" href="/api/sources/${s.id}/export?format=markdown">${icon("download")} Markdown</a><a class="btn" href="/api/sources/${s.id}/export?format=json">JSON</a><button class="btn" data-action="pdf-tables" title="Alle dokumentierten Tabellen als PDF exportieren">${icon("download")} Tabellen-PDF</button>` : ""}${s.can_edit ? `<button class="btn" data-action="edit-source">${icon("edit")} Bearbeiten</button><button class="btn primary" data-action="scan" ${["queued", "running"].includes(s.job?.status) ? "disabled" : ""}>${icon("refresh")} ${["queued", "running"].includes(s.job?.status) ? "Scan läuft …" : "Schema scannen"}</button>` : ""}</div></div>${s.job ? `<div class="status-message">${status(s)} <span style="margin-left:10px">${e(s.job.message)}</span></div>` : ""}${tabs(
+    localize`<button class="back" data-action="nav" data-view="sources">${icon("back")} Alle Datenquellen</button><div class="page-head"><div><div class="source-heading"><div class="db-icon ${s.kind}">${databaseLogo(s.kind)}</div><div><div class="eyebrow">${names[s.kind]}</div><h1>${e(s.name)}</h1></div></div><p>${e(s.kind === "sqlite" ? s.config.path : s.config.host + " / " + s.config.database)} ${s.config.schema ? "· " + e(s.config.schema) : ""}</p></div><div class="actions">${s.snapshot_id ? localize`<a class="btn" href="/api/sources/${s.id}/export?format=markdown">${icon("download")} Markdown</a><a class="btn" href="/api/sources/${s.id}/export?format=json">JSON</a><button class="btn" data-action="pdf-tables" title="Alle dokumentierten Tabellen als PDF exportieren">${icon("download")} Tabellen-PDF</button>` : ""}${s.can_edit ? localize`<button class="btn" data-action="edit-source">${icon("edit")} Bearbeiten</button><button class="btn primary" data-action="scan" ${["queued", "running"].includes(s.job?.status) ? "disabled" : ""}>${icon("refresh")} ${["queued", "running"].includes(s.job?.status) ? uiText("Scan läuft …") : uiText("Schema scannen")}</button>` : ""}</div></div>${s.job ? `<div class="status-message">${status(s)} <span style="margin-left:10px">${e(uiMessage(s.job.message))}</span></div>` : ""}${tabs(
       [
-        ["overview", "Übersicht", "grid"],
-        ["schema", "Tabellen & Felder", "table"],
-        ["er", "ER-Modell", "relations"],
-        ["compare", "Schema-Vergleich", "relations"],
-        ["history", "Scan-Verlauf", "clock"],
-        ["organization", "Tags & Verantwortliche", "users"],
-        ["schedule", "Automatische Scans", "clock"],
+        ["overview", uiText("Übersicht"), "grid"],
+        ["schema", uiText("Tabellen & Felder"), "table"],
+        ["er", uiText("ER-Modell"), "relations"],
+        ["compare", uiText("Schema-Vergleich"), "relations"],
+        ["history", uiText("Scan-Verlauf"), "clock"],
+        ["organization", uiText("Tags & Verantwortliche"), "users"],
+        ["schedule", uiText("Automatische Scans"), "clock"],
       ],
       state.tab,
       "source-tab",
@@ -520,10 +529,10 @@ function sourceBody() {
   if (state.tab === "schedule") return scheduleView();
   if (state.tab === "compare") return comparisonView();
   if (!snap)
-    return `<div class="empty">${icon("table")}<h2>Die Dokumentation beginnt mit einem Scan</h2><p>${s.can_edit ? "DatabaseDoc liest die Struktur der Datenbank aus und erstellt daraus Tabellenübersichten und Beziehungen." : "Ein Bearbeiter muss zunächst einen Schema-Scan starten."}</p>${s.can_edit ? '<button class="btn primary" data-action="scan">Schema scannen</button>' : ""}</div>`;
+    return localize`<div class="empty">${icon("table")}<h2>Die Dokumentation beginnt mit einem Scan</h2><p>${s.can_edit ? uiText("DatabaseDoc liest die Struktur der Datenbank aus und erstellt daraus Tabellenübersichten und Beziehungen.") : uiText("Ein Bearbeiter muss zunächst einen Schema-Scan starten.")}</p>${s.can_edit ? localize('<button class="btn primary" data-action="scan">Schema scannen</button>') : ""}</div>`;
   if (state.tab === "schema") return schemaView();
   if (state.tab === "er") return erView();
-  return `${sourceStats([s])}<div class="info-grid"><section class="panel"><div class="panel-head"><h2>Verbindungsinformationen</h2>${status(s)}</div><div class="panel-body">${info("Tags", tagList(s.tags))}${info("Verantwortlich", e(s.owner || "Nicht zugewiesen"))}${info("Kontakt", e(s.owner_email || "—"))}${info("Automatische Scans", s.schedule?.enabled ? e({ hourly: "Stündlich", daily: "Täglich", weekly: "Wöchentlich" }[s.schedule.cadence]) + " · " + e(dt(s.schedule.next_run)) : "Deaktiviert")}${info("Datenbanktyp", names[s.kind])}${info("Datenbank", e(s.config.database || "SQLite-Datei"))}${info("Host / Datei", e(s.config.host || s.config.path))}${info("Schema", e(s.config.schema || "Alle zugänglichen Schemas"))}${info("Letzter Scan", e(dt(s.scanned_at)))}${info("Deine Berechtigungen", (s.can_edit ? "Bearbeiten" : "Lesen") + (s.can_data ? " · Datenvorschau" : ""))}</div></section><section class="panel"><div class="panel-head"><h2>Dokumentierte Objekte</h2><button class="text-button" data-action="source-tab" data-tab="schema">Alle anzeigen →</button></div><div class="table-wrap"><table><thead><tr><th>Objekt</th><th>Typ</th><th>Spalten</th></tr></thead><tbody>${snap.payload.tables
+  return localize`${sourceStats([s])}<div class="info-grid"><section class="panel"><div class="panel-head"><h2>Verbindungsinformationen</h2>${status(s)}</div><div class="panel-body">${info("Tags", tagList(s.tags))}${info(uiText("Verantwortlich"), e(s.owner || uiText("Nicht zugewiesen")))}${info(uiText("Kontakt"), e(s.owner_email || "—"))}${info(uiText("Automatische Scans"), s.schedule?.enabled ? e({ hourly: uiText("Stündlich"), daily: uiText("Täglich"), weekly: uiText("Wöchentlich") }[s.schedule.cadence]) + " · " + e(dt(s.schedule.next_run)) : uiText("Deaktiviert"))}${info(uiText("Datenbanktyp"), names[s.kind])}${info(uiText("Datenbank"), e(s.config.database || uiText("SQLite-Datei")))}${info(uiText("Host / Datei"), e(s.config.host || s.config.path))}${info("Schema", e(s.config.schema || uiText("Alle zugänglichen Schemas")))}${info(uiText("Letzter Scan"), e(dt(s.scanned_at)))}${info(uiText("Deine Berechtigungen"), (s.can_edit ? uiText("Bearbeiten") : uiText("Lesen")) + (s.can_data ? " · Datenvorschau" : ""))}</div></section><section class="panel"><div class="panel-head"><h2>Dokumentierte Objekte</h2><button class="text-button" data-action="source-tab" data-tab="schema">Alle anzeigen →</button></div><div class="table-wrap"><table><thead><tr><th>Objekt</th><th>Typ</th><th>Spalten</th></tr></thead><tbody>${snap.payload.tables
     .slice(0, 7)
     .map(
       (t, i) =>
@@ -531,14 +540,16 @@ function sourceBody() {
     )
     .join(
       "",
-    )}</tbody></table>${!snap.payload.tables.length ? '<div class="panel-body muted">Keine zugänglichen Objekte gefunden.</div>' : ""}</div></section></div>${snap.payload.warnings.map((w) => `<div class="hint">${icon("info")}<span>${e(w)}</span></div>`).join("")}<div class="hint">${icon("clock")}<span>Die Dokumentation zeigt den Stand des letzten Scans. Starte nach Strukturänderungen einen neuen Scan.</span></div>`;
+    )}</tbody></table>${!snap.payload.tables.length ? localize('<div class="panel-body muted">Keine zugänglichen Objekte gefunden.</div>') : ""}</div></section></div>${snap.payload.warnings.map((w) => `<div class="hint">${icon("info")}<span>${e(uiMessage(w))}</span></div>`).join("")}<div class="hint">${icon("clock")}<span>Die Dokumentation zeigt den Stand des letzten Scans. Starte nach Strukturänderungen einen neuen Scan.</span></div>`;
 }
 function schemaView() {
   const tables = state.snapshot.payload.tables;
   if (!tables.length)
-    return '<div class="empty"><h2>Keine Tabellen oder Collections gefunden</h2></div>';
+    return localize(
+      '<div class="empty"><h2>Keine Tabellen oder Collections gefunden</h2></div>',
+    );
   state.table = Math.min(state.table, tables.length - 1);
-  return `<div class="schema-layout"><aside class="object-list"><div class="object-search"><input id="object-search" aria-label="Objekte durchsuchen" placeholder="Objekte durchsuchen …"></div><div class="object-items" id="object-items">${tableList()}</div></aside><section class="panel object-detail" id="object-detail">${tableDetail()}</section></div>`;
+  return localize`<div class="schema-layout"><aside class="object-list"><div class="object-search"><input id="object-search" aria-label="Objekte durchsuchen" placeholder="Objekte durchsuchen …"></div><div class="object-items" id="object-items">${tableList()}</div></aside><section class="panel object-detail" id="object-detail">${tableDetail()}</section></div>`;
 }
 function tableList(query = "") {
   return state.snapshot.payload.tables
@@ -550,12 +561,12 @@ function tableList(query = "") {
 }
 function tableDetail() {
   const t = state.snapshot.payload.tables[state.table];
-  return `<div class="panel-head"><div><div class="eyebrow" style="margin-bottom:3px">${e(t.schema || "Standard-Schema")} · ${e(t.kind)}</div><h2>${e(t.name)}</h2><p class="object-description">${e(t.comment || "")}${t.sampled_documents !== undefined ? " · " + t.sampled_documents + " Dokumente für Feldableitung untersucht" : ""}</p></div><div class="actions"><span class="badge neutral">${t.columns.length} Felder</span><button class="btn" data-action="pdf-table" title="Diese Tabelle mit Spalten, Schlüsseln und Notizen als PDF exportieren">${icon("download")} Tabellen-PDF</button></div></div><div class="detail-tabs">${tabs(
+  return localize`<div class="panel-head"><div><div class="eyebrow" style="margin-bottom:3px">${e(t.schema || uiText("Standard-Schema"))} · ${e(t.kind)}</div><h2>${e(t.name)}</h2><p class="object-description">${e(t.comment || "")}${t.sampled_documents !== undefined ? " · " + t.sampled_documents + " Dokumente für Feldableitung untersucht" : ""}</p></div><div class="actions"><span class="badge neutral">${t.columns.length} Felder</span><button class="btn" data-action="pdf-table" title="Diese Tabelle mit Spalten, Schlüsseln und Notizen als PDF exportieren">${icon("download")} Tabellen-PDF</button></div></div><div class="detail-tabs">${tabs(
     [
-      ["columns", "Spalten", "columns"],
-      ["keys", "Schlüssel & Indizes", "relations"],
-      ["data", "Datenvorschau", "eye"],
-      ["notes", "Dokumentation", "file"],
+      ["columns", uiText("Spalten"), "columns"],
+      ["keys", uiText("Schlüssel & Indizes"), "relations"],
+      ["data", uiText("Datenvorschau"), "eye"],
+      ["notes", uiText("Dokumentation"), "file"],
     ],
     state.tableTab,
     "table-tab",
@@ -564,21 +575,23 @@ function tableDetail() {
 function tableBody() {
   const t = state.snapshot.payload.tables[state.table];
   if (state.tableTab === "data")
-    return `<div class="panel-body"><p class="muted small" style="margin-bottom:18px">Die Vorschau liest maximal 50 Zeilen direkt aus der Datenquelle. Werte werden nicht in der Dokumentationsdatenbank gespeichert.</p>${state.source.can_data ? `<button class="btn" data-action="load-preview">${icon("eye")} Datenvorschau laden</button><div id="preview-result" style="margin-top:20px"></div>` : '<div class="hint" style="margin:0">Für Datenvorschauen fehlt dir die Freigabe. Wende dich an einen Administrator.</div>'}</div>`;
+    return localize`<div class="panel-body"><p class="muted small" style="margin-bottom:18px">Die Vorschau liest maximal 50 Zeilen direkt aus der Datenquelle. Werte werden nicht in der Dokumentationsdatenbank gespeichert.</p>${state.source.can_data ? localize`<button class="btn" data-action="load-preview">${icon("eye")} Datenvorschau laden</button><div id="preview-result" style="margin-top:20px"></div>` : localize('<div class="hint" style="margin:0">Für Datenvorschauen fehlt dir die Freigabe. Wende dich an einen Administrator.</div>')}</div>`;
   if (state.tableTab === "notes")
-    return `<div class="panel-body"><form id="note-form" class="note-form"><div class="field"><label for="note">Beschreibung & Fachwissen</label><textarea id="note" name="text" rows="10" placeholder="Zweck, Datenherkunft, Verantwortliche oder fachliche Besonderheiten …" ${!state.source.can_edit ? "readonly" : ""}>${e(state.snapshot.notes[t.key] || "")}</textarea><small>Diese Notiz bleibt auch nach einem erneuten Scan erhalten.</small></div>${state.source.can_edit ? '<button class="btn primary" type="submit">Dokumentation speichern</button>' : ""}</form></div>`;
+    return localize`<div class="panel-body"><form id="note-form" class="note-form"><div class="field"><label for="note">Beschreibung & Fachwissen</label><textarea id="note" name="text" rows="10" placeholder="Zweck, Datenherkunft, Verantwortliche oder fachliche Besonderheiten …" ${!state.source.can_edit ? "readonly" : ""}>${e(state.snapshot.notes[t.key] || "")}</textarea><small>Diese Notiz bleibt auch nach einem erneuten Scan erhalten.</small></div>${state.source.can_edit ? localize('<button class="btn primary" type="submit">Dokumentation speichern</button>') : ""}</form></div>`;
   if (state.tableTab === "keys")
-    return `<div class="panel-body"><h3>Primärschlüssel</h3><p class="mono muted" style="margin:8px 0 22px">${e(t.primary_key.join(", ") || "Kein Primärschlüssel erkannt")}</p><h3>Fremdschlüssel</h3>${t.foreign_keys.length ? `<div class="table-wrap" style="margin:10px 0 22px"><table><thead><tr><th>Spalten</th><th>Ziel</th><th>Zielspalten</th></tr></thead><tbody>${t.foreign_keys.map((f) => `<tr><td class="mono">${e(f.columns.join(", "))}</td><td>${e(f.target_schema + "." + f.target_table)}</td><td class="mono">${e(f.target_columns.join(", "))}</td></tr>`).join("")}</tbody></table></div>` : '<p class="muted small" style="margin:8px 0 22px">Keine deklarierten Fremdschlüssel.</p>'}<h3>Indizes & eindeutige Constraints</h3><div class="table-wrap" style="margin-top:10px"><table><thead><tr><th>Name</th><th>Spalten</th><th>Eindeutig</th></tr></thead><tbody>${[...t.indexes, ...t.unique_constraints.map((u) => ({ ...u, unique: true }))].map((i) => `<tr><td>${e(i.name || "Ohne Namen")}</td><td class="mono">${e(i.columns.join(", "))}</td><td>${i.unique ? "Ja" : "Nein"}</td></tr>`).join("")}</tbody></table></div>${t.validator ? `<h3 style="margin-top:22px">MongoDB-Validator</h3><pre class="mono" style="overflow:auto">${e(JSON.stringify(t.validator, null, 2))}</pre>` : ""}</div>`;
-  return `<div class="table-wrap"><table><thead><tr><th>Spalte / Feld</th><th>Datentyp</th><th>NULL</th><th>Standard</th><th>Kommentar</th></tr></thead><tbody>${t.columns.map((c) => `<tr class="${state.highlightColumn === c.name ? "search-highlight" : ""}"><td class="mono">${c.primary_key ? '<span class="key-label">PK</span>' : ""}${t.foreign_keys.some((f) => f.columns.includes(c.name)) ? '<span class="key-label fk">FK</span>' : ""}${e(c.name)}</td><td class="mono muted">${e(c.type)}</td><td>${c.nullable ? "Ja" : "Nein"}</td><td class="mono muted">${e(c.default ?? "—")}</td><td class="muted">${e(c.comment || "—")}</td></tr>`).join("")}</tbody></table>${!t.columns.length ? '<div class="panel-body muted">Keine Felder dokumentiert. Bei MongoDB kann die optionale Feldableitung in der Verbindung aktiviert werden.</div>' : ""}</div>`;
+    return localize`<div class="panel-body"><h3>Primärschlüssel</h3><p class="mono muted" style="margin:8px 0 22px">${e(t.primary_key.join(", ") || uiText("Kein Primärschlüssel erkannt"))}</p><h3>Fremdschlüssel</h3>${t.foreign_keys.length ? localize`<div class="table-wrap" style="margin:10px 0 22px"><table><thead><tr><th>Spalten</th><th>Ziel</th><th>Zielspalten</th></tr></thead><tbody>${t.foreign_keys.map((f) => `<tr><td class="mono">${e(f.columns.join(", "))}</td><td>${e(f.target_schema + "." + f.target_table)}</td><td class="mono">${e(f.target_columns.join(", "))}</td></tr>`).join("")}</tbody></table></div>` : localize('<p class="muted small" style="margin:8px 0 22px">Keine deklarierten Fremdschlüssel.</p>')}<h3>Indizes & eindeutige Constraints</h3><div class="table-wrap" style="margin-top:10px"><table><thead><tr><th>Name</th><th>Spalten</th><th>Eindeutig</th></tr></thead><tbody>${[...t.indexes, ...t.unique_constraints.map((u) => ({ ...u, unique: true }))].map((i) => `<tr><td>${e(i.name || uiText("Ohne Namen"))}</td><td class="mono">${e(i.columns.join(", "))}</td><td>${i.unique ? uiText("Ja") : uiText("Nein")}</td></tr>`).join("")}</tbody></table></div>${t.validator ? localize`<h3 style="margin-top:22px">MongoDB-Validator</h3><pre class="mono" style="overflow:auto">${e(JSON.stringify(t.validator, null, 2))}</pre>` : ""}</div>`;
+  return localize`<div class="table-wrap"><table><thead><tr><th>Spalte / Feld</th><th>Datentyp</th><th>NULL</th><th>Standard</th><th>Kommentar</th></tr></thead><tbody>${t.columns.map((c) => `<tr class="${state.highlightColumn === c.name ? "search-highlight" : ""}"><td class="mono">${c.primary_key ? '<span class="key-label">PK</span>' : ""}${t.foreign_keys.some((f) => f.columns.includes(c.name)) ? '<span class="key-label fk">FK</span>' : ""}${e(c.name)}</td><td class="mono muted">${e(c.type)}</td><td>${c.nullable ? uiText("Ja") : uiText("Nein")}</td><td class="mono muted">${e(c.default ?? "—")}</td><td class="muted">${e(c.comment || "—")}</td></tr>`).join("")}</tbody></table>${!t.columns.length ? localize('<div class="panel-body muted">Keine Felder dokumentiert. Bei MongoDB kann die optionale Feldableitung in der Verbindung aktiviert werden.</div>') : ""}</div>`;
 }
 function historyView() {
-  return `<section class="panel"><div class="panel-head"><h2>Gespeicherte Schema-Stände</h2><span class="small muted">${state.history.length} Scans</span></div><div class="table-wrap"><table><thead><tr><th>Stand</th><th>Objekte</th><th></th></tr></thead><tbody>${state.history.map((h) => `<tr><td>${e(dt(h.created))}</td><td>${h.table_count}</td><td><button class="text-button" data-action="history-open" data-id="${h.id}">Schema ansehen →</button></td></tr>`).join("")}</tbody></table>${!state.history.length ? '<div class="panel-body muted">Noch keine erfolgreichen Scans.</div>' : ""}</div></section>`;
+  return localize`<section class="panel"><div class="panel-head"><h2>Gespeicherte Schema-Stände</h2><span class="small muted">${state.history.length} Scans</span></div><div class="table-wrap"><table><thead><tr><th>Stand</th><th>Objekte</th><th></th></tr></thead><tbody>${state.history.map((h) => localize`<tr><td>${e(dt(h.created))}</td><td>${h.table_count}</td><td><button class="text-button" data-action="history-open" data-id="${h.id}">Schema ansehen →</button></td></tr>`).join("")}</tbody></table>${!state.history.length ? localize('<div class="panel-body muted">Noch keine erfolgreichen Scans.</div>') : ""}</div></section>`;
 }
 function erView() {
   const tables = state.snapshot.payload.tables;
   if (!tables.length)
-    return '<div class="empty"><h2>Keine Objekte für das ER-Modell</h2></div>';
-  return `<section class="panel"><div class="panel-head"><div><h2>Beziehungen im Überblick</h2><p class="muted small">${state.source.kind === "mongodb" ? "Collections und abgeleitete Felder. MongoDB deklariert keine Fremdschlüssel." : "Pfeile führen von Fremdschlüsseln zur referenzierten Tabelle."}</p></div><div class="er-tools"><label class="small muted" for="er-zoom">Zoom</label><input id="er-zoom" type="range" min="0.3" max="2" step="0.1" value="${state.erZoom}" style="width:95px"><button class="btn" data-action="er-reset">Anordnen</button><button class="btn" data-action="er-download">${icon("download")} SVG</button><button class="btn" data-action="pdf-er" title="Alle Objekte als mehrseitiges ER-Modell im A3-Querformat exportieren">${icon("download")} PDF</button></div></div><div class="er-stage"><svg id="er-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ER-Modell der dokumentierten Datenbank"></svg></div><div class="er-footer">Tabellen und Hintergrund lassen sich verschieben. Doppelklick oder Enter öffnet die Spalten. ${tables.length > 80 ? "Die Ansicht zeigt die ersten 80 Objekte. Der PDF-Export enthält alle dokumentierten Objekte." : ""} Der PDF-Export verwendet eine druckfreundliche Anordnung und umfasst auch Verweise zwischen den Diagrammseiten.</div></section>`;
+    return localize(
+      '<div class="empty"><h2>Keine Objekte für das ER-Modell</h2></div>',
+    );
+  return localize`<section class="panel"><div class="panel-head"><div><h2>Beziehungen im Überblick</h2><p class="muted small">${state.source.kind === "mongodb" ? uiText("Collections und abgeleitete Felder. MongoDB deklariert keine Fremdschlüssel.") : uiText("Pfeile führen von Fremdschlüsseln zur referenzierten Tabelle.")}</p></div><div class="er-tools"><label class="small muted" for="er-zoom">Zoom</label><input id="er-zoom" type="range" min="0.3" max="2" step="0.1" value="${state.erZoom}" style="width:95px"><button class="btn" data-action="er-reset">Anordnen</button><button class="btn" data-action="er-download">${icon("download")} SVG</button><button class="btn" data-action="pdf-er" title="Alle Objekte als mehrseitiges ER-Modell im A3-Querformat exportieren">${icon("download")} PDF</button></div></div><div class="er-stage"><svg id="er-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ER-Modell der dokumentierten Datenbank"></svg></div><div class="er-footer">Tabellen und Hintergrund lassen sich verschieben. Doppelklick oder Enter öffnet die Spalten. ${tables.length > 80 ? uiText("Die Ansicht zeigt die ersten 80 Objekte. Der PDF-Export enthält alle dokumentierten Objekte.") : ""} Der PDF-Export verwendet eine druckfreundliche Anordnung und umfasst auch Verweise zwischen den Diagrammseiten.</div></section>`;
 }
 function erTables() {
   return state.snapshot.payload.tables.slice(0, 80);
@@ -650,7 +663,7 @@ function drawER() {
     ts
       .map((t, i) => {
         const p = state.erPositions[t.key];
-        return `<g class="er-node" tabindex="0" role="button" aria-label="${e(t.name)} öffnen" data-er-index="${i}" transform="translate(${p.x},${p.y})"><rect width="280" height="${erHeight(t)}" rx="9" fill="white" stroke="#cbd9c9" filter="url(#node-shadow)"/><path d="M0 37H280" stroke="#dee7da"/><text class="er-title" x="14" y="24">${e(((t.schema ? t.schema + "." : "") + t.name).slice(0, 40))}</text>${t.columns
+        return localize`<g class="er-node" tabindex="0" role="button" aria-label="${e(t.name)} öffnen" data-er-index="${i}" transform="translate(${p.x},${p.y})"><rect width="280" height="${erHeight(t)}" rx="9" fill="white" stroke="#cbd9c9" filter="url(#node-shadow)"/><path d="M0 37H280" stroke="#dee7da"/><text class="er-title" x="14" y="24">${e(((t.schema ? t.schema + "." : "") + t.name).slice(0, 40))}</text>${t.columns
           .slice(0, 6)
           .map(
             (c, j) =>
@@ -658,7 +671,7 @@ function drawER() {
           )
           .join(
             "",
-          )}${t.columns.length > 6 ? `<text class="er-field" x="14" y="${58 + 6 * 22}">+ ${t.columns.length - 6} weitere Felder</text>` : ""}</g>`;
+          )}${t.columns.length > 6 ? localize`<text class="er-field" x="14" y="${58 + 6 * 22}">+ ${t.columns.length - 6} weitere Felder</text>` : ""}</g>`;
       })
       .join("");
 }
@@ -777,7 +790,7 @@ async function downloadPdf(format, tableKey = null) {
     throw new Error(
       typeof error.detail === "string"
         ? error.detail
-        : "PDF-Export fehlgeschlagen.",
+        : uiText("PDF-Export fehlgeschlagen."),
     );
   }
   const url = URL.createObjectURL(await response.blob());
@@ -792,36 +805,36 @@ async function downloadPdf(format, tableKey = null) {
 
 function renderUsers() {
   shell(
-    `<div class="page-head"><div><div class="eyebrow">Administration</div><h1>Benutzer & Rechte</h1><p>Konten verwalten und Datenbanken gezielt freigeben.</p></div><button class="btn primary" data-action="add-user">${icon("plus")} Benutzer hinzufügen</button></div><section class="panel"><div class="table-wrap"><table><thead><tr><th>Benutzer</th><th>Anmeldung</th><th>Rolle</th><th>Status</th><th></th></tr></thead><tbody>${state.users.map((u) => `<tr><td><strong>${e(u.display_name)}</strong><div class="small muted">${e(u.username)}</div></td><td>${{ local: "Lokales Konto", ad: "Microsoft AD", entra: "Entra ID" }[u.provider]}</td><td>${roles[u.role]}</td><td><span class="badge ${u.active ? "" : "error"}">${u.active ? "Aktiv" : "Deaktiviert"}</span></td><td><button class="text-button" data-action="edit-user" data-id="${u.id}">Verwalten</button></td></tr>`).join("")}</tbody></table></div></section><div class="hint">${icon("shield")}<span>Administratoren sehen alle Quellen. Bearbeiter benötigen zusätzlich eine Freigabe zum Bearbeiten; Leser erhalten ausschließlich freigegebene Dokumentationen. Neue Entra- und AD-Konten starten als Leser ohne Datenbankzugriff.</span></div><section style="margin-top:28px"><div class="section-title"><h2>Datenbankfreigaben</h2></div><section class="panel"><div class="table-wrap"><table><thead><tr><th>Datenquelle</th><th>Typ</th><th></th></tr></thead><tbody>${state.sources.map((s) => `<tr><td>${e(s.name)}</td><td class="muted">${names[s.kind]}</td><td><button class="text-button" data-action="grants" data-id="${s.id}">Freigaben verwalten →</button></td></tr>`).join("")}</tbody></table>${!state.sources.length ? '<div class="panel-body muted">Lege zunächst eine Datenquelle an.</div>' : ""}</div></section></section>`,
+    localize`<div class="page-head"><div><div class="eyebrow">Administration</div><h1>Benutzer & Rechte</h1><p>Konten verwalten und Datenbanken gezielt freigeben.</p></div><button class="btn primary" data-action="add-user">${icon("plus")} Benutzer hinzufügen</button></div><section class="panel"><div class="table-wrap"><table><thead><tr><th>Benutzer</th><th>Anmeldung</th><th>Rolle</th><th>Status</th><th></th></tr></thead><tbody>${state.users.map((u) => localize`<tr><td><strong>${e(u.display_name)}</strong><div class="small muted">${e(u.username)}</div></td><td>${{ local: uiText("Lokales Konto"), ad: "Microsoft AD", entra: "Entra ID" }[u.provider]}</td><td>${roles[u.role]}</td><td><span class="badge ${u.active ? "" : "error"}">${u.active ? uiText("Aktiv") : uiText("Deaktiviert")}</span></td><td><button class="text-button" data-action="edit-user" data-id="${u.id}">Verwalten</button></td></tr>`).join("")}</tbody></table></div></section><div class="hint">${icon("shield")}<span>Administratoren sehen alle Quellen. Bearbeiter benötigen zusätzlich eine Freigabe zum Bearbeiten; Leser erhalten ausschließlich freigegebene Dokumentationen. Neue Entra- und AD-Konten starten als Leser ohne Datenbankzugriff.</span></div><section style="margin-top:28px"><div class="section-title"><h2>Datenbankfreigaben</h2></div><section class="panel"><div class="table-wrap"><table><thead><tr><th>Datenquelle</th><th>Typ</th><th></th></tr></thead><tbody>${state.sources.map((s) => localize`<tr><td>${e(s.name)}</td><td class="muted">${names[s.kind]}</td><td><button class="text-button" data-action="grants" data-id="${s.id}">Freigaben verwalten →</button></td></tr>`).join("")}</tbody></table>${!state.sources.length ? localize('<div class="panel-body muted">Lege zunächst eine Datenquelle an.</div>') : ""}</div></section></section>`,
   );
 }
 const auditLabels = {
-  dwh_project_saved: "DWH-Projekt gespeichert",
-  dwh_project_deleted: "DWH-Projekt gelöscht",
-  dwh_project_exported: "DWH-Projekt exportiert",
-  login: "Angemeldet",
-  logout: "Abgemeldet",
-  login_failed: "Anmeldung fehlgeschlagen",
-  password_changed: "Passwort geändert",
-  source_created: "Datenquelle angelegt",
-  source_updated: "Datenquelle geändert",
-  source_deleted: "Datenquelle gelöscht",
-  scan_started: "Schema-Scan gestartet",
-  data_preview: "Datenvorschau geladen",
-  note_updated: "Dokumentation geändert",
-  documentation_export: "Dokumentation exportiert",
-  user_created: "Benutzer angelegt",
-  user_updated: "Benutzer geändert",
-  grant_updated: "Freigabe geändert",
-  grant_revoked: "Freigabe entfernt",
+  dwh_project_saved: uiText("DWH-Projekt gespeichert"),
+  dwh_project_deleted: uiText("DWH-Projekt gelöscht"),
+  dwh_project_exported: uiText("DWH-Projekt exportiert"),
+  login: uiText("Angemeldet"),
+  logout: uiText("Abgemeldet"),
+  login_failed: uiText("Anmeldung fehlgeschlagen"),
+  password_changed: uiText("Passwort geändert"),
+  source_created: uiText("Datenquelle angelegt"),
+  source_updated: uiText("Datenquelle geändert"),
+  source_deleted: uiText("Datenquelle gelöscht"),
+  scan_started: uiText("Schema-Scan gestartet"),
+  data_preview: uiText("Datenvorschau geladen"),
+  note_updated: uiText("Dokumentation geändert"),
+  documentation_export: uiText("Dokumentation exportiert"),
+  user_created: uiText("Benutzer angelegt"),
+  user_updated: uiText("Benutzer geändert"),
+  grant_updated: uiText("Freigabe geändert"),
+  grant_revoked: uiText("Freigabe entfernt"),
 };
 function renderAudit() {
   shell(
-    `<div class="page-head"><div><div class="eyebrow">Administration</div><h1>Aktivitätsprotokoll</h1><p>Die letzten 200 Anmeldungen und Änderungen.</p></div><button class="btn" data-action="nav" data-view="audit">${icon("refresh")} Aktualisieren</button></div><section class="panel"><div class="table-wrap"><table><thead><tr><th>Zeitpunkt</th><th>Benutzer</th><th>Aktion</th><th>Ziel</th></tr></thead><tbody>${state.audit.map((a) => `<tr><td class="nowrap">${e(dt(a.created))}</td><td>${e(a.user)}</td><td>${e(auditLabels[a.action] || a.action)}</td><td class="mono muted">${e(a.target || "—")}</td></tr>`).join("")}</tbody></table></div></section>`,
+    localize`<div class="page-head"><div><div class="eyebrow">Administration</div><h1>Aktivitätsprotokoll</h1><p>Die letzten 200 Anmeldungen und Änderungen.</p></div><button class="btn" data-action="nav" data-view="audit">${icon("refresh")} Aktualisieren</button></div><section class="panel"><div class="table-wrap"><table><thead><tr><th>Zeitpunkt</th><th>Benutzer</th><th>Aktion</th><th>Ziel</th></tr></thead><tbody>${state.audit.map((a) => `<tr><td class="nowrap">${e(dt(a.created))}</td><td>${e(a.user)}</td><td>${e(auditLabels[a.action] || a.action)}</td><td class="mono muted">${e(a.target || "—")}</td></tr>`).join("")}</tbody></table></div></section>`,
   );
 }
 function openModal(title, html) {
-  modal.innerHTML = `<div class="modal-head"><h2>${e(title)}</h2><button class="btn ghost" data-action="close-modal" aria-label="Schließen">${icon("x")}</button></div><div class="modal-body">${html}</div>`;
+  modal.innerHTML = localize`<div class="modal-head"><h2>${e(title)}</h2><button class="btn ghost" data-action="close-modal" aria-label="Schließen">${icon("x")}</button></div><div class="modal-body">${html}</div>`;
   modal.showModal();
 }
 function field(label, name, value = "", type = "text", extra = "") {
@@ -831,8 +844,8 @@ function sourceModal(edit = false) {
   const s = edit ? state.source : null,
     c = s?.config || {};
   openModal(
-    edit ? "Datenquelle bearbeiten" : "Datenquelle hinzufügen",
-    `<form id="source-form" data-id="${s?.id || ""}"><div class="form-grid"><div class="full">${field("Bezeichnung", "name", s?.name || "", "text", 'required maxlength="190" placeholder="z. B. Produktions-DWH"')}</div><div class="field full"><label for="f-kind">Datenbanksystem</label><select name="kind" id="f-kind">${Object.entries(
+    edit ? uiText("Datenquelle bearbeiten") : uiText("Datenquelle hinzufügen"),
+    localize`<form id="source-form" data-id="${s?.id || ""}"><div class="form-grid"><div class="full">${field(uiText("Bezeichnung"), "name", s?.name || "", "text", localize('required maxlength="190" placeholder="z. B. Produktions-DWH"'))}</div><div class="field full"><label for="f-kind">Datenbanksystem</label><select name="kind" id="f-kind">${Object.entries(
       names,
     )
       .map(
@@ -841,7 +854,7 @@ function sourceModal(edit = false) {
       )
       .join(
         "",
-      )}</select></div><div class="network-field">${field("Host", "host", c.host || "", "text", 'placeholder="db.example.local"')}</div><div class="network-field">${field("Port", "port", c.port || "", "number", 'min="1" max="65535" placeholder="Standardport"')}</div><div class="network-field">${field("Datenbank", "database", c.database || "", "text", 'maxlength="190" list="database-options"')}<datalist id="database-options"></datalist><button class="text-button small" type="button" data-action="discover" style="margin-top:5px">Datenbanken auf dem Server suchen</button></div><div class="network-field sql-schema">${field("Schema (optional)", "schema_name", c.schema || "", "text", 'placeholder="Alle zugänglichen Schemas" maxlength="190"')}</div><div class="network-field">${field("Benutzername", "username", c.username || "", "text", 'autocomplete="off" maxlength="190"')}</div><div class="network-field">${field(s ? "Passwort (leer = beibehalten)" : "Passwort", "password", "", "password", 'autocomplete="new-password"')}</div><div class="sqlite-field full">${field("SQLite-Datei im Container", "path", c.path || "", "text", 'placeholder="/sources/meine-datenbank.db"')}<div class="small muted" style="margin-top:6px">Datei auf dem Server unter /opt/datenbankdokumentation/sources ablegen. Sie wird nur lesend eingebunden.</div></div><div class="mongo-field full">${field("Authentifizierungsdatenbank", "auth_source", c.auth_source || "", "text", 'placeholder="Standard: ausgewählte Datenbank"')}</div></div><label class="checkbox network-field"><input name="tls" type="checkbox" ${c.tls !== false ? "checked" : ""}><span>TLS mit Zertifikatsprüfung verwenden. Nur für lokale Testdatenbanken ohne TLS deaktivieren.</span></label><label class="checkbox mongo-field"><input name="mongo_infer" type="checkbox" ${s?.mongo_infer ? "checked" : ""}><span>Felder aus bis zu 100 Dokumenten pro Collection ableiten. Hierfür werden Dokumente gelesen; ihre Werte werden nicht gespeichert.</span></label><div class="error-text" id="source-error" role="alert"></div><div class="modal-footer"><button class="btn" type="button" data-action="test-connection">${icon("server")} Verbindung testen</button><div class="actions"><button class="btn" type="button" data-action="close-modal">Abbrechen</button><button class="btn primary" type="submit">Speichern</button></div></div>${s && state.user.role === "admin" ? '<button class="btn danger" type="button" data-action="delete-source" style="justify-self:start">Datenquelle löschen</button>' : ""}</form>`,
+      )}</select></div><div class="network-field">${field("Host", "host", c.host || "", "text", 'placeholder="db.example.local"')}</div><div class="network-field">${field("Port", "port", c.port || "", "number", localize('min="1" max="65535" placeholder="Standardport"'))}</div><div class="network-field">${field(uiText("Datenbank"), "database", c.database || "", "text", 'maxlength="190" list="database-options"')}<datalist id="database-options"></datalist><button class="text-button small" type="button" data-action="discover" style="margin-top:5px">Datenbanken auf dem Server suchen</button></div><div class="network-field sql-schema">${field(uiText("Schema (optional)"), "schema_name", c.schema || "", "text", localize('placeholder="Alle zugänglichen Schemas" maxlength="190"'))}</div><div class="network-field">${field(uiText("Benutzername"), "username", c.username || "", "text", 'autocomplete="off" maxlength="190"')}</div><div class="network-field">${field(s ? uiText("Passwort (leer = beibehalten)") : uiText("Passwort"), "password", "", "password", 'autocomplete="new-password"')}</div><div class="sqlite-field full">${field(uiText("SQLite-Datei im Container"), "path", c.path || "", "text", 'placeholder="/sources/meine-datenbank.db"')}<div class="small muted" style="margin-top:6px">Datei auf dem Server unter /opt/datenbankdokumentation/sources ablegen. Sie wird nur lesend eingebunden.</div></div><div class="mongo-field full">${field(uiText("Authentifizierungsdatenbank"), "auth_source", c.auth_source || "", "text", localize('placeholder="Standard: ausgewählte Datenbank"'))}</div></div><label class="checkbox network-field"><input name="tls" type="checkbox" ${c.tls !== false ? "checked" : ""}><span>TLS mit Zertifikatsprüfung verwenden. Nur für lokale Testdatenbanken ohne TLS deaktivieren.</span></label><label class="checkbox mongo-field"><input name="mongo_infer" type="checkbox" ${s?.mongo_infer ? "checked" : ""}><span>Felder aus bis zu 100 Dokumenten pro Collection ableiten. Hierfür werden Dokumente gelesen; ihre Werte werden nicht gespeichert.</span></label><div class="error-text" id="source-error" role="alert"></div><div class="modal-footer"><button class="btn" type="button" data-action="test-connection">${icon("server")} Verbindung testen</button><div class="actions"><button class="btn" type="button" data-action="close-modal">Abbrechen</button><button class="btn primary" type="submit">Speichern</button></div></div>${s && state.user.role === "admin" ? localize('<button class="btn danger" type="button" data-action="delete-source" style="justify-self:start">Datenquelle löschen</button>') : ""}</form>`,
   );
   sourceFormKind();
 }
@@ -890,15 +903,15 @@ function sourceInput() {
 }
 function addUserModal() {
   openModal(
-    "Lokalen Benutzer hinzufügen",
-    `<form id="user-form">${field("Anzeigename", "display_name", "", "text", 'required maxlength="190"')}${field("Benutzername", "username", "", "text", 'required pattern="[a-zA-Z0-9_.@\\-]+" autocomplete="off" maxlength="190"')}${field("Passwort", "password", "", "password", 'required minlength="12" autocomplete="new-password"')}<div class="field"><label for="f-role">Rolle</label><select name="role" id="f-role"><option value="viewer">Leser</option><option value="editor">Bearbeiter</option><option value="admin">Administrator</option></select></div><div class="error-text" id="form-error" role="alert"></div><div class="modal-footer"><span class="small muted">Mindestens 12 Zeichen im Passwort.</span><button type="submit" class="btn primary">Benutzer anlegen</button></div></form>`,
+    uiText("Lokalen Benutzer hinzufügen"),
+    localize`<form id="user-form">${field(uiText("Anzeigename"), "display_name", "", "text", 'required maxlength="190"')}${field(uiText("Benutzername"), "username", "", "text", 'required pattern="[a-zA-Z0-9_.@\\-]+" autocomplete="off" maxlength="190"')}${field(uiText("Passwort"), "password", "", "password", 'required minlength="12" autocomplete="new-password"')}<div class="field"><label for="f-role">Rolle</label><select name="role" id="f-role"><option value="viewer">Leser</option><option value="editor">Bearbeiter</option><option value="admin">Administrator</option></select></div><div class="error-text" id="form-error" role="alert"></div><div class="modal-footer"><span class="small muted">Mindestens 12 Zeichen im Passwort.</span><button type="submit" class="btn primary">Benutzer anlegen</button></div></form>`,
   );
 }
 function editUserModal(id) {
   const u = state.users.find((u) => u.id === Number(id));
   openModal(
-    "Benutzer verwalten",
-    `<form id="user-edit-form" data-id="${u.id}"><p>${e(u.display_name)} <span class="muted">(${e(u.username)})</span></p><div class="field"><label for="f-role">Rolle</label><select name="role" id="f-role">${Object.entries(
+    uiText("Benutzer verwalten"),
+    localize`<form id="user-edit-form" data-id="${u.id}"><p>${e(u.display_name)} <span class="muted">(${e(u.username)})</span></p><div class="field"><label for="f-role">Rolle</label><select name="role" id="f-role">${Object.entries(
       roles,
     )
       .map(
@@ -917,20 +930,20 @@ async function grantsModal(id) {
   const people = state.users.filter((u) => u.role !== "admin");
   openModal(
     "Freigaben · " + source.name,
-    `<p class="small muted" style="margin-bottom:16px">„Lesen“ erlaubt die Dokumentation. Bearbeiten setzt die Rolle Bearbeiter voraus. Die Datenvorschau wird separat freigegeben.</p><form id="grants-form" data-id="${id}">${people
+    localize`<p class="small muted" style="margin-bottom:16px">„Lesen“ erlaubt die Dokumentation. Bearbeiten setzt die Rolle Bearbeiter voraus. Die Datenvorschau wird separat freigegeben.</p><form id="grants-form" data-id="${id}">${people
       .map((u) => {
         const g = grants.find((g) => g.user_id === u.id);
-        return `<div class="grant-row" data-user="${u.id}"><div>${e(u.display_name)}<div class="muted small">${roles[u.role]}</div></div><label><input type="checkbox" name="read-${u.id}" ${g ? "checked" : ""}>Lesen</label><label><input type="checkbox" name="edit-${u.id}" ${g?.edit ? "checked" : ""} ${u.role !== "editor" ? "disabled" : ""}>Bearbeiten</label><label><input type="checkbox" name="data-${u.id}" ${g?.data ? "checked" : ""}>Daten</label></div>`;
+        return localize`<div class="grant-row" data-user="${u.id}"><div>${e(u.display_name)}<div class="muted small">${roles[u.role]}</div></div><label><input type="checkbox" name="read-${u.id}" ${g ? "checked" : ""}>Lesen</label><label><input type="checkbox" name="edit-${u.id}" ${g?.edit ? "checked" : ""} ${u.role !== "editor" ? "disabled" : ""}>Bearbeiten</label><label><input type="checkbox" name="data-${u.id}" ${g?.data ? "checked" : ""}>Daten</label></div>`;
       })
       .join(
         "",
-      )}${!people.length ? '<p class="muted">Es gibt noch keine Leser oder Bearbeiter. Lege zuerst einen Benutzer an.</p>' : ""}<div class="error-text" id="form-error" role="alert"></div><div class="modal-footer"><span class="small muted">Administratoren haben Zugriff auf alle Quellen.</span><button class="btn primary" type="submit">Freigaben speichern</button></div></form>`,
+      )}${!people.length ? localize('<p class="muted">Es gibt noch keine Leser oder Bearbeiter. Lege zuerst einen Benutzer an.</p>') : ""}<div class="error-text" id="form-error" role="alert"></div><div class="modal-footer"><span class="small muted">Administratoren haben Zugriff auf alle Quellen.</span><button class="btn primary" type="submit">Freigaben speichern</button></div></form>`,
   );
 }
 function passwordModal() {
   openModal(
-    "Passwort ändern",
-    `<form id="password-form">${field("Aktuelles Passwort", "current_password", "", "password", 'required autocomplete="current-password"')}${field("Neues Passwort", "password", "", "password", 'required minlength="12" autocomplete="new-password"')}<div class="error-text" id="form-error" role="alert"></div><div class="modal-footer"><span class="small muted">Andere Sitzungen werden beendet.</span><button type="submit" class="btn primary">Passwort ändern</button></div></form>`,
+    uiText("Passwort ändern"),
+    localize`<form id="password-form">${field(uiText("Aktuelles Passwort"), "current_password", "", "password", 'required autocomplete="current-password"')}${field(uiText("Neues Passwort"), "password", "", "password", 'required minlength="12" autocomplete="new-password"')}<div class="error-text" id="form-error" role="alert"></div><div class="modal-footer"><span class="small muted">Andere Sitzungen werden beendet.</span><button type="submit" class="btn primary">Passwort ändern</button></div></form>`,
   );
 }
 function selectTable(index) {
@@ -1055,7 +1068,7 @@ document.addEventListener("click", async (ev) => {
       await loadSources();
       state.source = state.sources.find((s) => s.id === state.source.id);
       renderSource();
-      toast("Schema-Scan gestartet.");
+      toast(uiText("Schema-Scan gestartet."));
     }
     if (a === "source-tab") await changeSourceTab(button.dataset.tab);
     if (a === "select-table") selectTable(Number(button.dataset.index));
@@ -1065,14 +1078,14 @@ document.addEventListener("click", async (ev) => {
     }
     if (a === "load-preview") {
       button.disabled = true;
-      button.textContent = "Vorschau wird geladen …";
+      button.textContent = uiText("Vorschau wird geladen …");
       const t = state.snapshot.payload.tables[state.table];
       const p = await api(`/api/sources/${state.source.id}/preview`, "POST", {
         table_key: t.key,
       });
       document.getElementById("preview-result").innerHTML =
-        `<p class="muted small" style="margin-bottom:10px">${p.rows.length} Zeilen · maximal ${p.limit} · Reihenfolge der Datenquelle</p><div class="table-wrap"><table><thead><tr>${p.columns.map((c) => `<th>${e(c)}</th>`).join("")}</tr></thead><tbody>${p.rows.map((row) => `<tr>${row.map((v) => `<td class="mono">${v === null ? '<span class="muted">NULL</span>' : e(v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
-      button.textContent = "Vorschau aktualisieren";
+        localize`<p class="muted small" style="margin-bottom:10px">${p.rows.length} Zeilen · maximal ${p.limit} · Reihenfolge der Datenquelle</p><div class="table-wrap"><table><thead><tr>${p.columns.map((c) => `<th>${e(c)}</th>`).join("")}</tr></thead><tbody>${p.rows.map((row) => `<tr>${row.map((v) => `<td class="mono">${v === null ? '<span class="muted">NULL</span>' : e(v)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+      button.textContent = uiText("Vorschau aktualisieren");
       button.disabled = false;
     }
     if (a === "discover") {
@@ -1102,8 +1115,9 @@ document.addEventListener("click", async (ev) => {
       const form = document.getElementById("source-form"),
         id = form.dataset.id;
       button.disabled = true;
-      document.getElementById("source-error").textContent =
-        "Verbindung wird geprüft …";
+      document.getElementById("source-error").textContent = uiText(
+        "Verbindung wird geprüft …",
+      );
       const result = await api(
         id ? `/api/sources/${id}/test-config` : "/api/sources/test",
         "POST",
@@ -1115,15 +1129,15 @@ document.addEventListener("click", async (ev) => {
     }
     if (a === "delete-source") {
       openModal(
-        "Datenquelle löschen",
-        `<p>Die Verbindung „${e(state.source.name)}“ und ihre gespeicherte Dokumentation werden gelöscht.</p><p class="muted small" style="margin-top:10px">Die Quelldatenbank wird dabei nicht verändert.</p><div class="modal-footer"><button class="btn" data-action="close-modal">Abbrechen</button><button class="btn danger" data-action="confirm-delete-source">Endgültig löschen</button></div>`,
+        uiText("Datenquelle löschen"),
+        localize`<p>Die Verbindung „${e(state.source.name)}“ und ihre gespeicherte Dokumentation werden gelöscht.</p><p class="muted small" style="margin-top:10px">Die Quelldatenbank wird dabei nicht verändert.</p><div class="modal-footer"><button class="btn" data-action="close-modal">Abbrechen</button><button class="btn danger" data-action="confirm-delete-source">Endgültig löschen</button></div>`,
       );
     }
     if (a === "confirm-delete-source") {
       await api(`/api/sources/${state.source.id}`, "DELETE");
       modal.close();
       await navigate("sources");
-      toast("Datenquelle gelöscht.");
+      toast(uiText("Datenquelle gelöscht."));
     }
     if (a === "er-reset") {
       state.erPositions = {};
@@ -1152,7 +1166,7 @@ document.addEventListener("click", async (ev) => {
       );
       openModal(
         "Schema-Stand · " + dt(state.snapshot.created),
-        `<p class="muted small" style="margin-bottom:16px">Historischer Schema-Stand. Datenvorschau und Notizen beziehen sich auf den aktuellen Stand.</p><div class="table-wrap"><table><thead><tr><th>Objekt</th><th>Spalten</th><th>Fremdschlüssel</th></tr></thead><tbody>${state.snapshot.payload.tables.map((t) => `<tr><td>${e(t.schema + "." + t.name)}</td><td>${t.columns.length}</td><td>${t.foreign_keys.length}</td></tr>`).join("")}</tbody></table></div>`,
+        localize`<p class="muted small" style="margin-bottom:16px">Historischer Schema-Stand. Datenvorschau und Notizen beziehen sich auf den aktuellen Stand.</p><div class="table-wrap"><table><thead><tr><th>Objekt</th><th>Spalten</th><th>Fremdschlüssel</th></tr></thead><tbody>${state.snapshot.payload.tables.map((t) => `<tr><td>${e(t.schema + "." + t.name)}</td><td>${t.columns.length}</td><td>${t.foreign_keys.length}</td></tr>`).join("")}</tbody></table></div>`,
       );
       state.snapshot = await api(`/api/sources/${state.source.id}/snapshot`);
     }
@@ -1210,7 +1224,7 @@ document.addEventListener("submit", async (ev) => {
       Object.assign(state.source, result);
       await loadSources();
       renderSource();
-      toast("Tags und Verantwortliche gespeichert.");
+      toast(uiText("Tags und Verantwortliche gespeichert."));
     }
     if (form.id === "schedule-form") {
       const [hour, minute] = data.time.split(":").map(Number);
@@ -1229,7 +1243,7 @@ document.addEventListener("submit", async (ev) => {
       state.source.schedule = state.schedule;
       await loadSources();
       renderSource();
-      toast("Scan-Zeitplan gespeichert.");
+      toast(uiText("Scan-Zeitplan gespeichert."));
     }
     if (form.id === "comparison-form") {
       state.compareBefore = Number(data.before);
@@ -1267,13 +1281,13 @@ document.addEventListener("submit", async (ev) => {
       modal.close();
       await loadSources();
       await navigate("source", source.id);
-      toast("Datenquelle gespeichert. Starte jetzt einen Schema-Scan.");
+      toast(uiText("Datenquelle gespeichert. Starte jetzt einen Schema-Scan."));
     }
     if (form.id === "user-form") {
       await api("/api/users", "POST", data);
       modal.close();
       await navigate("users");
-      toast("Benutzer angelegt.");
+      toast(uiText("Benutzer angelegt."));
     }
     if (form.id === "user-edit-form") {
       await api(`/api/users/${form.dataset.id}`, "PUT", {
@@ -1282,7 +1296,7 @@ document.addEventListener("submit", async (ev) => {
       });
       modal.close();
       await navigate("users");
-      toast("Benutzer aktualisiert.");
+      toast(uiText("Benutzer aktualisiert."));
     }
     if (form.id === "grants-form") {
       const id = form.dataset.id;
@@ -1297,13 +1311,13 @@ document.addEventListener("submit", async (ev) => {
         else await api(`/api/sources/${id}/grants/${uid}`, "DELETE");
       }
       modal.close();
-      toast("Freigaben gespeichert.");
+      toast(uiText("Freigaben gespeichert."));
     }
     if (form.id === "password-form") {
       const result = await api("/api/auth/password", "POST", data);
       state.csrf = result.csrf;
       modal.close();
-      toast("Passwort geändert.");
+      toast(uiText("Passwort geändert."));
     }
     if (form.id === "note-form") {
       const t = state.snapshot.payload.tables[state.table];
@@ -1312,7 +1326,7 @@ document.addEventListener("submit", async (ev) => {
         text: data.text,
       });
       state.snapshot.notes[t.key] = data.text;
-      toast("Dokumentation gespeichert.");
+      toast(uiText("Dokumentation gespeichert."));
     }
   } catch (error) {
     const node = document.getElementById(
@@ -1456,7 +1470,7 @@ setInterval(async () => {
   } catch (error) {
     if (!state.user) await showLogin();
     else {
-      root.innerHTML = `<div class="empty"><h2>Anwendung konnte nicht geladen werden</h2><p>${e(error.message)}</p><button class="btn" data-action="nav" data-view="sources">Erneut versuchen</button></div>`;
+      root.innerHTML = localize`<div class="empty"><h2>Anwendung konnte nicht geladen werden</h2><p>${e(error.message)}</p><button class="btn" data-action="nav" data-view="sources">Erneut versuchen</button></div>`;
     }
   }
 })();
@@ -1464,11 +1478,11 @@ setInterval(async () => {
 function tagList(tags) {
   return (tags || []).length
     ? `<span class="tag-list">${tags.map((t) => `<span class="tag">${e(t)}</span>`).join("")}</span>`
-    : '<span class="muted">Keine Tags</span>';
+    : localize('<span class="muted">Keine Tags</span>');
 }
 function organizationView() {
   const s = state.source;
-  return `<section class="panel feature-panel"><div class="panel-head"><div><h2>Tags & Verantwortliche</h2><p class="muted small">Ordne diese Datenbank einem Team zu und finde sie mit Tags im Katalog.</p></div></div><div class="panel-body"><form id="organization-form" class="feature-form"><fieldset ${s.can_edit ? "" : "disabled"}><div class="field"><label for="source-tags">Tags</label><input id="source-tags" name="tags" value="${e((s.tags || []).join(", "))}" placeholder="Produktion, Finance, Data Warehouse"><small>Mit Kommas trennen. Bis zu 20 Tags mit jeweils 60 Zeichen.</small></div><div class="form-grid"><div class="field"><label for="source-owner">Verantwortliche Person oder Team</label><input id="source-owner" name="owner" maxlength="190" value="${e(s.owner)}" placeholder="Data Platform Team"></div><div class="field"><label for="source-owner-email">Kontakt-E-Mail</label><input id="source-owner-email" name="owner_email" type="email" maxlength="190" value="${e(s.owner_email)}" placeholder="data-team@example.org"></div></div>${s.can_edit ? '<button class="btn primary" type="submit">Zuständigkeit speichern</button>' : '<p class="muted">Du hast Leserechte für diese Angaben.</p>'}</fieldset><div id="form-error" class="error-text" role="alert"></div></form></div></section><div class="hint">${icon("info")}<span>Die Zuständigkeit dient der Dokumentation. Zugriffsrechte vergibt ein Administrator unter „Benutzer & Rechte“.</span></div>`;
+  return localize`<section class="panel feature-panel"><div class="panel-head"><div><h2>Tags & Verantwortliche</h2><p class="muted small">Ordne diese Datenbank einem Team zu und finde sie mit Tags im Katalog.</p></div></div><div class="panel-body"><form id="organization-form" class="feature-form"><fieldset ${s.can_edit ? "" : "disabled"}><div class="field"><label for="source-tags">Tags</label><input id="source-tags" name="tags" value="${e((s.tags || []).join(", "))}" placeholder="Produktion, Finance, Data Warehouse"><small>Mit Kommas trennen. Bis zu 20 Tags mit jeweils 60 Zeichen.</small></div><div class="form-grid"><div class="field"><label for="source-owner">Verantwortliche Person oder Team</label><input id="source-owner" name="owner" maxlength="190" value="${e(s.owner)}" placeholder="Data Platform Team"></div><div class="field"><label for="source-owner-email">Kontakt-E-Mail</label><input id="source-owner-email" name="owner_email" type="email" maxlength="190" value="${e(s.owner_email)}" placeholder="data-team@example.org"></div></div>${s.can_edit ? localize('<button class="btn primary" type="submit">Zuständigkeit speichern</button>') : localize('<p class="muted">Du hast Leserechte für diese Angaben.</p>')}</fieldset><div id="form-error" class="error-text" role="alert"></div></form></div></section><div class="hint">${icon("info")}<span>Die Zuständigkeit dient der Dokumentation. Zugriffsrechte vergibt ein Administrator unter „Benutzer & Rechte“.</span></div>`;
 }
 function scheduleView() {
   const s = state.source,
@@ -1482,8 +1496,12 @@ function scheduleView() {
         timezone: "Europe/Berlin",
       };
   const time = `${String(v.hour).padStart(2, "0")}:${String(v.minute).padStart(2, "0")}`;
-  return `<section class="panel feature-panel"><div class="panel-head"><div><h2>Automatische Schema-Scans</h2><p class="muted small">Halte die Dokumentation mit einem Zeitplan aktuell.</p></div><span class="badge ${v.enabled ? "" : "neutral"}">${v.enabled ? "Aktiv" : "Deaktiviert"}</span></div><div class="panel-body"><form id="schedule-form" class="feature-form"><fieldset ${s.can_edit ? "" : "disabled"}><label class="check-line"><input type="checkbox" name="enabled" ${v.enabled ? "checked" : ""}> Automatische Scans aktivieren</label><div class="form-grid"><div class="field"><label for="schedule-cadence">Intervall</label><select id="schedule-cadence" name="cadence">${Object.entries(
-    { hourly: "Stündlich", daily: "Täglich", weekly: "Wöchentlich" },
+  return localize`<section class="panel feature-panel"><div class="panel-head"><div><h2>Automatische Schema-Scans</h2><p class="muted small">Halte die Dokumentation mit einem Zeitplan aktuell.</p></div><span class="badge ${v.enabled ? "" : "neutral"}">${v.enabled ? uiText("Aktiv") : uiText("Deaktiviert")}</span></div><div class="panel-body"><form id="schedule-form" class="feature-form"><fieldset ${s.can_edit ? "" : "disabled"}><label class="check-line"><input type="checkbox" name="enabled" ${v.enabled ? "checked" : ""}> Automatische Scans aktivieren</label><div class="form-grid"><div class="field"><label for="schedule-cadence">Intervall</label><select id="schedule-cadence" name="cadence">${Object.entries(
+    {
+      hourly: uiText("Stündlich"),
+      daily: uiText("Täglich"),
+      weekly: uiText("Wöchentlich"),
+    },
   )
     .map(
       ([id, label]) =>
@@ -1491,12 +1509,12 @@ function scheduleView() {
     )
     .join(
       "",
-    )}</select></div><div class="field" id="schedule-time-field" ${v.cadence === "hourly" ? "hidden" : ""}><label for="schedule-time">Uhrzeit</label><input id="schedule-time" name="time" type="time" required value="${time}"></div><div class="field" id="schedule-weekday-field" ${v.cadence !== "weekly" ? "hidden" : ""}><label for="schedule-weekday">Wochentag</label><select id="schedule-weekday" name="weekday">${["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"].map((label, i) => `<option value="${i}" ${i === v.weekday ? "selected" : ""}>${label}</option>`).join("")}</select></div><div class="field"><label for="schedule-timezone">Zeitzone</label><input id="schedule-timezone" name="timezone" maxlength="64" required value="${e(v.timezone)}" list="timezones"><datalist id="timezones"><option value="Europe/Berlin"><option value="UTC"><option value="Europe/London"><option value="America/New_York"></datalist></div></div><p class="muted small">Stündliche Scans beginnen eine Stunde nach dem Speichern. Tägliche und wöchentliche Termine folgen der gewählten Ortszeit.</p>${s.can_edit ? '<button class="btn primary" type="submit">Zeitplan speichern</button>' : '<p class="muted">Nur Bearbeiter können diesen Zeitplan ändern.</p>'}</fieldset><div id="form-error" class="error-text" role="alert"></div></form><div class="schedule-summary">${info("Nächster Termin", v.next_run ? e(scheduleDate(v.next_run, v.timezone)) : "Kein Termin geplant")}${info("Letzter automatischer Start", v.last_started ? e(dt(v.last_started)) : "Noch keiner")}${v.message ? info("Status", e(v.message)) : ""}</div></div></section><div class="hint">${icon("info")}<span>Der Planer prüft Termine alle 30 Sekunden und verhindert parallele Scans derselben Quelle. Nach einer Auszeit wird ein verpasster Termin nachgeholt. Das einrichtende Konto muss aktiv bleiben und Bearbeitungsrechte behalten.</span></div>`;
+    )}</select></div><div class="field" id="schedule-time-field" ${v.cadence === "hourly" ? "hidden" : ""}><label for="schedule-time">Uhrzeit</label><input id="schedule-time" name="time" type="time" required value="${time}"></div><div class="field" id="schedule-weekday-field" ${v.cadence !== "weekly" ? "hidden" : ""}><label for="schedule-weekday">Wochentag</label><select id="schedule-weekday" name="weekday">${[uiText("Montag"), uiText("Dienstag"), uiText("Mittwoch"), uiText("Donnerstag"), uiText("Freitag"), uiText("Samstag"), uiText("Sonntag")].map((label, i) => `<option value="${i}" ${i === v.weekday ? "selected" : ""}>${label}</option>`).join("")}</select></div><div class="field"><label for="schedule-timezone">Zeitzone</label><input id="schedule-timezone" name="timezone" maxlength="64" required value="${e(v.timezone)}" list="timezones"><datalist id="timezones"><option value="Europe/Berlin"><option value="UTC"><option value="Europe/London"><option value="America/New_York"></datalist></div></div><p class="muted small">Stündliche Scans beginnen eine Stunde nach dem Speichern. Tägliche und wöchentliche Termine folgen der gewählten Ortszeit.</p>${s.can_edit ? localize('<button class="btn primary" type="submit">Zeitplan speichern</button>') : localize('<p class="muted">Nur Bearbeiter können diesen Zeitplan ändern.</p>')}</fieldset><div id="form-error" class="error-text" role="alert"></div></form><div class="schedule-summary">${info(uiText("Nächster Termin"), v.next_run ? e(scheduleDate(v.next_run, v.timezone)) : uiText("Kein Termin geplant"))}${info(uiText("Letzter automatischer Start"), v.last_started ? e(dt(v.last_started)) : uiText("Noch keiner"))}${v.message ? info("Status", e(uiMessage(v.message))) : ""}</div></div></section><div class="hint">${icon("info")}<span>Der Planer prüft Termine alle 30 Sekunden und verhindert parallele Scans derselben Quelle. Nach einer Auszeit wird ein verpasster Termin nachgeholt. Das einrichtende Konto muss aktiv bleiben und Bearbeitungsrechte behalten.</span></div>`;
 }
 function scheduleDate(value, zone) {
   return (
     new Date(value.endsWith("Z") ? value : value + "Z").toLocaleString(
-      "de-DE",
+      uiLocale,
       { timeZone: zone, dateStyle: "medium", timeStyle: "short" },
     ) +
     " · " +
@@ -1519,16 +1537,16 @@ async function loadComparison() {
   );
 }
 const diffLabels = {
-  type: "Datentyp",
+  type: uiText("Datentyp"),
   nullable: "NULL erlaubt",
-  default: "Standardwert",
-  primary_key: "Primärschlüssel",
-  comment: "Kommentar",
-  kind: "Objekttyp",
-  foreign_keys: "Fremdschlüssel",
-  indexes: "Indizes",
-  unique_constraints: "Eindeutige Constraints",
-  validator: "MongoDB-Validator",
+  default: uiText("Standardwert"),
+  primary_key: uiText("Primärschlüssel"),
+  comment: uiText("Kommentar"),
+  kind: uiText("Objekttyp"),
+  foreign_keys: uiText("Fremdschlüssel"),
+  indexes: uiText("Indizes"),
+  unique_constraints: uiText("Eindeutige Constraints"),
+  validator: uiText("MongoDB-Validator"),
 };
 function diffValue(value) {
   return value === null || value === undefined
@@ -1537,12 +1555,12 @@ function diffValue(value) {
       ? JSON.stringify(value, null, 2)
       : typeof value === "boolean"
         ? value
-          ? "Ja"
-          : "Nein"
+          ? uiText("Ja")
+          : uiText("Nein")
         : String(value);
 }
 function diffChanges(changes) {
-  return `<div class="table-wrap"><table class="diff-table"><thead><tr><th>Eigenschaft</th><th>Vorher</th><th>Nachher</th></tr></thead><tbody>${Object.entries(
+  return localize`<div class="table-wrap"><table class="diff-table"><thead><tr><th>Eigenschaft</th><th>Vorher</th><th>Nachher</th></tr></thead><tbody>${Object.entries(
     changes,
   )
     .map(
@@ -1558,32 +1576,32 @@ function columnChanges(columns, label, css) {
 }
 function comparisonView() {
   if (state.history.length < 2)
-    return `<div class="empty">${icon("relations")}<h2>Zwei Schema-Stände benötigt</h2><p>Nach zwei erfolgreichen Scans kannst du Änderungen an Tabellen, Spalten, Schlüsseln und Indizes vergleichen.</p></div>`;
+    return localize`<div class="empty">${icon("relations")}<h2>Zwei Schema-Stände benötigt</h2><p>Nach zwei erfolgreichen Scans kannst du Änderungen an Tabellen, Spalten, Schlüsseln und Indizes vergleichen.</p></div>`;
   const options = (selected) =>
     state.history
       .map(
         (h) =>
-          `<option value="${h.id}" ${h.id === selected ? "selected" : ""}>#${h.id} · ${e(dt(h.created))} · ${h.table_count} Objekte</option>`,
+          localize`<option value="${h.id}" ${h.id === selected ? "selected" : ""}>#${h.id} · ${e(dt(h.created))} · ${h.table_count} Objekte</option>`,
       )
       .join("");
   const d = state.comparison;
-  return `<section class="panel"><div class="panel-head"><div><h2>Schema-Stände vergleichen</h2><p class="muted small">Wähle einen älteren Ausgangsstand und einen neueren Vergleichsstand.</p></div></div><div class="panel-body"><form id="comparison-form" class="comparison-form"><div class="field"><label for="compare-before">Vorher</label><select id="compare-before" name="before">${options(state.compareBefore)}</select></div><div class="field"><label for="compare-after">Nachher</label><select id="compare-after" name="after">${options(state.compareAfter)}</select></div><button type="submit" class="btn primary">Vergleichen</button><div id="form-error" class="error-text" role="alert"></div></form></div></section>${
+  return localize`<section class="panel"><div class="panel-head"><div><h2>Schema-Stände vergleichen</h2><p class="muted small">Wähle einen älteren Ausgangsstand und einen neueren Vergleichsstand.</p></div></div><div class="panel-body"><form id="comparison-form" class="comparison-form"><div class="field"><label for="compare-before">Vorher</label><select id="compare-before" name="before">${options(state.compareBefore)}</select></div><div class="field"><label for="compare-after">Nachher</label><select id="compare-after" name="after">${options(state.compareAfter)}</select></div><button type="submit" class="btn primary">Vergleichen</button><div id="form-error" class="error-text" role="alert"></div></form></div></section>${
     d
-      ? `<div class="diff-summary"><div><strong>${d.summary.added_tables}</strong><span>Objekte hinzugefügt</span></div><div><strong>${d.summary.removed_tables}</strong><span>Objekte entfernt</span></div><div><strong>${d.summary.changed_tables}</strong><span>Objekte geändert</span></div><div><strong>${d.summary.added_columns + d.summary.removed_columns + d.summary.changed_columns}</strong><span>Spaltenänderungen</span></div></div>${!d.added_tables.length && !d.removed_tables.length && !d.changed_tables.length ? '<section class="panel panel-body"><h3>Keine Schema-Änderungen</h3><p class="muted">Die dokumentierten Strukturen stimmen überein.</p></section>' : ""}${[
-          [d.added_tables, "Objekt hinzugefügt", "diff-added"],
-          [d.removed_tables, "Objekt entfernt", "diff-removed"],
+      ? localize`<div class="diff-summary"><div><strong>${d.summary.added_tables}</strong><span>Objekte hinzugefügt</span></div><div><strong>${d.summary.removed_tables}</strong><span>Objekte entfernt</span></div><div><strong>${d.summary.changed_tables}</strong><span>Objekte geändert</span></div><div><strong>${d.summary.added_columns + d.summary.removed_columns + d.summary.changed_columns}</strong><span>Spaltenänderungen</span></div></div>${!d.added_tables.length && !d.removed_tables.length && !d.changed_tables.length ? localize('<section class="panel panel-body"><h3>Keine Schema-Änderungen</h3><p class="muted">Die dokumentierten Strukturen stimmen überein.</p></section>') : ""}${[
+          [d.added_tables, uiText("Objekt hinzugefügt"), "diff-added"],
+          [d.removed_tables, uiText("Objekt entfernt"), "diff-removed"],
         ]
           .map(([items, label, css]) =>
             items
               .map(
                 (t) =>
-                  `<details class="panel diff-object" open><summary><span class="${css}">${label}</span> ${e([t.schema, t.name].filter(Boolean).join("."))}</summary><div class="panel-body">${columnChanges(t.columns, "Spalten", css)}</div></details>`,
+                  `<details class="panel diff-object" open><summary><span class="${css}">${label}</span> ${e([t.schema, t.name].filter(Boolean).join("."))}</summary><div class="panel-body">${columnChanges(t.columns, uiText("Spalten"), css)}</div></details>`,
               )
               .join(""),
           )
           .join(
             "",
-          )}${d.changed_tables.map((t) => `<details class="panel diff-object" open><summary><span class="diff-changed">Objekt geändert</span> ${e([t.schema, t.name].filter(Boolean).join("."))}</summary><div class="panel-body">${columnChanges(t.added_columns, "Spalten hinzugefügt", "diff-added")}${columnChanges(t.removed_columns, "Spalten entfernt", "diff-removed")}${t.changed_columns.map((c) => `<h3 class="diff-column-title">Spalte ${e(c.name)}</h3>${diffChanges(c.changes)}`).join("")}${Object.keys(t.changes).length ? `<h3 class="diff-column-title">Objekt-Eigenschaften</h3>${diffChanges(t.changes)}` : ""}</div></details>`).join("")}${d.inferred ? '<div class="hint">Abgeleitete MongoDB-Felder beruhen auf Stichproben. Unterschiede können durch die untersuchten Dokumente entstehen.</div>' : ""}`
+          )}${d.changed_tables.map((t) => localize`<details class="panel diff-object" open><summary><span class="diff-changed">Objekt geändert</span> ${e([t.schema, t.name].filter(Boolean).join("."))}</summary><div class="panel-body">${columnChanges(t.added_columns, uiText("Spalten hinzugefügt"), "diff-added")}${columnChanges(t.removed_columns, uiText("Spalten entfernt"), "diff-removed")}${t.changed_columns.map((c) => localize`<h3 class="diff-column-title">Spalte ${e(c.name)}</h3>${diffChanges(c.changes)}`).join("")}${Object.keys(t.changes).length ? localize`<h3 class="diff-column-title">Objekt-Eigenschaften</h3>${diffChanges(t.changes)}` : ""}</div></details>`).join("")}${d.inferred ? localize('<div class="hint">Abgeleitete MongoDB-Felder beruhen auf Stichproben. Unterschiede können durch die untersuchten Dokumente entstehen.</div>') : ""}`
       : ""
   }<div class="hint">${icon("info")}<span>Der Vergleich verwendet gespeicherte Metadaten. Umbenennungen werden als Entfernen und Hinzufügen angezeigt. Notizen und Datenwerte gehören nicht zum Schema-Vergleich.</span></div>`;
 }
@@ -1601,12 +1619,12 @@ async function runSearch() {
 function renderSearch() {
   const data = state.searchResults,
     labels = {
-      table: "Tabelle / Collection",
-      column: "Spalte / Feld",
-      note: "Dokumentation",
+      table: uiText("Tabelle / Collection"),
+      column: uiText("Spalte / Feld"),
+      note: uiText("Dokumentation"),
     };
   shell(
-    `<div class="page-head"><div><div class="eyebrow">Datenbankübergreifend</div><h1>Globale Suche</h1><p>Finde Tabellen, Spalten, Kommentare und Notizen in deinen freigegebenen Datenbanken.</p></div></div><section class="panel"><div class="panel-body"><form id="search-form" class="global-search-form"><div class="field"><label for="global-search-q">Suchbegriff</label><input id="global-search-q" name="q" minlength="2" maxlength="200" required placeholder="Zum Beispiel customer_id oder Bestellungen …" value="${e(state.searchQuery)}"></div><div class="field"><label for="global-search-source">Datenquelle</label><select id="global-search-source" name="source_id"><option value="all">Alle freigegebenen Quellen</option>${state.sources.map((s) => `<option value="${s.id}" ${String(s.id) === String(state.searchSource) ? "selected" : ""}>${e(s.name)}</option>`).join("")}</select></div><div class="field"><label for="global-search-kind">Treffertyp</label><select id="global-search-kind" name="kind"><option value="all">Alle Typen</option>${Object.entries(
+    localize`<div class="page-head"><div><div class="eyebrow">Datenbankübergreifend</div><h1>Globale Suche</h1><p>Finde Tabellen, Spalten, Kommentare und Notizen in deinen freigegebenen Datenbanken.</p></div></div><section class="panel"><div class="panel-body"><form id="search-form" class="global-search-form"><div class="field"><label for="global-search-q">Suchbegriff</label><input id="global-search-q" name="q" minlength="2" maxlength="200" required placeholder="Zum Beispiel customer_id oder Bestellungen …" value="${e(state.searchQuery)}"></div><div class="field"><label for="global-search-source">Datenquelle</label><select id="global-search-source" name="source_id"><option value="all">Alle freigegebenen Quellen</option>${state.sources.map((s) => `<option value="${s.id}" ${String(s.id) === String(state.searchSource) ? "selected" : ""}>${e(s.name)}</option>`).join("")}</select></div><div class="field"><label for="global-search-kind">Treffertyp</label><select id="global-search-kind" name="kind"><option value="all">Alle Typen</option>${Object.entries(
       labels,
     )
       .map(
@@ -1615,6 +1633,6 @@ function renderSearch() {
       )
       .join(
         "",
-      )}</select></div><button class="btn primary" type="submit">${icon("search")} Suchen</button><div id="form-error" class="error-text" role="alert"></div></form></div></section>${data ? `<section class="panel search-results"><div class="panel-head"><h2>${data.total.toLocaleString("de-DE")} Treffer</h2><span class="muted small">Aktuelle Schema-Stände</span></div>${data.results.length ? data.results.map((item, i) => `<article class="search-result"><div class="db-icon ${e(item.source_kind)}">${databaseLogo(item.source_kind)}</div><div><div class="small muted">${e(item.source_name)} · ${labels[item.kind]}</div><button class="source-title" data-action="search-open" data-index="${i}">${e(item.title)}</button><p>${e(item.snippet)}</p></div><button class="btn ghost" data-action="search-open" data-index="${i}" aria-label="${e(item.title)} öffnen">${icon("arrow")}</button></article>`).join("") : '<div class="empty"><h2>Keine Treffer</h2><p>Versuche einen anderen Begriff oder lockere die Filter. Quellen benötigen einen erfolgreichen Scan.</p></div>'}<div class="catalog-pagination"><span class="muted small">Seite ${data.page} von ${Math.max(1, Math.ceil(data.total / data.page_size))}</span><div class="page-buttons"><button class="btn" data-action="search-page" data-page="${data.page - 1}" ${data.page <= 1 ? "disabled" : ""}>${icon("back")} Zurück</button><button class="btn" data-action="search-page" data-page="${data.page + 1}" ${data.page * data.page_size >= data.total ? "disabled" : ""}>Weiter ${icon("arrow")}</button></div></div></section>` : '<div class="empty"><h2>Wissen in allen Datenbanken finden</h2><p>Gib mindestens zwei Zeichen ein. Mehrere Wörter müssen gemeinsam im Treffer vorkommen.</p></div>'}<div class="hint">${icon("shield")}<span>Gesucht wird in dokumentierten Metadaten und Notizen. Datenvorschauen und Zugangsdaten sind nicht Teil der Suche.</span></div>`,
+      )}</select></div><button class="btn primary" type="submit">${icon("search")} Suchen</button><div id="form-error" class="error-text" role="alert"></div></form></div></section>${data ? localize`<section class="panel search-results"><div class="panel-head"><h2>${data.total.toLocaleString(uiLocale)} Treffer</h2><span class="muted small">Aktuelle Schema-Stände</span></div>${data.results.length ? data.results.map((item, i) => localize`<article class="search-result"><div class="db-icon ${e(item.source_kind)}">${databaseLogo(item.source_kind)}</div><div><div class="small muted">${e(item.source_name)} · ${labels[item.kind]}</div><button class="source-title" data-action="search-open" data-index="${i}">${e(item.title)}</button><p>${e(item.snippet)}</p></div><button class="btn ghost" data-action="search-open" data-index="${i}" aria-label="${e(item.title)} öffnen">${icon("arrow")}</button></article>`).join("") : localize('<div class="empty"><h2>Keine Treffer</h2><p>Versuche einen anderen Begriff oder lockere die Filter. Quellen benötigen einen erfolgreichen Scan.</p></div>')}<div class="catalog-pagination"><span class="muted small">Seite ${data.page} von ${Math.max(1, Math.ceil(data.total / data.page_size))}</span><div class="page-buttons"><button class="btn" data-action="search-page" data-page="${data.page - 1}" ${data.page <= 1 ? "disabled" : ""}>${icon("back")} Zurück</button><button class="btn" data-action="search-page" data-page="${data.page + 1}" ${data.page * data.page_size >= data.total ? "disabled" : ""}>Weiter ${icon("arrow")}</button></div></div></section>` : localize('<div class="empty"><h2>Wissen in allen Datenbanken finden</h2><p>Gib mindestens zwei Zeichen ein. Mehrere Wörter müssen gemeinsam im Treffer vorkommen.</p></div>')}<div class="hint">${icon("shield")}<span>Gesucht wird in dokumentierten Metadaten und Notizen. Datenvorschauen und Zugangsdaten sind nicht Teil der Suche.</span></div>`,
   );
 }

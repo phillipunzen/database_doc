@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from fastapi import HTTPException
+from .i18n import tr, tr_message
 from .models import Session, Source, Job, Snapshot, ScanSchedule, User, now
 from .security import decrypt, access, audit
 from .connectors import scan, ConnectorError
@@ -45,7 +46,7 @@ def next_due(schedule, after):
         )
         if candidate > after:
             return candidate
-    raise ValueError("Kein nächster Termin gefunden.")
+    raise ValueError(tr("Kein nächster Termin gefunden."))
 
 
 def schedule_json(schedule):
@@ -63,7 +64,11 @@ def schedule_json(schedule):
             "message": "",
         }
     return {
-        field: getattr(schedule, field)
+        field: (
+            tr_message(getattr(schedule, field))
+            if field == "message"
+            else getattr(schedule, field)
+        )
         for field in (
             "enabled",
             "cadence",
@@ -84,9 +89,11 @@ def enqueue(db, source_id, user, scheduled=False):
     access(db, user, source_id, edit=True)
     active = list(db.scalars(select(Job).where(Job.status.in_(["queued", "running"]))))
     if any(j.source_id == source_id for j in active):
-        raise HTTPException(409, "Für diese Quelle läuft bereits ein Scan.")
+        raise HTTPException(409, tr("Für diese Quelle läuft bereits ein Scan."))
     if len(active) >= 10:
-        raise HTTPException(429, "Scan-Warteschlange ist voll. Bitte später versuchen.")
+        raise HTTPException(
+            429, tr("Scan-Warteschlange ist voll. Bitte später versuchen.")
+        )
     job = Job(source_id=source_id)
     db.add(job)
     db.flush()
@@ -126,12 +133,14 @@ def scheduler_tick(at=None):
             )
             try:
                 if not user or not user.active:
-                    raise HTTPException(403, "Konto deaktiviert.")
+                    raise HTTPException(403, tr("Konto deaktiviert."))
                 access(db, user, source_id, edit=True)
             except HTTPException:
                 schedule.enabled = False
                 schedule.next_run = None
-                schedule.message = "Zeitplan deaktiviert: Das einrichtende Konto hat keine Bearbeitungsrechte mehr."
+                schedule.message = tr(
+                    "Zeitplan deaktiviert: Das einrichtende Konto hat keine Bearbeitungsrechte mehr."
+                )
                 if user:
                     audit(db, user, "schedule_disabled_access", source_id)
                 db.commit()
@@ -141,13 +150,13 @@ def scheduler_tick(at=None):
             except HTTPException as error:
                 if error.status_code not in {409, 429}:
                     raise
-                schedule.message = "Termin wartet auf einen freien Scan-Platz."
+                schedule.message = tr("Termin wartet auf einen freien Scan-Platz.")
                 db.commit()
                 continue
             schedule.next_run = next_due(schedule, at)
             schedule.last_started = at
             schedule.last_job_id = job.id
-            schedule.message = "Automatischer Scan gestartet."
+            schedule.message = tr("Automatischer Scan gestartet.")
             db.commit()
             dispatch(job.id)
 
@@ -188,7 +197,7 @@ def run_scan(job_id):
         if not source:
             return
         job.status = "running"
-        job.message = "Metadaten werden ausgelesen."
+        job.message = tr("Metadaten werden ausgelesen.")
         db.commit()
         try:
             payload = scan(source.kind, decrypt(source), source.mongo_infer)
@@ -196,7 +205,7 @@ def run_scan(job_id):
                 db.add(Snapshot(source_id=source.id, payload=payload))
                 reindex_source(db, source)
                 job.status = "completed"
-                job.message = f'{len(payload["tables"])} Objekte dokumentiert.'
+                job.message = tr("{0} Objekte dokumentiert.", len(payload["tables"]))
                 job.finished = now()
                 db.commit()
         except Exception as error:
@@ -207,7 +216,10 @@ def run_scan(job_id):
             job.message = (
                 str(error)
                 if isinstance(error, ConnectorError)
-                else f"Scan fehlgeschlagen ({type(error).__name__}). Bitte Erreichbarkeit, TLS und Leserechte prüfen."
+                else tr(
+                    "Scan fehlgeschlagen ({0}). Bitte Erreichbarkeit, TLS und Leserechte prüfen.",
+                    type(error).__name__,
+                )
             )
             job.finished = now()
             db.commit()
