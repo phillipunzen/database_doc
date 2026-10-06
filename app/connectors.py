@@ -168,6 +168,20 @@ def table_key(schema, name):
     return json.dumps([schema or "", name], ensure_ascii=False, separators=(",", ":"))
 
 
+def documented_type(value, dialect=None):
+    rendered = (
+        str(value.compile(dialect=dialect)) if dialect is not None else str(value)
+    )
+    # MySQL/MariaDB's generic compiler omits display width and unsigned flags.
+    # Retain these scanned attributes for BOOLEAN aliases and portable range planning.
+    width = getattr(value, "display_width", None)
+    if type(value).__name__ == "TINYINT" and width is not None and "(" not in rendered:
+        rendered += f"({int(width)})"
+    if getattr(value, "unsigned", False) and "UNSIGNED" not in rendered.upper():
+        rendered += " UNSIGNED"
+    return rendered
+
+
 def optional(fn, fallback):
     try:
         return fn()
@@ -227,7 +241,7 @@ def scan(kind, cfg, infer=False):
                         "columns": [
                             {
                                 "name": c["name"],
-                                "type": str(c["type"]),
+                                "type": documented_type(c["type"], conn.dialect),
                                 "nullable": bool(c.get("nullable", True)),
                                 "default": (
                                     str(c["default"])

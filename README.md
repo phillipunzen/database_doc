@@ -58,6 +58,7 @@ Then add a SQLite source in the application with the container path `/sources/be
 
 The source dashboard defaults to a compact list with locally served database-engine logos. Search by name, server, database, schema, tag, or owner; combine engine, server, tag, and scan-status filters; sort by name, engine, server, object count, status, or last scan. Pagination supports 25, 50, or 100 sources per page. An optional card view uses the same filters and pagination. Filters and page selection are retained while navigating between a source and the catalog. The mobile list uses compact stacked rows.
 
+- Data warehouse projects with target modeling, snapshot-based field mappings, SQL generation for three engines, implementation tracking, and planned-versus-scanned target comparison.
 - Multiple data sources with individual connection settings and encrypted credentials.
 - Database discovery on a server. Each source documents one database; an optional schema setting narrows the scan.
 - Manual and scheduled background scans of tables, views, columns, data types, nullability, defaults, primary and foreign keys, indexes, unique constraints, and database comments where supported by the adapter.
@@ -74,6 +75,33 @@ For MongoDB, scans collect collections, indexes, and validators by default. Opti
 Scans are limited to 2,000 objects and run on two threads in a single application process. The queue accepts up to ten active or queued jobs. After a restart, interrupted jobs are marked as failed and can be started again.
 
 PostgreSQL materialized views, stored procedures, and ETL or pipeline lineage are not yet supported.
+
+## Data warehouse projects
+
+Open **DWH-Projekte** in the sidebar to design and track a warehouse targeting **SQL Server, PostgreSQL, or MariaDB**. Projects, target models, mappings, requirements, and implementation statuses are stored in the application's MariaDB database. Existing catalog data is retained; startup adds two new tables without replacing sources, snapshots, users, or notes.
+
+1. Create a project with its business requirements, target engine, target schema/database, and documented input sources. An optional target source connects the plan to the warehouse you implement. You can add that connection later.
+2. Under **Zielmodell**, import selected source objects as a starting point for staging, or create tables manually. Imported fields retain their original source names and snapshot IDs. Target types are portable suggestions: unsupported source types are marked for review instead of silently inventing conversions. Database relationships are not automatically promoted into a dimensional model.
+3. Define dimensions, facts, reference/aggregate tables, and raw/staging/core/mart layers. Record the grain (what one row represents), business and technical keys, measures, field definitions, transformations, and load/historization strategy. Add planned foreign keys, including composite keys, against the target table's complete primary key. The diagram shows up to 30 target tables; the object list and exports include the whole plan.
+4. Review **Feldzuordnungen** to trace each target field to its stored source scan. New mappings use the latest documented snapshot. Removing a source field or changing its type/nullability in a subsequent scan produces a planning warning; the original mapping remains available.
+5. Download **SQL-Entwurf** to create the initial schema and tables in the intended target database after review. SQL Server scripts target version 2012 or newer and use `IDENTITY`/Unicode types, PostgreSQL uses identity columns and native UUIDs, and MariaDB uses `AUTO_INCREMENT`, InnoDB, and UTF-8 tables. Foreign keys are added after all tables so cyclic dependencies can be represented. SQL is compiled with SQLAlchemy’s [DDL constructs](https://docs.sqlalchemy.org/en/21/core/ddl.html). The generated script does not change existing tables, execute mapping expressions, or load data. Connect to the intended SQL Server/PostgreSQL database before running it; MariaDB scripts also include database creation. Check storage/index limits, collation, and deployment permissions for your environment.
+6. Track each table as planned, in progress, implemented, or accepted by the business team under **Umsetzung**. These statuses are manually maintained. After implementing and scanning the target warehouse, **Soll-Ist-Vergleich** checks expected tables, columns, portable types, nullability, primary keys, and planned foreign keys. Extra target objects are reported separately. The result includes its snapshot ID/time and does not automatically change acceptance statuses.
+
+Projects also export JSON and Markdown documentation. Grain, mappings, transformations, and load strategies describe the current project version. SQL exports contain validated target identifiers and types, not arbitrary transformation text. DatabaseDoc never executes warehouse DDL or ETL jobs against your connections. Data-content validation, ETL execution, SCD generation, incremental watermarks, and automatic schema migrations are future work; their requirements can already be documented in the project. The structural comparison does not verify row values, identity configuration, ETL correctness, or business meaning. Older MariaDB snapshots may require a new scan to distinguish `TINYINT(1)` boolean aliases and unsigned ranges.
+
+Access follows **all** assigned source grants, including the optional target source: administrators can manage every project; editors need edit grants on every assigned source to change a project; viewers need read grants on every assigned source. Projects without sources are visible only to their creator and administrators. Removing a required grant immediately removes project access, including exports and comparisons. Referenced sources cannot be deleted or pointed at a different server/database/schema until their project bindings/mappings are removed. Source names, credentials, and TLS settings can still be updated. Conflicting edits are rejected using project versions, so an older editor cannot silently overwrite a newer save.
+
+Limits: 30 input sources, 100 target tables, 200 columns per target table, and 3,000 target columns per project; import at most 50 objects per request. Portable target identifiers use ASCII letters, digits, and underscores, start with a letter/underscore, and contain up to 63 characters. Source identifiers remain unchanged in mappings. Generated SQL supports the documented portable type set and primary-key-based relationships; advanced physical design needs further review.
+
+```text
+GET/POST /api/dwh/projects
+GET/PUT/DELETE /api/dwh/projects/{id}
+POST /api/dwh/projects/{id}/import
+GET /api/dwh/projects/{id}/compare
+GET /api/dwh/projects/{id}/export?format=sql|json|markdown
+```
+
+Updates/imports require the current `version`; deletion requires a `version` query parameter. Writes use the existing CSRF protection. Snapshot/field references must belong to an assigned project source.
 
 ## PDF exports
 
@@ -349,3 +377,16 @@ The browser test documents six example objects and four declared relationships. 
 ### Database logo assets
 
 Database-engine logos are vendored from Devicon and served locally. Attribution, source revision, and the upstream MIT license are included in [`app/static/database-logos/`](app/static/database-logos/README.md).
+
+### Warehouse planning checks
+
+`tests/test_warehouse.py` verifies project persistence, pinned imports/mappings, source-change warnings, access revocation, CSRF, optimistic conflicts, source deletion protection, input validation, three SQL dialects, target differences, and additive schema creation. Include it with the existing application tests.
+
+`tests/warehouse.cjs` requires a **separate fixture deployment** with fictional source/target snapshots, rather than the live development database. It exercises project creation, staging import, dimension/fact editing, mappings, planned relationships, exports, statuses, comparison, reloads, conflicting saves, viewer access, HTTP-compatible UUID generation, and mobile layout. Set `WAREHOUSE_TEST_URL` and optionally `WAREHOUSE_TEST_PASSWORD`; the screenshots in `docs/dwh-*.png` contain fictional fixtures.
+
+```bash
+WAREHOUSE_TEST_URL=http://127.0.0.1:18091 \
+NODE_PATH=/tmp/datatlas-browser/node_modules node tests/warehouse.cjs
+```
+
+`tests/test_warehouse_ddl_integration.py` executes the generated initial DDL in dedicated disposable containers named `databasedoc-ddl-postgres`, `databasedoc-ddl-mariadb`, or `databasedoc-ddl-mssql`. Set `WAREHOUSE_TEST_ENGINE` to `postgresql`, `mariadb`, or `mssql` for the corresponding container on the application's Docker network. PostgreSQL/MariaDB fixtures use a database named `databasedoc_ddl_fixture`; the SQL Server check creates that database in its disposable instance. The fixture password is `Dwh-disposable-test-password-2026`. These checks reset fixture schemas/tables, insert fictional rows to verify identity generation, rescan the created model, and verify foreign-key enforcement. Use only the dedicated disposable test instances. With the variable unset, the integration test is skipped.

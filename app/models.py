@@ -153,6 +153,33 @@ class SchemaVersion(Base):
     created: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
+class WarehouseProject(Base):
+    __tablename__ = "warehouse_projects"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(190))
+    goal: Mapped[str] = mapped_column(Text, default="")
+    target_kind: Mapped[str] = mapped_column(String(30))
+    target_schema: Mapped[str] = mapped_column(String(63))
+    target_source_id: Mapped[int | None] = mapped_column(
+        ForeignKey("sources.id"), nullable=True
+    )
+    blueprint: Mapped[dict] = mapped_column(JSON, default=dict)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_by_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created: Mapped[datetime] = mapped_column(DateTime, default=now)
+    updated: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class WarehouseProjectSource(Base):
+    __tablename__ = "warehouse_project_sources"
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("warehouse_projects.id", ondelete="CASCADE"), primary_key=True
+    )
+    source_id: Mapped[int] = mapped_column(ForeignKey("sources.id"), primary_key=True)
+
+
 if os.getenv("TEST_DATABASE_URL"):
     engine = create_engine(
         os.environ["TEST_DATABASE_URL"], connect_args={"check_same_thread": False}

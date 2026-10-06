@@ -5,6 +5,11 @@ const state = {
   sources: [],
   source: null,
   snapshot: null,
+  dwhProjects: [],
+  dwhProject: null,
+  dwhTab: "overview",
+  dwhTableId: null,
+  dwhComparison: null,
   view: "sources",
   tab: "overview",
   table: 0,
@@ -141,7 +146,7 @@ async function showLogin() {
   root.innerHTML = `<div class="login-shell"><aside class="login-art">${brand()}<div><div class="eyebrow" style="color:#b5d7a2">Wissen, wie Daten zusammenhängen</div><h1>Deine Datenbanken.<br>Ein klarer Überblick.</h1><p>Strukturen entdecken, Beziehungen verstehen und Datenwissen gemeinsam festhalten.</p><svg class="art-nodes" viewBox="0 0 440 200" aria-hidden="true"><g fill="none" stroke="#739b7c"><path d="M130 60H200V150H275M130 60H310V40"/></g><g fill="#244d40" stroke="#739b7c"><rect x="0" y="18" width="130" height="90" rx="8"/><rect x="275" y="110" width="140" height="85" rx="8"/><rect x="280" y="5" width="140" height="75" rx="8"/></g><g fill="#c0e8aa" font-size="12" font-family="monospace"><text x="15" y="42">customers</text><text x="295" y="28">addresses</text><text x="290" y="134">orders</text></g><g stroke="#6f9779"><path d="M15 58h90M15 73h65M15 88h78M295 43h100M295 58h70M290 150h100M290 166h65M290 181h80"/></g></svg></div><small>Metadaten · ER-Modelle · Dokumentation</small></aside><main class="login-main"><div class="login-box"><div class="eyebrow">Willkommen bei DatabaseDoc</div><h2>Anmelden</h2><p>Öffne deine Datenbankdokumentation.</p><form id="login-form" class="login-form"><div class="field"><label for="login-user">Benutzername</label><input id="login-user" name="username" autocomplete="username" required autofocus></div><div class="field"><label for="login-pass">Passwort</label><input id="login-pass" name="password" type="password" autocomplete="current-password" required></div>${options.ad ? '<div class="field"><label for="provider">Anmeldung</label><select id="provider" name="provider"><option value="local">Lokales Konto</option><option value="ad">Microsoft Active Directory</option></select></div>' : ""}<button class="btn primary" type="submit">Anmelden ${icon("arrow")}</button><div class="error-text" id="login-error" role="alert">${location.search.includes("auth_error") ? "Entra-Anmeldung fehlgeschlagen. Bitte Einrichtung oder Kontostatus prüfen." : ""}</div></form>${options.entra ? '<div class="divider">oder</div><a class="btn" style="width:100%" href="/auth/entra">Mit Microsoft Entra ID anmelden</a>' : ""}<p class="login-foot">Der Zugriff richtet sich nach den Freigaben deines Administrators.</p></div></main></div>`;
 }
 function shell(content) {
-  root.innerHTML = `<div class="layout"><aside class="sidebar">${brand()}<nav><div class="nav-label">Arbeitsbereich</div><button class="nav-button ${["sources", "source"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="sources">${icon("database")}<span>Datenquellen</span></button>${`<button class="nav-button ${state.view === "search" ? "active" : ""}" data-action="nav" data-view="search">${icon("search")}<span>Globale Suche</span></button>`}${state.user.role === "admin" ? `<div class="nav-label" style="margin-top:30px">Administration</div><button class="nav-button ${state.view === "users" ? "active" : ""}" data-action="nav" data-view="users">${icon("users")}<span>Benutzer & Rechte</span></button><button class="nav-button ${state.view === "audit" ? "active" : ""}" data-action="nav" data-view="audit">${icon("shield")}<span>Aktivitätsprotokoll</span></button>` : ""}</nav><div class="sidebar-bottom"><div class="user-line"><div class="avatar">${e(state.user.display_name.slice(0, 1).toUpperCase())}</div><div><div class="small">${e(state.user.display_name)}</div><div style="font-size:10px;color:#a7c0b3">${roles[state.user.role]}</div></div></div>${state.user.provider === "local" ? '<button data-action="password">Passwort ändern</button>' : ""}<button data-action="logout">Abmelden</button></div></aside><main class="main"><header class="topbar"><div class="breadcrumb">Arbeitsbereich <span>/</span> <strong>${state.view === "source" ? e(state.source.name) : state.view === "search" ? "Globale Suche" : state.view === "users" ? "Benutzer & Rechte" : state.view === "audit" ? "Aktivitätsprotokoll" : "Datenquellen"}</strong></div><div class="env-pill"><span class="dot"></span> ${roles[state.user.role]}</div><button class="btn ghost mobile-logout" data-action="logout" style="display:none">Abmelden</button></header><div class="content">${content}</div></main></div>`;
+  root.innerHTML = `<div class="layout"><aside class="sidebar">${brand()}<nav><div class="nav-label">Arbeitsbereich</div><button class="nav-button ${["sources", "source"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="sources">${icon("database")}<span>Datenquellen</span></button>${`<button class="nav-button ${state.view === "search" ? "active" : ""}" data-action="nav" data-view="search">${icon("search")}<span>Globale Suche</span></button>`}<button class="nav-button ${["warehouse", "warehouse-project"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="warehouse" title="DWH-Projekte">${icon("relations")}<span>DWH-Projekte</span></button>${state.user.role === "admin" ? `<div class="nav-label" style="margin-top:30px">Administration</div><button class="nav-button ${state.view === "users" ? "active" : ""}" data-action="nav" data-view="users">${icon("users")}<span>Benutzer & Rechte</span></button><button class="nav-button ${state.view === "audit" ? "active" : ""}" data-action="nav" data-view="audit">${icon("shield")}<span>Aktivitätsprotokoll</span></button>` : ""}</nav><div class="sidebar-bottom"><div class="user-line"><div class="avatar">${e(state.user.display_name.slice(0, 1).toUpperCase())}</div><div><div class="small">${e(state.user.display_name)}</div><div style="font-size:10px;color:#a7c0b3">${roles[state.user.role]}</div></div></div>${state.user.provider === "local" ? '<button data-action="password">Passwort ändern</button>' : ""}<button data-action="logout">Abmelden</button></div></aside><main class="main"><header class="topbar"><div class="breadcrumb">Arbeitsbereich <span>/</span> <strong>${state.view === "source" ? e(state.source.name) : state.view === "search" ? "Globale Suche" : ["warehouse", "warehouse-project"].includes(state.view) ? "DWH-Projekte" : state.view === "users" ? "Benutzer & Rechte" : state.view === "audit" ? "Aktivitätsprotokoll" : "Datenquellen"}</strong></div><div class="env-pill"><span class="dot"></span> ${roles[state.user.role]}</div><button class="btn ghost mobile-logout" data-action="logout" style="display:none">Abmelden</button></header><div class="content">${content}</div></main></div>`;
 }
 function status(source) {
   const job = source.job;
@@ -443,6 +448,18 @@ async function navigate(view, id, target = {}) {
       await loadSources();
       renderSources();
     }
+    if (view === "warehouse") {
+      await loadSources();
+      state.dwhProjects = await api("/api/dwh/projects");
+      renderDwhProjects();
+    }
+    if (view === "warehouse-project") {
+      state.dwhProject = await api(`/api/dwh/projects/${id}`);
+      state.dwhTab = "overview";
+      state.dwhTableId = null;
+      state.dwhComparison = null;
+      renderDwhProject();
+    }
     if (view === "search") {
       if (target.q !== undefined) state.searchQuery = target.q;
       if (state.searchQuery.trim().length >= 2) await runSearch();
@@ -465,8 +482,9 @@ async function navigate(view, id, target = {}) {
         : {},
   );
   const hash =
-    (view === "source" ? `source/${id}` : view) +
-    (params.size ? "?" + params : "");
+    (view === "source" || view === "warehouse-project"
+      ? `${view}/${id}`
+      : view) + (params.size ? "?" + params : "");
   if (location.hash.slice(1) !== hash) history.pushState(null, "", "#" + hash);
 }
 function tabs(items, current, action) {
@@ -778,6 +796,9 @@ function renderUsers() {
   );
 }
 const auditLabels = {
+  dwh_project_saved: "DWH-Projekt gespeichert",
+  dwh_project_deleted: "DWH-Projekt gelöscht",
+  dwh_project_exported: "DWH-Projekt exportiert",
   login: "Angemeldet",
   logout: "Abgemeldet",
   login_failed: "Anmeldung fehlgeschlagen",
@@ -959,6 +980,7 @@ document.addEventListener("click", async (ev) => {
   if (!button) return;
   const a = button.dataset.action;
   try {
+    if (a.startsWith("dwh-")) await warehouseClick(button);
     if (a === "search-page") {
       state.searchPage = Number(button.dataset.page);
       await runSearch();
@@ -1146,6 +1168,11 @@ document.addEventListener("click", async (ev) => {
 });
 document.addEventListener("submit", async (ev) => {
   const form = ev.target;
+  if (form.id.startsWith("dwh-")) {
+    ev.preventDefault();
+    await warehouseSubmit(form);
+    return;
+  }
   if (
     ![
       "login-form",
@@ -1317,6 +1344,8 @@ document.addEventListener("input", (ev) => {
   }
 });
 document.addEventListener("change", (ev) => {
+  if (ev.target.id.startsWith("dwh-") || ev.target.dataset.dwhStatus)
+    warehouseChange(ev.target);
   const catalogFields = {
     "source-host-filter": "hostFilter",
     "source-tag-filter": "tagFilter",
@@ -1357,7 +1386,15 @@ async function route() {
   const [path, query = ""] = location.hash.slice(1).split("?");
   const [view, id] = path.split("/");
   await navigate(
-    ["sources", "source", "search", "users", "audit"].includes(view)
+    [
+      "sources",
+      "source",
+      "search",
+      "warehouse",
+      "warehouse-project",
+      "users",
+      "audit",
+    ].includes(view)
       ? view
       : "sources",
     id,

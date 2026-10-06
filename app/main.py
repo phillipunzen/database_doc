@@ -30,6 +30,8 @@ from .models import (
     SourceMetadata,
     ScanSchedule,
     SearchEntry,
+    WarehouseProject,
+    WarehouseProjectSource,
     now,
 )
 from .security import (
@@ -56,6 +58,7 @@ from .jobs import (
 )
 from .search import migrate, reindex_source
 from .schema_diff import compare
+from .warehouse_api import router as warehouse_router
 
 APP_URL = os.environ.get("APP_URL", "http://localhost:8090").rstrip("/")
 login_lock = threading.Lock()
@@ -95,7 +98,11 @@ async def lifespan(app):
 
 
 app = FastAPI(
-    title="DatabaseDoc", version="0.1.0", lifespan=lifespan, docs_url=None, redoc_url=None
+    title="DatabaseDoc",
+    version="0.1.0",
+    lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
 )
 app.add_middleware(
     SessionMiddleware,
@@ -105,6 +112,8 @@ app.add_middleware(
     max_age=600,
     session_cookie="datatlas_oidc",
 )
+
+app.include_router(warehouse_router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 oauth = OAuth()
 if (
@@ -363,6 +372,21 @@ def latest(db, source_id):
     )
 
 
+def warehouse_uses_source(db, source_id):
+    return bool(
+        db.scalar(
+            select(WarehouseProjectSource.project_id).where(
+                WarehouseProjectSource.source_id == source_id
+            )
+        )
+        or db.scalar(
+            select(WarehouseProject.id).where(
+                WarehouseProject.target_source_id == source_id
+            )
+        )
+    )
+
+
 def source_json(db, source, user):
     config = decrypt(source)
     metadata = db.get(SourceMetadata, source.id)
@@ -456,6 +480,11 @@ def update_source(source_id: int, body: SourceInput, user: User = Depends(curren
             previous.get(k) != updated.get(k)
             for k in ("host", "port", "database", "schema", "path")
         )
+        if target_changed and warehouse_uses_source(db, source_id):
+            raise HTTPException(
+                409,
+                "Diese Quelle gehört zu einem DWH-Projekt. Für eine andere Datenbank bitte eine neue Datenquelle anlegen oder zuerst die Projektzuordnungen entfernen.",
+            )
         source.name = body.name
         source.config_encrypted = encrypt(updated)
         source.kind = body.kind
@@ -481,6 +510,11 @@ def delete_source(source_id: int, user: User = Depends(current)):
             )
         ):
             raise HTTPException(409, "Bitte laufenden Scan abwarten.")
+        if warehouse_uses_source(db, source_id):
+            raise HTTPException(
+                409,
+                "Diese Datenquelle gehört zu einem DWH-Projekt. Bitte zuerst die Projektzuordnungen entfernen.",
+            )
         for model in (
             SearchEntry,
             ScanSchedule,

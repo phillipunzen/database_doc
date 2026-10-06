@@ -26,6 +26,7 @@ const baseURL =
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto(baseURL);
+    await page.locator("#login-form, #source-results").first().waitFor();
     if (await page.locator("#login-form").count()) {
       await page
         .locator('[name="username"]')
