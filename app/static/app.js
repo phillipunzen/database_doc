@@ -11,6 +11,13 @@ const state = {
   tableTab: "columns",
   query: "",
   filter: "all",
+  statusFilter: "all",
+  hostFilter: "all",
+  sourceSort: "name",
+  sourceSortDirection: "asc",
+  sourcePage: 1,
+  sourcePageSize: 25,
+  catalogView: "table",
   history: [],
   users: [],
   audit: [],
@@ -62,6 +69,11 @@ const paths = {
 };
 function icon(name) {
   return `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${paths[name] || paths.database}</svg>`;
+}
+function databaseLogo(kind) {
+  return Object.hasOwn(names, kind)
+    ? `<img class="database-logo" src="/static/database-logos/${kind}.svg" alt="" width="32" height="32">`
+    : icon("database");
 }
 function e(v) {
   return String(v ?? "").replace(
@@ -152,38 +164,214 @@ function sourceStats(sources) {
   )}</div>`;
 }
 function card(s) {
-  return `<article class="source-card"><div class="source-card-top"><div class="db-icon ${s.kind}">${icon("database")}</div><div style="flex:1;min-width:0"><button class="source-title" data-action="open" data-id="${s.id}">${e(s.name)}</button><div class="small muted">${names[s.kind]}</div></div>${status(s)}</div><div class="source-meta">${icon("server")}<span>${e(s.kind === "sqlite" ? s.config.path : s.config.host + (s.config.port ? ":" + s.config.port : "") + " / " + s.config.database)}</span></div><div class="card-stats"><div><strong>${s.table_count}</strong><span>Objekte</span></div><div><strong>${s.column_count}</strong><span>Spalten</span></div><div><strong>${s.relation_count}</strong><span>Beziehungen</span></div></div><div class="card-footer"><span>${e(dt(s.scanned_at))}</span><button data-action="open" data-id="${s.id}">Öffnen ${icon("arrow")}</button></div></article>`;
+  return `<article class="source-card"><div class="source-card-top"><div class="db-icon ${s.kind}">${databaseLogo(s.kind)}</div><div style="flex:1;min-width:0"><button class="source-title" data-action="open" data-id="${s.id}">${e(s.name)}</button><div class="small muted">${names[s.kind]}</div></div>${status(s)}</div><div class="source-meta">${icon("server")}<span>${e(s.kind === "sqlite" ? s.config.path : s.config.host + (s.config.port ? ":" + s.config.port : "") + " / " + s.config.database)}</span></div><div class="card-stats"><div><strong>${s.table_count}</strong><span>Objekte</span></div><div><strong>${s.column_count}</strong><span>Spalten</span></div><div><strong>${s.relation_count}</strong><span>Beziehungen</span></div></div><div class="card-footer"><span>${e(dt(s.scanned_at))}</span><button data-action="open" data-id="${s.id}">Öffnen ${icon("arrow")}</button></div></article>`;
+}
+const sourceSortLabels = {
+  name: "Name",
+  kind: "Datenbanksystem",
+  host: "Server",
+  table_count: "Objekte",
+  status: "Status",
+  scanned_at: "Letzter Scan",
+};
+const sourceStatusLabels = {
+  documented: "Dokumentiert",
+  unscanned: "Ohne Scan",
+  running: "Scan läuft",
+  failed: "Scan fehlgeschlagen",
+};
+const sourceCollator = new Intl.Collator("de", {
+  numeric: true,
+  sensitivity: "base",
+});
+function sourceStatus(s) {
+  if (s.job?.status === "failed") return "failed";
+  if (["queued", "running"].includes(s.job?.status)) return "running";
+  return s.snapshot_id ? "documented" : "unscanned";
+}
+function sourceHost(s) {
+  return s.kind === "sqlite"
+    ? "SQLite-Dateien"
+    : s.config.host || "Unbekannter Server";
 }
 function filteredSources() {
-  return state.sources.filter(
-    (s) =>
+  const terms = state.query
+    .trim()
+    .toLocaleLowerCase("de")
+    .split(/\s+/)
+    .filter(Boolean);
+  const list = state.sources.filter((s) => {
+    const searchable = [
+      s.name,
+      names[s.kind],
+      s.config.host,
+      s.config.port,
+      s.config.database,
+      s.config.schema,
+      s.config.path,
+    ]
+      .filter((v) => v !== undefined && v !== null)
+      .join(" ")
+      .toLocaleLowerCase("de");
+    return (
       (state.filter === "all" || state.filter === s.kind) &&
-      `${s.name} ${s.config.host || ""} ${s.config.database || ""}`
-        .toLowerCase()
-        .includes(state.query.toLowerCase()),
-  );
+      (state.statusFilter === "all" ||
+        state.statusFilter === sourceStatus(s)) &&
+      (state.hostFilter === "all" || state.hostFilter === sourceHost(s)) &&
+      terms.every((term) => searchable.includes(term))
+    );
+  });
+  const sortValue = (s) => {
+    switch (state.sourceSort) {
+      case "kind":
+        return names[s.kind];
+      case "host":
+        return sourceHost(s);
+      case "table_count":
+        return s.table_count;
+      case "status":
+        return sourceStatusLabels[sourceStatus(s)];
+      case "scanned_at":
+        return s.scanned_at
+          ? Date.parse(
+              s.scanned_at.endsWith("Z") ? s.scanned_at : s.scanned_at + "Z",
+            )
+          : 0;
+      default:
+        return s.name;
+    }
+  };
+  return list.sort((a, b) => {
+    const av = sortValue(a),
+      bv = sortValue(b);
+    const comparison =
+      typeof av === "number" ? av - bv : sourceCollator.compare(av, bv);
+    return (
+      (state.sourceSortDirection === "desc" ? -comparison : comparison) ||
+      sourceCollator.compare(a.name, b.name) ||
+      a.id - b.id
+    );
+  });
 }
-function paintCards() {
+function sortHeader(key, label, extraClass = "") {
+  const selected = state.sourceSort === key;
+  return `<th class="${extraClass}" aria-sort="${selected ? (state.sourceSortDirection === "asc" ? "ascending" : "descending") : "none"}"><button data-action="source-sort" data-sort="${key}">${label}<span class="sort-mark" aria-hidden="true">${selected ? (state.sourceSortDirection === "asc" ? "↑" : "↓") : "↕"}</span></button></th>`;
+}
+function sourceRow(s) {
+  const target = s.kind === "sqlite" ? s.config.path : s.config.database;
+  return `<tr data-source-id="${s.id}">
+    <td class="source-name-cell"><div class="source-name-wrap"><div class="db-icon ${s.kind}">${databaseLogo(s.kind)}</div><button class="source-title" data-action="open" data-id="${s.id}">${e(s.name)}</button></div></td>
+    <td class="engine-cell">${e(names[s.kind])}</td>
+    <td class="source-target-cell"><span class="source-host" title="${e(sourceHost(s))}">${e(sourceHost(s))}${s.config.port && s.kind !== "sqlite" ? ":" + e(s.config.port) : ""}</span><span class="source-database" title="${e(target)}">${e(target || "—")}${s.config.schema ? " · " + e(s.config.schema) : ""}</span></td>
+    <td class="numeric">${s.snapshot_id ? s.table_count.toLocaleString("de-DE") : "—"}</td>
+    <td class="source-status-cell">${status(s)}</td>
+    <td class="source-scan-cell">${e(dt(s.scanned_at))}</td>
+    <td class="source-open-cell"><button class="btn ghost" data-action="open" data-id="${s.id}" aria-label="${e(s.name)} öffnen">${icon("arrow")}</button></td>
+  </tr>`;
+}
+function sourceEmpty() {
+  return `<div class="empty">${icon("database")}<h2>${state.sources.length ? "Keine passenden Quellen" : "Deine erste Datenquelle"}</h2><p>${state.sources.length ? "Passe die Suche oder Filter an, um weitere Datenbanken zu sehen." : state.user.role === "admin" ? "Hinterlege eine Datenbankverbindung und starte einen Scan. DatAtlas erstellt daraus die Dokumentation." : "Hier erscheinen Datenbanken, die für dich freigegeben wurden."}</p>${state.sources.length ? '<button class="btn" data-action="reset-source-filters">Filter zurücksetzen</button>' : state.user.role === "admin" ? `<button class="btn primary" data-action="add-source">${icon("plus")} Datenquelle hinzufügen</button>` : ""}</div>`;
+}
+function paintSources() {
   const list = filteredSources();
-  document.getElementById("source-cards").innerHTML = list.length
-    ? list.map(card).join("")
-    : `<div class="empty" style="grid-column:1/-1">${icon("database")}<h2>${state.sources.length ? "Keine passenden Quellen" : "Deine erste Datenquelle"}</h2><p>${state.sources.length ? "Passe Suche oder Datenbanktyp an." : state.user.role === "admin" ? "Hinterlege eine Datenbankverbindung und starte einen Scan. DatAtlas erstellt daraus die Dokumentation." : "Hier erscheinen Datenbanken, die für dich freigegeben wurden."}</p>${!state.sources.length && state.user.role === "admin" ? `<button class="btn primary" data-action="add-source">${icon("plus")} Datenquelle hinzufügen</button>` : ""}</div>`;
-  document.getElementById("source-count").textContent = list.length;
+  const pageCount = Math.max(1, Math.ceil(list.length / state.sourcePageSize));
+  state.sourcePage = Math.max(1, Math.min(state.sourcePage, pageCount));
+  const start = (state.sourcePage - 1) * state.sourcePageSize;
+  const shown = list.slice(start, start + state.sourcePageSize);
+  const catalog = document.getElementById("source-results");
+  if (!catalog) return;
+  catalog.innerHTML = !list.length
+    ? sourceEmpty()
+    : state.catalogView === "cards"
+      ? `<div class="source-grid catalog-cards">${shown.map(card).join("")}</div>`
+      : `<div class="table-wrap source-list-scroll"><table class="source-list" aria-label="Datenquellen"><thead><tr>${sortHeader("name", "Datenquelle")}${sortHeader("kind", "System")}${sortHeader("host", "Server / Datenbank")}${sortHeader("table_count", "Objekte", "numeric")}${sortHeader("status", "Status")}${sortHeader("scanned_at", "Letzter Scan")}<th><span class="sr-only">Öffnen</span></th></tr></thead><tbody>${shown.map(sourceRow).join("")}</tbody></table></div>`;
+  document.getElementById("source-count").textContent =
+    list.length === state.sources.length
+      ? `${list.length} Datenquellen`
+      : `${list.length} von ${state.sources.length} Datenquellen`;
+  document.getElementById("source-range").textContent = list.length
+    ? `${start + 1}–${Math.min(start + state.sourcePageSize, list.length)} von ${list.length}`
+    : "0 Ergebnisse";
+  document.getElementById("source-pages").innerHTML =
+    `<button class="btn" data-action="source-page" data-page="${state.sourcePage - 1}" ${state.sourcePage === 1 ? "disabled" : ""} aria-label="Vorherige Seite">${icon("back")}</button><span>Seite ${state.sourcePage} von ${pageCount}</span><button class="btn" data-action="source-page" data-page="${state.sourcePage + 1}" ${state.sourcePage === pageCount ? "disabled" : ""} aria-label="Nächste Seite">${icon("arrow")}</button>`;
+  document.querySelectorAll('[data-action="source-kind"]').forEach((button) => {
+    const selected = button.dataset.kind === state.filter;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
+  document
+    .querySelectorAll('[data-action="catalog-view"]')
+    .forEach((button) => {
+      const selected = button.dataset.view === state.catalogView;
+      button.classList.toggle("active", selected);
+      button.setAttribute("aria-pressed", String(selected));
+    });
+  const direction = document.getElementById("source-sort-direction");
+  direction.innerHTML = state.sourceSortDirection === "asc" ? "↑" : "↓";
+  direction.setAttribute(
+    "aria-label",
+    state.sourceSortDirection === "asc"
+      ? "Absteigend sortieren"
+      : "Aufsteigend sortieren",
+  );
+  document.getElementById("source-sort").value = state.sourceSort;
+  document.getElementById("source-page-size").value = String(
+    state.sourcePageSize,
+  );
+  document.getElementById("reset-source-filters").hidden =
+    !state.query &&
+    state.filter === "all" &&
+    state.statusFilter === "all" &&
+    state.hostFilter === "all";
+}
+function resetSourceFilters() {
+  state.query = "";
+  state.filter = "all";
+  state.statusFilter = "all";
+  state.hostFilter = "all";
+  state.sourcePage = 1;
+  document.getElementById("source-search").value = "";
+  document.getElementById("source-status-filter").value = "all";
+  document.getElementById("source-host-filter").value = "all";
+  paintSources();
 }
 function renderSources() {
-  shell(
-    `<div class="page-head"><div><div class="eyebrow">Datenkatalog</div><h1>Datenquellen</h1><p>Alle Datenbankstrukturen an einem Ort.</p></div>${state.user.role === "admin" ? `<button class="btn primary" data-action="add-source">${icon("plus")} Datenquelle hinzufügen</button>` : ""}</div>${sourceStats(state.sources)}<div class="toolbar"><div class="section-title" style="margin:0"><h2>Deine Datenbanken</h2><span class="count" id="source-count"></span></div><div class="actions" style="flex:1;justify-content:flex-end"><div class="search">${icon("search")}<input id="source-search" aria-label="Datenquellen durchsuchen" placeholder="Name, Host oder Datenbank suchen …" value="${e(state.query)}"></div><select id="source-filter" class="filter" aria-label="Datenbanktyp"><option value="all">Alle Datenbanktypen</option>${Object.entries(
+  const hosts = [...new Set(state.sources.map(sourceHost))].sort(
+    sourceCollator.compare,
+  );
+  shell(`<div class="catalog-dashboard">
+    <div class="page-head"><div><div class="eyebrow">Datenkatalog</div><h1>Datenquellen</h1><p>Datenbanken finden, Schema-Stände prüfen und Dokumentationen öffnen.</p></div>${state.user.role === "admin" ? `<button class="btn primary" data-action="add-source">${icon("plus")} Datenquelle hinzufügen</button>` : ""}</div>
+    ${sourceStats(state.sources)}
+    <div class="engine-filters" role="group" aria-label="Nach Datenbanksystem filtern"><button class="engine-filter" data-action="source-kind" data-kind="all">Alle Systeme <span>${state.sources.length}</span></button>${Object.entries(
       names,
     )
       .map(
-        ([k, v]) =>
-          `<option value="${k}" ${state.filter === k ? "selected" : ""}>${v}</option>`,
+        ([kind, label]) =>
+          `<button class="engine-filter" data-action="source-kind" data-kind="${kind}">${databaseLogo(kind)}${label}<span>${state.sources.filter((s) => s.kind === kind).length}</span></button>`,
       )
-      .join(
-        "",
-      )}</select></div></div><div class="source-grid" id="source-cards"></div><div class="hint">${icon("info")}<span>Schema-Scans speichern Metadaten. Datenvorschauen werden nur auf Anfrage geladen und benötigen eine separate Freigabe.</span></div>`,
-  );
-  paintCards();
+      .join("")}</div>
+    <section class="panel catalog-panel">
+      <div class="catalog-toolbar"><div class="search">${icon("search")}<input id="source-search" aria-label="Datenquellen durchsuchen" placeholder="Name, Server oder Datenbank suchen …" value="${e(state.query)}"></div><select id="source-host-filter" aria-label="Nach Server filtern"><option value="all">Alle Server</option>${hosts.map((host) => `<option value="${e(host)}" ${state.hostFilter === host ? "selected" : ""}>${e(host)}</option>`).join("")}</select><select id="source-status-filter" aria-label="Nach Scan-Status filtern"><option value="all">Alle Status</option>${Object.entries(
+        sourceStatusLabels,
+      )
+        .map(
+          ([key, label]) =>
+            `<option value="${key}" ${state.statusFilter === key ? "selected" : ""}>${label}</option>`,
+        )
+        .join("")}</select></div>
+      <div class="catalog-controls"><div class="catalog-count"><span id="source-count" aria-live="polite"></span><button class="text-button" id="reset-source-filters" data-action="reset-source-filters">Filter zurücksetzen</button></div><div class="catalog-display-controls"><label class="sr-only" for="source-sort">Datenquellen sortieren</label><select id="source-sort">${Object.entries(
+        sourceSortLabels,
+      )
+        .map(([key, label]) => `<option value="${key}">${label}</option>`)
+        .join(
+          "",
+        )}</select><button class="btn" id="source-sort-direction" data-action="source-sort-direction"></button><div class="view-switch" role="group" aria-label="Darstellung"><button data-action="catalog-view" data-view="table" aria-label="Listenansicht" title="Listenansicht">${icon("table")}</button><button data-action="catalog-view" data-view="cards" aria-label="Kartenansicht" title="Kartenansicht">${icon("grid")}</button></div></div></div>
+      <div id="source-results"></div>
+      <div class="catalog-pagination"><div class="page-size"><label for="source-page-size">Pro Seite</label><select id="source-page-size"><option value="25">25</option><option value="50">50</option><option value="100">100</option></select><span id="source-range" aria-live="polite"></span></div><div id="source-pages" class="page-buttons" aria-label="Seitennavigation"></div></div>
+    </section>
+    <div class="hint">${icon("info")}<span>Schema-Scans speichern Metadaten. Datenvorschauen werden nur auf Anfrage geladen und benötigen eine separate Freigabe.</span></div>
+  </div>`);
+  paintSources();
 }
 async function loadSources() {
   state.sources = await api("/api/sources");
@@ -230,7 +418,7 @@ function tabs(items, current, action) {
 function renderSource() {
   const s = state.source;
   shell(
-    `<button class="back" data-action="nav" data-view="sources">${icon("back")} Alle Datenquellen</button><div class="page-head"><div><div class="eyebrow">${names[s.kind]}</div><h1>${e(s.name)}</h1><p>${e(s.kind === "sqlite" ? s.config.path : s.config.host + " / " + s.config.database)} ${s.config.schema ? "· " + e(s.config.schema) : ""}</p></div><div class="actions">${s.snapshot_id ? `<a class="btn" href="/api/sources/${s.id}/export?format=markdown">${icon("download")} Markdown</a><a class="btn" href="/api/sources/${s.id}/export?format=json">JSON</a>` : ""}${s.can_edit ? `<button class="btn" data-action="edit-source">${icon("edit")} Bearbeiten</button><button class="btn primary" data-action="scan" ${["queued", "running"].includes(s.job?.status) ? "disabled" : ""}>${icon("refresh")} ${["queued", "running"].includes(s.job?.status) ? "Scan läuft …" : "Schema scannen"}</button>` : ""}</div></div>${s.job ? `<div class="status-message">${status(s)} <span style="margin-left:10px">${e(s.job.message)}</span></div>` : ""}${tabs(
+    `<button class="back" data-action="nav" data-view="sources">${icon("back")} Alle Datenquellen</button><div class="page-head"><div><div class="source-heading"><div class="db-icon ${s.kind}">${databaseLogo(s.kind)}</div><div><div class="eyebrow">${names[s.kind]}</div><h1>${e(s.name)}</h1></div></div><p>${e(s.kind === "sqlite" ? s.config.path : s.config.host + " / " + s.config.database)} ${s.config.schema ? "· " + e(s.config.schema) : ""}</p></div><div class="actions">${s.snapshot_id ? `<a class="btn" href="/api/sources/${s.id}/export?format=markdown">${icon("download")} Markdown</a><a class="btn" href="/api/sources/${s.id}/export?format=json">JSON</a>` : ""}${s.can_edit ? `<button class="btn" data-action="edit-source">${icon("edit")} Bearbeiten</button><button class="btn primary" data-action="scan" ${["queued", "running"].includes(s.job?.status) ? "disabled" : ""}>${icon("refresh")} ${["queued", "running"].includes(s.job?.status) ? "Scan läuft …" : "Schema scannen"}</button>` : ""}</div></div>${s.job ? `<div class="status-message">${status(s)} <span style="margin-left:10px">${e(s.job.message)}</span></div>` : ""}${tabs(
       [
         ["overview", "Übersicht", "grid"],
         ["schema", "Tabellen & Felder", "table"],
@@ -663,6 +851,43 @@ document.addEventListener("click", async (ev) => {
       modal.close();
       return;
     }
+    if (a === "source-kind") {
+      state.filter = button.dataset.kind;
+      state.sourcePage = 1;
+      paintSources();
+    }
+    if (a === "source-page") {
+      state.sourcePage = Number(button.dataset.page);
+      paintSources();
+      document.querySelector(".source-list-scroll")?.scrollTo({ top: 0 });
+    }
+    if (a === "catalog-view") {
+      state.catalogView = button.dataset.view;
+      paintSources();
+    }
+    if (a === "reset-source-filters") resetSourceFilters();
+    if (a === "source-sort") {
+      if (state.sourceSort === button.dataset.sort)
+        state.sourceSortDirection =
+          state.sourceSortDirection === "asc" ? "desc" : "asc";
+      else {
+        state.sourceSort = button.dataset.sort;
+        state.sourceSortDirection = ["scanned_at", "table_count"].includes(
+          state.sourceSort,
+        )
+          ? "desc"
+          : "asc";
+      }
+      state.sourcePage = 1;
+      paintSources();
+      document.querySelector(`[data-sort="${state.sourceSort}"]`)?.focus();
+    }
+    if (a === "source-sort-direction") {
+      state.sourceSortDirection =
+        state.sourceSortDirection === "asc" ? "desc" : "asc";
+      state.sourcePage = 1;
+      paintSources();
+    }
     if (a === "nav") await navigate(button.dataset.view);
     if (a === "open") await navigate("source", button.dataset.id);
     if (a === "add-source") sourceModal();
@@ -882,7 +1107,8 @@ document.addEventListener("submit", async (ev) => {
 document.addEventListener("input", (ev) => {
   if (ev.target.id === "source-search") {
     state.query = ev.target.value;
-    paintCards();
+    state.sourcePage = 1;
+    paintSources();
   }
   if (ev.target.id === "object-search")
     document.getElementById("object-items").innerHTML = tableList(
@@ -894,9 +1120,25 @@ document.addEventListener("input", (ev) => {
   }
 });
 document.addEventListener("change", (ev) => {
-  if (ev.target.id === "source-filter") {
-    state.filter = ev.target.value;
-    paintCards();
+  const catalogFields = {
+    "source-host-filter": "hostFilter",
+    "source-status-filter": "statusFilter",
+    "source-sort": "sourceSort",
+    "source-page-size": "sourcePageSize",
+  };
+  if (catalogFields[ev.target.id]) {
+    state[catalogFields[ev.target.id]] =
+      ev.target.id === "source-page-size"
+        ? Number(ev.target.value)
+        : ev.target.value;
+    if (ev.target.id === "source-sort")
+      state.sourceSortDirection = ["scanned_at", "table_count"].includes(
+        state.sourceSort,
+      )
+        ? "desc"
+        : "asc";
+    state.sourcePage = 1;
+    paintSources();
   }
   if (ev.target.id === "f-kind") sourceFormKind();
 });

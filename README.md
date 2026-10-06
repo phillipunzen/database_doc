@@ -54,6 +54,8 @@ Then add a SQLite source in the application with the container path `/sources/be
 
 ## Features
 
+The source dashboard defaults to a compact list with locally served database-engine logos. Search by name, server, database, or schema; combine engine, server, and scan-status filters; sort by name, engine, server, object count, status, or last scan. Pagination supports 25, 50, or 100 sources per page. An optional card view uses the same filters and pagination. Filters and page selection are retained while navigating between a source and the catalog. The mobile list uses compact stacked rows.
+
 - Multiple data sources with individual connection settings and encrypted credentials.
 - Database discovery on a server. Each source documents one database; an optional schema setting narrows the scan.
 - Manual background scans of tables, views, columns, data types, nullability, defaults, primary and foreign keys, indexes, unique constraints, and database comments where supported by the adapter.
@@ -216,6 +218,14 @@ NODE_PATH=/tmp/datatlas-browser/node_modules node tests/browser.cjs
 
 `tests/browser.cjs` checks the development instance and its clearly labeled example source: sign-in, connection testing, schema scanning, ER diagrams, notes, data previews, and mobile layout. It reads the initial administrator password from `.env`, so update the test credentials if you change that password. It modifies only the example source. Screenshots are saved in `docs/`.
 
+### Catalog UI checks
+
+```bash
+NODE_PATH=/tmp/datatlas-browser/node_modules node tests/catalog.cjs
+```
+
+This additional browser check supplies 67 simulated sources through mocked read-only API responses. It verifies pagination, combined engine/server/status filters, multi-term search, sorting, safe rendering of source names, list/card switching, navigation back to the selected page, all six local logos, mobile layout, and empty catalogs for administrator and viewer roles. It does not create databases or change application records. The screenshots in `docs/catalog-67-sources*.png` show these simulated fixtures.
+
 ### Verified deployment
 
 On the development server, **12 automated tests passed**, including actual adapter tests against SQL Server 2022, MySQL 8.4, MariaDB 11.4, PostgreSQL 17, MongoDB 8, and SQLite. Browser checks, including mobile layout, and backup/restore into a separate test database also passed. Disposable test containers were removed afterward.
@@ -227,3 +237,7 @@ The browser test documents six example objects and four declared relationships. 
 - [SQLAlchemy: Database reflection](https://docs.sqlalchemy.org/en/20/core/reflection.html)
 - [Authlib: OIDC for Starlette](https://docs.authlib.org/en/latest/client/starlette.html)
 - [ldap3: TLS and certificate validation](https://ldap3.readthedocs.io/en/latest/ssltls.html)
+
+### Database logo assets
+
+Database-engine logos are vendored from Devicon and served locally. Attribution, source revision, and the upstream MIT license are included in [`app/static/database-logos/`](app/static/database-logos/README.md).
