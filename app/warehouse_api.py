@@ -505,6 +505,14 @@ def import_source(project_id: int, body: ImportInput, user: User = Depends(curre
         return {"project": result, "warnings": warnings, "snapshot_id": snap.id}
 
 
+@router.get("/{project_id}/assessment")
+def assess_project(project_id: int, user: User = Depends(current)):
+    from .warehouse_assessment import assessment
+
+    with Session() as db:
+        return assessment(db, user, project_access(db, user, project_id))
+
+
 @router.get("/{project_id}/compare")
 def compare_project(project_id: int, user: User = Depends(current)):
     with Session() as db:

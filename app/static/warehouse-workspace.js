@@ -14,6 +14,7 @@ const whTabs = [
   ["areas", uiText("Teilprojekte")],
   ["model", uiText("Gesamtmodell")],
   ["lineage", uiText("Datenherkunft")],
+  ["assessment", uiText("DWH-Bestand & Hinweise")],
   ["check", uiText("Zielabgleich")],
   ["operations", uiText("Betreuung")],
 ];
@@ -25,6 +26,7 @@ function whSet(workspace) {
   state.wh = workspace;
   state.dwhProject = workspace.project;
   state.dwhComparison = null;
+  state.dwhAssessment = null;
 }
 async function whRefresh() {
   await loadSources();
@@ -179,12 +181,14 @@ function renderWarehouseWorkspace() {
     areas: whAreasView,
     model: whModelView,
     lineage: whLineageView,
+    assessment: warehouseAssessmentView,
     check: whCheckView,
     operations: whOperationsView,
   };
   shell(
     `<button class="back" data-action="nav" data-view="warehouse">${icon("back")} ${e(uiText("Alle Warehouses & Entwürfe"))}</button><div class="page-head"><div><div class="eyebrow">${e(uiText("Zentrales Warehouse"))} · ${e(dwhEngines[p.target_kind])} · ${e(p.target_schema)}</div><h1>${e(p.name)}</h1><p>${e(uiText("Ein gemeinsames Modell für alle Teilprojekte"))} · ${e(uiText("Version"))} ${p.version}</p></div><div class="actions">${whButton("Neu laden", "reload")}${whButton("Dokumentation herunterladen", "export")}${whButton("SQL-Entwurf", "sql")}${p.can_edit ? whButton("Warehouse-Einstellungen", "settings") + whButton("Projekt übernehmen", "adopt") : ""}</div></div>${tabs(whTabs, state.whTab || "overview", "wh-tab")}<div id="wh-view">${(views[state.whTab] || whOverview)()}</div>`,
   );
+  assessmentPaint();
 }
 function whAreaModal(id = "") {
   const area = state.wh.areas.find((area) => area.id === id) || {

@@ -3093,3 +3093,55 @@ button.classification-tag:focus-visible {
   overflow-wrap: anywhere;
   min-width: 0;
 }
+
+/* Warehouse evidence from stored scans. */
+.wa-intro,
+.wa-server,
+.wa-objects {
+  margin-bottom: 20px;
+}
+.wa-intro ol {
+  padding-left: 22px;
+  line-height: 1.8;
+  margin: 16px 0;
+}
+.wa-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.wa-stats > div {
+  background: white;
+  border: 1px solid #d8e4db;
+  border-radius: 8px;
+  padding: 20px;
+}
+.wa-stats strong {
+  display: block;
+  font-size: 26px;
+  color: #163a35;
+}
+.wa-stats span {
+  font-size: 12px;
+  color: #6d8077;
+}
+.wa-finding {
+  border-bottom: 1px solid #d8e4db;
+  padding: 16px 0;
+}
+.wa-finding p {
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.wa-finding:last-child {
+  border-bottom: 0;
+}
+.wa-server p {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  .wa-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

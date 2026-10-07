@@ -505,6 +505,7 @@ async function navigate(view, id, target = {}) {
         ? target.table
         : null;
       state.dwhComparison = null;
+      state.dwhAssessment = null;
       renderDwhProject();
     }
     if (view === "warehouse-workspace") {
@@ -1104,6 +1105,7 @@ document.addEventListener("click", async (ev) => {
   if (!button) return;
   const a = button.dataset.action;
   try {
+    if (a.startsWith("wa-")) await warehouseAssessmentClick(button);
     if (a.startsWith("tool-")) await toolsClick(button);
     if (a.startsWith("ct-")) await classificationClick(button);
     if (a.startsWith("wh-")) await warehouseWorkspaceClick(button);
@@ -1473,6 +1475,10 @@ document.addEventListener("submit", async (ev) => {
   }
 });
 document.addEventListener("input", (ev) => {
+  if (ev.target.id === "wa-object-query") {
+    state.waObjectPage = 0;
+    assessmentPaint();
+  }
   if (ev.target.id === "tool-search") toolsFilter();
   warehouseWorkspaceSearch(ev.target);
   if (ev.target.id === "source-tags") classificationPreview();
@@ -1488,6 +1494,10 @@ document.addEventListener("input", (ev) => {
     );
 });
 document.addEventListener("change", (ev) => {
+  if (ev.target.id === "wa-severity") {
+    state.waFindingPage = 0;
+    assessmentPaint();
+  }
   toolsChange(ev.target);
   warehouseWorkspaceChange(ev.target);
   if (ev.target.closest("#ct-definition-form, #ct-assignment-form"))

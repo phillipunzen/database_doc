@@ -288,6 +288,30 @@ Source layouts group connected tables into a compact grid. **Rearrange** restore
 
 ![ER diagram navigation with a fictional large database](docs/er-navigation.png)
 
+### DWH inventory and advice
+
+Open **DWH inventory & advice** in a central warehouse, or the inventory panel under **Target check** in a standalone project:
+
+1. Register the actual DWH in **Data sources**, including engine, server/port, database, credentials and optional schema filter. Add a separate source for each other database you want to document on that server. Grant the appropriate users access; the existing encrypted credential handling is reused.
+2. Use **Connect DWH database** to select the target connection in warehouse/project settings. Link the application sources used by the design. Project access still requires access to all linked sources and the target.
+3. Scan the source and target schemas, then select **Check inventory**. Configure automatic scans on each source if needed. A new scan requires a deliberate click and confirmation; recheck the inventory after it finishes.
+
+The report shows the DWH host/port, selected comparison database, latest successful scan and registered server connections of the same engine/host/port that the current user may read. It does not discover unregistered databases or reveal other users' source names or credentials. Host comparison ignores case and a trailing DNS dot; omitted ports use engine defaults. Different aliases/instances/ports are not merged. Counts reflect each connection's schema filter and can include multiple connections to one physical database. Other DWH databases are inventory entries; the plan comparison applies only to the selected target database and planned schema.
+
+Source changes compare the two most recent stored snapshots. Mapped-field advice compares current source types, nullability and primary-key markers with the snapshot pinned by each mapping. The target comparison checks planned tables, columns, portable types, nullability, primary keys and relationships. Findings also flag missing scans, scans older than seven days, scanner warnings, running/failed scans, mismatched schema scope, undocumented derivations and additional target objects/columns. Additional structures are review prompts, not instructions to delete them. Snapshot timestamps, IDs and the checked project version identify the evidence used.
+
+Review findings link to source schema comparisons, target structures, the ER model and planned field mappings. Central-warehouse editors can prepare a maintenance task from a finding; the task is saved only after reviewing and submitting its form. Target objects have text search and 25-row pages; findings have severity filters and 10-item pages. Reports include up to 5,000 findings with full counts and an explicit truncation notice.
+
+This is a deterministic structural assessment, not an AI claim about business correctness. It reads stored metadata and does not connect to source databases, run SQL, load data or change the plan. Data quality, row values, ETL execution, data freshness and business completeness must be checked separately. A schema that matches the plan does not establish that the warehouse contains correct data. Read-only project users may view reports; scans require the existing source-edit permission. Reports follow the browser/request language and are not persisted.
+
+```text
+GET /api/dwh/projects/{project_id}/assessment
+```
+
+![Warehouse inventory and review findings using fictional data](docs/warehouse-assessment.png)
+
+![Warehouse inventory on mobile](docs/warehouse-assessment-mobile.png)
+
 ## PDF exports
 
 PDF downloads are available to anyone with documentation access to a source, including viewers without data-preview grants:
@@ -533,7 +557,7 @@ The backend uses FastAPI and SQLAlchemy. The bilingual interface uses locally se
 docker compose run --rm \
   -v "$PWD/app:/app/app:ro" \
   -v "$PWD/tests:/app/tests:ro" \
-  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py tests/test_warehouse_workspace.py tests/test_catalog_tags.py tests/test_design_tools.py
+  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py tests/test_warehouse_workspace.py tests/test_catalog_tags.py tests/test_design_tools.py tests/test_warehouse_assessment.py
 ```
 
 Application tests use temporary SQLite databases for both application storage and sources. They verify encrypted credentials, scanning, metadata, notes, exports, CSRF and Origin checks, roles and source grants, preview authorization, account deactivation, read-only SQLite access, path boundaries, and session revocation. The feature suite additionally covers permission-filtered global search, literal search patterns, note indexing, snapshot/index rollback, schema comparisons, persistent scheduling, duplicate-scan deferral, access revocation, daylight-saving transitions, additive migrations, and cleanup on source deletion. PDF tests parse the actual generated files and cover full/single-object and historical exports, viewer permissions, literal markup, Unicode text, long notes and oversized table cells, 85-object diagrams, cross-page references, composite/self/external foreign keys, and empty/inferred schemas.
@@ -680,3 +704,10 @@ TOOLS_TEST_URL=http://127.0.0.1:8091 \
 ```
 
 Never run this designer browser suite against a live application database.
+
+`tests/test_warehouse_assessment.py` covers current/pinned source changes, target differences, matching models, missing/old/failed scans, schema scope, language isolation, hidden server connections, revoked permissions and the absence of source queries or mutations. The browser suite intercepts every business write and checks both languages, filters/pagination, escaped metadata, target settings, task previews, explicit scan confirmation, source/ER return navigation, standalone and read-only contexts, and mobile layout:
+
+```bash
+ASSESSMENT_TEST_URL=http://127.0.0.1:8091 \
+  NODE_PATH=/tmp/datatlas-browser/node_modules node tests/warehouse-assessment.cjs
+```
