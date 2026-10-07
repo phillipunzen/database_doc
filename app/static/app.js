@@ -157,12 +157,15 @@ function brand() {
   return `<div class="brand-block">${state.branding?.logo_url ? `<div class="company-brand"><img class="company-logo" src="${e(state.branding.logo_url)}" alt="${e(uiText("Firmenlogo"))}"></div>` : ""}<div class="brand">${icon("database")}<div>DatabaseDoc<small>DATABASE DOCUMENTATION</small></div></div></div>`;
 }
 async function showLogin() {
+  diagramCleanup();
   await loadBranding();
   const options = await api("/api/auth/options");
   root.innerHTML = localize`<div class="login-shell"><aside class="login-art">${brand()}<div><div class="eyebrow" style="color:#b5d7a2">Wissen, wie Daten zusammenhängen</div><h1>Deine Datenbanken.<br>Ein klarer Überblick.</h1><p>Strukturen entdecken, Beziehungen verstehen und Datenwissen gemeinsam festhalten.</p><svg class="art-nodes" viewBox="0 0 440 200" aria-hidden="true"><g fill="none" stroke="#739b7c"><path d="M130 60H200V150H275M130 60H310V40"/></g><g fill="#244d40" stroke="#739b7c"><rect x="0" y="18" width="130" height="90" rx="8"/><rect x="275" y="110" width="140" height="85" rx="8"/><rect x="280" y="5" width="140" height="75" rx="8"/></g><g fill="#c0e8aa" font-size="12" font-family="monospace"><text x="15" y="42">customers</text><text x="295" y="28">addresses</text><text x="290" y="134">orders</text></g><g stroke="#6f9779"><path d="M15 58h90M15 73h65M15 88h78M295 43h100M295 58h70M290 150h100M290 166h65M290 181h80"/></g></svg></div><small>Metadaten · ER-Modelle · Dokumentation</small></aside><main class="login-main"><div class="login-box"><div class="eyebrow">Willkommen bei DatabaseDoc</div><h2>Anmelden</h2><p>Öffne deine Datenbankdokumentation.</p><form id="login-form" class="login-form"><div class="field"><label for="login-user">Benutzername</label><input id="login-user" name="username" autocomplete="username" required autofocus></div><div class="field"><label for="login-pass">Passwort</label><input id="login-pass" name="password" type="password" autocomplete="current-password" required></div>${options.ad ? localize('<div class="field"><label for="provider">Anmeldung</label><select id="provider" name="provider"><option value="local">Lokales Konto</option><option value="ad">Microsoft Active Directory</option></select></div>') : ""}<button class="btn primary" type="submit">Anmelden ${icon("arrow")}</button><div class="error-text" id="login-error" role="alert">${location.search.includes("auth_error") ? uiText("Entra-Anmeldung fehlgeschlagen. Bitte Einrichtung oder Kontostatus prüfen.") : ""}</div></form>${options.entra ? localize('<div class="divider">oder</div><a class="btn" style="width:100%" href="/auth/entra">Mit Microsoft Entra ID anmelden</a>') : ""}<p class="login-foot">Der Zugriff richtet sich nach den Freigaben deines Administrators.</p></div></main></div>`;
 }
 function shell(content) {
+  diagramCleanup();
   root.innerHTML = localize`<div class="layout"><aside class="sidebar">${brand()}<nav><div class="nav-label">Arbeitsbereich</div><button class="nav-button ${["sources", "source"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="sources">${icon("database")}<span>Datenquellen</span></button>${localize`<button class="nav-button ${state.view === "search" ? "active" : ""}" data-action="nav" data-view="search">${icon("search")}<span>Globale Suche</span></button>`}<button class="nav-button ${["warehouse", "warehouse-project", "warehouse-workspace"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="warehouse" title="DWH-Projekte">${icon("relations")}<span>DWH-Projekte</span></button>${state.user.role === "admin" ? localize`<div class="nav-label" style="margin-top:30px">Administration</div><button class="nav-button ${state.view === "users" ? "active" : ""}" data-action="nav" data-view="users">${icon("users")}<span>Benutzer & Rechte</span></button><button class="nav-button ${state.view === "audit" ? "active" : ""}" data-action="nav" data-view="audit">${icon("shield")}<span>Aktivitätsprotokoll</span></button><button class="nav-button ${state.view === "branding" ? "active" : ""}" data-action="nav" data-view="branding" title="Firmenlogo">${icon("eye")}<span>Firmenlogo</span></button>` : ""}</nav><div class="sidebar-bottom"><div class="user-line"><div class="avatar">${e(state.user.display_name.slice(0, 1).toUpperCase())}</div><div><div class="small">${e(state.user.display_name)}</div><div style="font-size:10px;color:#a7c0b3">${roles[state.user.role]}</div></div></div>${state.user.provider === "local" ? localize('<button data-action="password">Passwort ändern</button>') : ""}<button data-action="logout">Abmelden</button></div></aside><main class="main"><header class="topbar"><div class="breadcrumb">Arbeitsbereich <span>/</span> <strong>${state.view === "source" ? e(state.source.name) : state.view === "search" ? uiText("Globale Suche") : ["warehouse", "warehouse-project", "warehouse-workspace"].includes(state.view) ? uiText("DWH-Projekte") : state.view === "users" ? uiText("Benutzer & Rechte") : state.view === "audit" ? uiText("Aktivitätsprotokoll") : state.view === "branding" ? uiText("Firmenlogo") : uiText("Datenquellen")}</strong></div><div class="env-pill"><span class="dot"></span> ${roles[state.user.role]}</div><button class="btn ghost mobile-logout" data-action="logout" style="display:none">Abmelden</button></header><div class="content">${content}</div></main></div>`;
+  setupPlannedDiagrams();
 }
 function status(source) {
   const job = source.job;
@@ -644,15 +647,14 @@ function historyView() {
   return localize`<section class="panel"><div class="panel-head"><h2>Gespeicherte Schema-Stände</h2><span class="small muted">${state.history.length} Scans</span></div><div class="table-wrap"><table><thead><tr><th>Stand</th><th>Objekte</th><th></th></tr></thead><tbody>${state.history.map((h) => localize`<tr><td>${e(dt(h.created))}</td><td>${h.table_count}</td><td><button class="text-button" data-action="history-open" data-id="${h.id}">Schema ansehen →</button></td></tr>`).join("")}</tbody></table>${!state.history.length ? localize('<div class="panel-body muted">Noch keine erfolgreichen Scans.</div>') : ""}</div></section>`;
 }
 function erView() {
-  const tables = state.snapshot.payload.tables;
-  if (!tables.length)
+  if (!state.snapshot.payload.tables.length)
     return localize(
       '<div class="empty"><h2>Keine Objekte für das ER-Modell</h2></div>',
     );
-  return localize`<section class="panel"><div class="panel-head"><div><h2>Beziehungen im Überblick</h2><p class="muted small">${state.source.kind === "mongodb" ? uiText("Collections und abgeleitete Felder. MongoDB deklariert keine Fremdschlüssel.") : uiText("Pfeile führen von Fremdschlüsseln zur referenzierten Tabelle.")}</p></div><div class="er-tools"><label class="small muted" for="er-zoom">Zoom</label><input id="er-zoom" type="range" min="0.3" max="2" step="0.1" value="${state.erZoom}" style="width:95px"><button class="btn" data-action="er-reset">Anordnen</button><button class="btn" data-action="er-download">${icon("download")} SVG</button><button class="btn" data-action="pdf-er" title="Alle Objekte als mehrseitiges ER-Modell im A3-Querformat exportieren">${icon("download")} PDF</button></div></div><div class="er-stage"><svg id="er-svg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ER-Modell der dokumentierten Datenbank"></svg></div><div class="er-footer">Tabellen und Hintergrund lassen sich verschieben. Doppelklick oder Enter öffnet die Spalten. ${tables.length > 80 ? uiText("Die Ansicht zeigt die ersten 80 Objekte. Der PDF-Export enthält alle dokumentierten Objekte.") : ""} Der PDF-Export verwendet eine druckfreundliche Anordnung und umfasst auch Verweise zwischen den Diagrammseiten.</div></section>`;
+  return localize`<section class="panel"><div class="panel-head"><div><h2>Beziehungen im Überblick</h2><p class="muted small">${state.source.kind === "mongodb" ? uiText("Collections und abgeleitete Felder. MongoDB deklariert keine Fremdschlüssel.") : uiText("Pfeile führen von Fremdschlüsseln zur referenzierten Tabelle.")}</p></div><span class="small muted">${state.snapshot.payload.tables.length.toLocaleString(uiLocale)} ${uiText("Objekte")}</span></div><div class="diagram-explorer">${diagramToolbar(true)}<div class="er-stage diagram-stage"><svg id="er-svg" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="${e(uiText("ER-Modell der dokumentierten Datenbank"))}"></svg>${diagramMiniMap()}</div>${diagramHelp(true)}</div></section>`;
 }
 function erTables() {
-  return state.snapshot.payload.tables.slice(0, 80);
+  return state.snapshot.payload.tables;
 }
 function erHeight(t) {
   return (
@@ -663,31 +665,78 @@ function drawER() {
   const svg = document.getElementById("er-svg");
   if (!svg) return;
   const ts = erTables();
-  ts.forEach((t, i) => {
-    if (!state.erPositions[t.key])
-      state.erPositions[t.key] = {
-        x: 35 + (i % 3) * 330,
-        y: 30 + Math.floor(i / 3) * 260,
+  const columns = Math.max(1, Math.ceil(Math.sqrt(ts.length)));
+  const rowHeight = Math.max(200, ...ts.map(erHeight)) + 45;
+  const lookup = new Map(
+    ts.map((t) => [JSON.stringify([t.schema || "", t.name]), t]),
+  );
+  const graph = new Map(ts.map((t) => [t.key, new Set()]));
+  for (const table of ts)
+    for (const fk of table.foreign_keys) {
+      const target = lookup.get(
+        JSON.stringify([
+          fk.target_schema || table.schema || "",
+          fk.target_table,
+        ]),
+      );
+      if (target) {
+        graph.get(table.key).add(target.key);
+        graph.get(target.key).add(table.key);
+      }
+    }
+  const visited = new Set(),
+    order = [];
+  for (const table of ts) {
+    if (visited.has(table.key)) continue;
+    const queue = [table.key];
+    visited.add(table.key);
+    for (let at = 0; at < queue.length; at++) {
+      const key = queue[at];
+      order.push(key);
+      for (const neighbor of graph.get(key)) {
+        if (!visited.has(neighbor)) {
+          visited.add(neighbor);
+          queue.push(neighbor);
+        }
+      }
+    }
+  }
+  order.forEach((key, i) => {
+    if (!state.erPositions[key])
+      state.erPositions[key] = {
+        x: 35 + (i % columns) * 330,
+        y: 30 + Math.floor(i / columns) * rowHeight,
       };
   });
-  const maxY =
-    Math.max(...ts.map((t) => state.erPositions[t.key].y + erHeight(t))) + 40;
-  const maxX =
-    Math.max(1020, ...ts.map((t) => state.erPositions[t.key].x + 290)) + 40;
-  svg.setAttribute(
-    "viewBox",
-    `${state.erPan.x} ${state.erPan.y} ${maxX / state.erZoom} ${Math.max(620, maxY) / state.erZoom}`,
-  );
-  svg.setAttribute("preserveAspectRatio", "xMinYMin meet");
   const defs =
     '<defs><marker id="arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 8 4 0 8" fill="none" stroke="#87a693"/></marker><filter id="node-shadow"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#163a35" flood-opacity="0.06"/></filter></defs>';
+  svg.innerHTML =
+    defs +
+    `<g id="er-edges">${sourceERLinks(ts)}</g>` +
+    ts
+      .map((t, i) => {
+        const p = state.erPositions[t.key];
+        return localize`<g class="er-node" tabindex="0" role="button" aria-label="${e(t.name)} öffnen" data-er-index="${i}" data-nav-id="${e(t.key)}" transform="translate(${p.x},${p.y})"><rect width="280" height="${erHeight(t)}" rx="9" fill="white" stroke="#cbd9c9" filter="url(#node-shadow)"/><path d="M0 37H280" stroke="#dee7da"/><title>${e((t.schema ? t.schema + "." : "") + t.name)}</title><text class="er-title" x="14" y="24">${e(((t.schema ? t.schema + "." : "") + t.name).slice(0, 40))}</text>${t.columns
+          .slice(0, 6)
+          .map(
+            (c, j) =>
+              `<text class="er-field" x="14" y="${58 + j * 22}">${c.primary_key ? "◆ " : t.foreign_keys.some((f) => f.columns.includes(c.name)) ? "↗ " : "  "}${e(c.name.length > 21 ? c.name.slice(0, 20) + "…" : c.name)}</text><text class="er-field" x="266" y="${58 + j * 22}" text-anchor="end" fill="#83957c">${e(c.type.slice(0, 14))}</text>`,
+          )
+          .join(
+            "",
+          )}${t.columns.length > 6 ? localize`<text class="er-field" x="14" y="${58 + 6 * 22}">+ ${t.columns.length - 6} weitere Felder</text>` : ""}</g>`;
+      })
+      .join("");
+}
+function sourceERLinks(ts = erTables()) {
+  const lookup = new Map(
+    ts.map((t) => [JSON.stringify([t.schema || "", t.name]), t]),
+  );
   let edges = "";
   ts.forEach((t) =>
     t.foreign_keys.forEach((f) => {
-      const target = ts.find(
-        (other) =>
-          other.name === f.target_table &&
-          other.schema === (f.target_schema || t.schema),
+      const target = lookup.get(
+        JSON.stringify([f.target_schema || t.schema || "", f.target_table]),
       );
       if (!target) return;
       const a = state.erPositions[t.key],
@@ -712,96 +761,59 @@ function drawER() {
         const mid = (x1 + x2) / 2;
         d = `M${x1},${y1} C${mid},${y1} ${mid},${y2} ${x2},${y2}`;
       }
-      edges += `<path class="er-edge" d="${d}" marker-end="url(#arrowhead)"><title>${e(t.name + ": " + f.columns.join(", ") + " → " + target.name + " (" + f.target_columns.join(", ") + ")")}</title></path>`;
+      edges += `<path class="er-edge" data-edge-source="${e(t.key)}" data-edge-target="${e(target.key)}" d="${d}" marker-end="url(#arrowhead)"><title>${e(t.name + ": " + f.columns.join(", ") + " → " + target.name + " (" + f.target_columns.join(", ") + ")")}</title></path>`;
     }),
   );
-  svg.innerHTML =
-    defs +
-    `<g id="er-edges">${edges}</g>` +
-    ts
-      .map((t, i) => {
-        const p = state.erPositions[t.key];
-        return localize`<g class="er-node" tabindex="0" role="button" aria-label="${e(t.name)} öffnen" data-er-index="${i}" transform="translate(${p.x},${p.y})"><rect width="280" height="${erHeight(t)}" rx="9" fill="white" stroke="#cbd9c9" filter="url(#node-shadow)"/><path d="M0 37H280" stroke="#dee7da"/><text class="er-title" x="14" y="24">${e(((t.schema ? t.schema + "." : "") + t.name).slice(0, 40))}</text>${t.columns
-          .slice(0, 6)
-          .map(
-            (c, j) =>
-              `<text class="er-field" x="14" y="${58 + j * 22}">${c.primary_key ? "◆ " : t.foreign_keys.some((f) => f.columns.includes(c.name)) ? "↗ " : "  "}${e(c.name.length > 21 ? c.name.slice(0, 20) + "…" : c.name)}</text><text class="er-field" x="266" y="${58 + j * 22}" text-anchor="end" fill="#83957c">${e(c.type.slice(0, 14))}</text>`,
-          )
-          .join(
-            "",
-          )}${t.columns.length > 6 ? localize`<text class="er-field" x="14" y="${58 + 6 * 22}">+ ${t.columns.length - 6} weitere Felder</text>` : ""}</g>`;
-      })
-      .join("");
+  return edges;
 }
 function setupER() {
-  drawER();
   const svg = document.getElementById("er-svg");
   if (!svg) return;
-  let drag = null;
-  function point(event) {
-    return new DOMPoint(event.clientX, event.clientY).matrixTransform(
-      svg.getScreenCTM().inverse(),
-    );
+  svg.diagramNavigation?.destroy();
+  const scope = `source:${state.source.id}:${state.snapshot.id}`;
+  if (state.erScope !== scope) {
+    state.erPositions = {};
+    state.erScope = scope;
   }
-  svg.addEventListener("pointerdown", (ev) => {
-    const node = ev.target.closest("[data-er-index]");
-    if (!node) {
-      drag = {
-        pan: true,
-        startX: ev.clientX,
-        startY: ev.clientY,
-        originX: state.erPan.x,
-        originY: state.erPan.y,
-        scale: svg.viewBox.baseVal.width / svg.getBoundingClientRect().width,
-      };
-      svg.setPointerCapture(ev.pointerId);
-      return;
-    }
-    const index = Number(node.dataset.erIndex),
-      t = erTables()[index],
-      p = point(ev);
-    drag = {
-      index,
-      key: t.key,
-      dx: p.x - state.erPositions[t.key].x,
-      dy: p.y - state.erPositions[t.key].y,
+  drawER();
+  const ts = erTables(),
+    byId = new Map();
+  const nodes = [...svg.querySelectorAll("[data-nav-id]")].map((element) => {
+    const t = ts[Number(element.dataset.erIndex)],
+      position = state.erPositions[t.key];
+    const node = {
+      id: t.key,
+      label: (t.schema ? t.schema + "." : "") + t.name,
+      ...position,
+      width: 280,
+      height: erHeight(t),
+      element,
+      neighbors: new Set(),
     };
-    svg.setPointerCapture(ev.pointerId);
-    ev.preventDefault();
+    byId.set(t.key, node);
+    return node;
   });
-  svg.addEventListener("pointermove", (ev) => {
-    if (!drag) return;
-    if (drag.pan) {
-      state.erPan = {
-        x: drag.originX - (ev.clientX - drag.startX) * drag.scale,
-        y: drag.originY - (ev.clientY - drag.startY) * drag.scale,
-      };
-      drawER();
-      return;
-    }
-    const p = point(ev);
-    state.erPositions[drag.key] = {
-      x: Math.max(5, p.x - drag.dx),
-      y: Math.max(5, p.y - drag.dy),
-    };
-    drawER();
-  });
-  svg.addEventListener("pointerup", () => {
-    drag = null;
-  });
-  svg.addEventListener("pointercancel", () => {
-    drag = null;
-  });
-  svg.addEventListener("dblclick", (ev) => {
-    const node = ev.target.closest("[data-er-index]");
-    if (node) selectTable(Number(node.dataset.erIndex));
-  });
-  svg.addEventListener("keydown", (ev) => {
-    const node = ev.target.closest("[data-er-index]");
-    if (node && (ev.key === "Enter" || ev.key === " ")) {
-      ev.preventDefault();
-      selectTable(Number(node.dataset.erIndex));
-    }
+  for (const edge of svg.querySelectorAll("[data-edge-source]")) {
+    byId.get(edge.dataset.edgeSource)?.neighbors.add(edge.dataset.edgeTarget);
+    byId.get(edge.dataset.edgeTarget)?.neighbors.add(edge.dataset.edgeSource);
+  }
+  diagramNavigator(svg, nodes, {
+    scope,
+    onCamera: (box, zoom) => {
+      state.erZoom = zoom;
+      state.erPan = { x: box.x, y: box.y };
+    },
+    openNode: (id) => selectTable(ts.findIndex((t) => t.key === id)),
+    moveNode: (id, position) => {
+      state.erPositions[id] = position;
+      byId
+        .get(id)
+        .element.setAttribute(
+          "transform",
+          `translate(${position.x},${position.y})`,
+        );
+      document.getElementById("er-edges").innerHTML = sourceERLinks();
+    },
   });
 }
 function downloadER() {
@@ -813,10 +825,16 @@ function downloadER() {
   styles.textContent =
     ".er-edge{fill:none;stroke:#87a693;stroke-width:1.5}.er-title{font-family:sans-serif;font-weight:600;font-size:13px;fill:#22473a}.er-field{font-family:monospace;font-size:10px;fill:#56685b}";
   source.prepend(styles);
+  const bounds = document.getElementById("er-svg").diagramNavigation.bounds();
+  source.setAttribute(
+    "viewBox",
+    `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`,
+  );
+  source.setAttribute("preserveAspectRatio", "xMidYMid meet");
   source.setAttribute("width", "1400");
   source.setAttribute(
     "height",
-    String(Math.max(850, Math.ceil(erTables().length / 3) * 300)),
+    String(Math.max(200, Math.ceil((1400 * bounds.height) / bounds.width))),
   );
   const url = URL.createObjectURL(
     new Blob([new XMLSerializer().serializeToString(source)], {
@@ -1211,10 +1229,8 @@ document.addEventListener("click", async (ev) => {
     }
     if (a === "er-reset") {
       state.erPositions = {};
-      state.erZoom = 1;
-      state.erPan = { x: 0, y: 0 };
-      document.getElementById("er-zoom").value = 1;
-      drawER();
+      diagramCameras.delete(state.erScope);
+      setupER();
     }
     if (a === "er-download") downloadER();
     if (["pdf-tables", "pdf-table", "pdf-er"].includes(a)) {
@@ -1437,10 +1453,6 @@ document.addEventListener("input", (ev) => {
     document.getElementById("object-items").innerHTML = tableList(
       ev.target.value,
     );
-  if (ev.target.id === "er-zoom") {
-    state.erZoom = Number(ev.target.value);
-    drawER();
-  }
 });
 document.addEventListener("change", (ev) => {
   warehouseWorkspaceChange(ev.target);

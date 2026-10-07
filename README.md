@@ -129,7 +129,7 @@ The source dashboard defaults to a compact list with locally served database-eng
 - Multiple data sources with individual connection settings and encrypted credentials.
 - Database discovery on a server. Each source documents one database; an optional schema setting narrows the scan.
 - Manual and scheduled background scans of tables, views, columns, data types, nullability, defaults, primary and foreign keys, indexes, unique constraints, and database comments where supported by the adapter.
-- Interactive ER diagrams based on declared foreign keys, with draggable tables and background, zoom, and SVG export. Diagrams display up to 80 objects; the table browser includes all documented objects.
+- Interactive ER diagrams based on declared foreign keys, with pointer-centered zoom, panning, fullscreen, a minimap, table search, neighbor highlighting, draggable source tables, and complete SVG export. Diagrams include all scanned objects (up to the scanner limit of 2,000).
 - Documentation notes for each object, retained across subsequent scans.
 - Stored schema snapshots with comparisons of any two retained versions, plus JSON, Markdown, and PDF exports.
 - Source tags, a responsible person or team, and contact email, shown in the catalog and documentation exports.
@@ -155,7 +155,7 @@ The warehouse offers six views:
 
 1. **Roadmap:** beginner guidance, source links, suggested next actions and model/source-change warnings. The guide explains facts, dimensions, grain and Raw/Staging, Core and Data Mart layers.
 2. **Subject projects:** document the business question and owner, and select shared central tables. The optional starter assistant creates a fact table with an identity key, a date reference and one decimal measure, plus a shared `dim_date` dimension. Specify what a row represents and the measure's meaning/unit; review types, decimal precision, calendar semantics, mappings and loading strategies before implementation. Subsequent starter models reuse a compatible `dim_date`. These are planning drafts; no source data or target DDL is executed.
-3. **Global model:** view all planned relationships, filter by subject project and search table/field names. The global diagram includes up to all 300 allowed target tables; scrolling and filters keep it navigable. Filtered diagrams show relationships between visible tables. The object inventory shows shared use, manually reported implementation status and structural differences from the latest target scan. Select a table to edit its central definition with the existing five-step modeling workflow.
+3. **Global model:** view all planned relationships, filter by subject project and search table/field names. The global diagram includes up to all 300 allowed target tables; pointer-centered zoom, panning, a minimap, table search and subject filters keep it navigable. Filtered diagrams show relationships between visible tables. The object inventory shows shared use, manually reported implementation status and structural differences from the latest target scan. Select a table to edit its central definition with the existing five-step modeling workflow.
 4. **Data origin:** inspect source fields/snapshot IDs and derivation rules across subject projects. Editors can open a field's mapping directly. Results initially show 100 fields, with a load-more action for larger models; search remains available across all matching fields.
 5. **Target comparison:** inspect the latest successful stored target scan against the shared model, including missing/changed structures, extra columns and extra target tables. Open the target source to scan it or inspect its scanned ER model. This verifies documented structure, not loaded values, executed ETL jobs or business correctness.
 6. **Maintenance:** track implementation, data-quality and operational tasks with an owner, optional subject project, review date, status and result notes. Completed tasks require documented results. Initial tasks cover SQL review, load-job implementation/error handling, measure reconciliation, freshness checks and backup/recovery tests. These are manual records; due dates do not schedule load jobs, checks or notifications.
@@ -190,7 +190,7 @@ New projects start with a three-page setup assistant: describe the business ques
 The project opens with a five-step roadmap. Each step explains its goal and expected outcome, lists outstanding tasks, and links directly to the relevant project settings, table or column editor. Completed task information is derived from saved project metadata rather than separate checkboxes. A prominent next-step action points to the earliest unfinished step; all steps remain available for reviewing or parallel work. Completed task panels collapse to keep the workspace compact.
 
 1. **Goal & sources / Ziel & Quellen:** describe the business goal, select the target platform and schema, and assign successfully scanned input sources. When you open a source from a task, a return link brings you back to the same project step.
-2. **Target model / Zielmodell:** import selected source objects as a starting point for staging, or create tables manually. Classify facts, dimensions or aggregates, define columns, primary keys, grain (what one row represents), business keys and measures. The UI explains staging, facts and dimensions with examples. Imported fields retain their source names and snapshot IDs; portable target types remain suggestions requiring review. Staging copies alone do not complete the business-model task. Add planned foreign keys against the target table's complete primary key, including composite keys. The diagram shows up to 30 target tables; the object list and exports include the whole plan.
+2. **Target model / Zielmodell:** import selected source objects as a starting point for staging, or create tables manually. Classify facts, dimensions or aggregates, define columns, primary keys, grain (what one row represents), business keys and measures. The UI explains staging, facts and dimensions with examples. Imported fields retain their source names and snapshot IDs; portable target types remain suggestions requiring review. Staging copies alone do not complete the business-model task. Add planned foreign keys against the target table's complete primary key, including composite keys. The diagram includes all allowed target tables (up to 300), with zoom, pan, table search and a minimap. The object list and exports include the whole plan.
 3. **Data origin & loading / Datenherkunft & Laden:** map each non-generated field to a source or document its derivation rule, and describe each table's load/historization strategy. Generated identity keys require no source mapping. New mappings use the latest documented snapshot. Source changes generate warnings while retaining the original pinned mapping. Task actions open the relevant column or table directly.
 4. **Implement / Umsetzen:** download and review the SQL draft, run it in the intended target system, and implement/test load jobs and transformations externally. The page shows these actions in order. Record each table's planned/in-progress/implemented/business-accepted status below; these are manual reports, not proof of executed SQL or loads.
 5. **Verify the result / Ergebnis prüfen:** connect and scan the implemented target, then compare expected tables, columns, portable types, nullability, primary keys and planned foreign keys. Extra target objects are reported separately. The result includes its snapshot ID/time and does not change acceptance statuses. A successful comparison satisfies the structural-check task in the current view; reloads, project saves or a newer target snapshot require a fresh comparison. Your team assesses data values and business acceptance separately.
@@ -218,13 +218,30 @@ GET /api/dwh/projects/{id}/export?format=sql|json|markdown
 
 Updates/imports require the current `version`; deletion requires a `version` query parameter. Writes use the existing CSRF protection. Snapshot/field references must belong to an assigned project source.
 
+## ER diagram navigation
+
+The scanned source ER view and both planned DWH model views share a navigation toolbar:
+
+- **Zoom:** use the mouse wheel at the point you want to inspect, the +/− buttons, or the 1–400% slider. **100%** restores readable native card size; **Fit all** shows the complete model.
+- **Pan:** drag the background. In scanned source diagrams, drag a table to adjust its position; hold Space or use the middle mouse button to pan over tables. In planned DWH diagrams, dragging also pans over tables. Shift+wheel pans instead of zooming.
+- **Find a table:** search by its name (including the source schema). Click a result or press Enter to center it at readable size. The selected table and its direct relationships are highlighted. **Table & neighbors** fits the selected table and its immediate related tables; other tables stay visible with lower opacity.
+- **Minimap:** the bottom-right overview shows the current viewport. Click it to jump to another part of the model. **Fullscreen** gives the diagram more space where supported by the browser.
+- **Keyboard:** focus the diagram and use arrows to pan, +/− to zoom, Home to fit all, and Escape to clear highlighting. Enter opens the selected table's documentation or DWH definition. A source table also opens on double-click; planned tables open on click.
+- **Touch:** drag with one finger to pan, or use two fingers to pinch and pan. Touch navigation never moves source table cards.
+
+Source layouts group connected tables into a compact grid. **Rearrange** restores that layout and fits all tables. Camera positions are kept in browser memory for recently viewed models; manual source positions are retained when switching tabs within the source view. These controls do not change database tables or the stored DWH plan. A new snapshot or source navigation resets manual positions; a full page reload clears navigation memory.
+
+**SVG** exports the complete scanned diagram with the current manual arrangement, regardless of zoom or pan. **PDF** retains its separate automatic print layout. Relations come from declared foreign keys; the navigator does not infer undeclared relationships.
+
+![ER diagram navigation with a fictional large database](docs/er-navigation.png)
+
 ## PDF exports
 
 PDF downloads are available to anyone with documentation access to a source, including viewers without data-preview grants:
 
 - **Complete table documentation:** open a source and click **Tabellen-PDF** in the page header. The A4 landscape document includes an object inventory and a section per table, view, or collection, with columns/types, nullability, defaults, PK/FK flags, primary and foreign keys, indexes, unique constraints, database comments, saved object notes, and MongoDB validators when present. Tags and owner/contact details appear in the introduction.
 - **Single object:** select a table under **Tabellen & Felder** and click **Tabellen-PDF** inside its detail panel. Only that object's documentation is included.
-- **ER model:** open **ER-Modell** and click **PDF** next to SVG. The PDF uses A3 landscape pages with up to six objects per diagram, vector shapes and relationship arrows, an object inventory, and a complete foreign-key register. It includes all documented objects, including those beyond the 80-object limit of the screen diagram. Diagram IDs and numbered relationships connect references across pages. External targets, composite keys, and self-references remain documented.
+- **ER model:** open **ER-Modell** and click **PDF** next to SVG. The PDF uses A3 landscape pages with up to six objects per diagram, vector shapes and relationship arrows, an object inventory, and a complete foreign-key register. It includes all documented objects. Diagram IDs and numbered relationships connect references across pages. External targets, composite keys, and self-references remain documented.
 
 ER PDFs use an automatic print layout; dragging, zooming, and panning the browser diagram do not change their layout. Diagram cards prioritize PK/FK columns and show up to eight fields per object. The table PDF contains every documented column. Full object names and relationship definitions remain available in the PDF inventories even when card labels are abbreviated. Relationships are based on declared foreign keys; MongoDB field inference does not invent relationships.
 
@@ -306,7 +323,6 @@ POST /api/catalog/tags/assign         # source_ids, tags, mode: add|remove
 ```
 
 ![Colored classification of fictional data sources](docs/catalog-classification.png)
-
 
 ## Global search
 
@@ -584,4 +600,11 @@ This browser test creates warehouses, subject projects, target drafts and task r
 CLASSIFICATION_TEST_URL=http://127.0.0.1:8091 \
   CLASSIFICATION_TEST_PASSWORD=YOUR_FIXTURE_PASSWORD \
   NODE_PATH=/tmp/datatlas-browser/node_modules node tests/classification.cjs
+```
+
+`tests/er-navigation.cjs` uses fictional read-only API responses and real static assets from a disposable instance. It checks 150- and 2,000-object scanned diagrams, 300-table DWH plans, zoom anchors, keyboard navigation, Space-drag, node dragging, search, neighbors, complete SVG exports, fullscreen, minimap jumps, controller cleanup, both languages and native touch gestures. It never writes business data:
+
+```bash
+ER_TEST_URL=http://127.0.0.1:8091 \
+  NODE_PATH=/tmp/datatlas-browser/node_modules node tests/er-navigation.cjs
 ```

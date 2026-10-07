@@ -525,7 +525,7 @@ function dwhModelView() {
   return `<div class="dwh-model-actions">${p.can_edit ? localize`<button class="btn primary" data-action="dwh-add-table">${icon("plus")} Zieltabelle anlegen</button><button class="btn" data-action="dwh-import">${icon("database")} Aus Quellstruktur übernehmen</button>` : localize('<span class="muted">Leserechte für dieses Zielmodell</span>')}</div>
     ${
       p.tables.length
-        ? localize`<section class="panel dwh-diagram-panel"><div class="panel-head"><h2>Geplantes Datenmodell</h2><span class="small muted">${p.tables.reduce((n, t) => n + t.relations.length, 0)} geplante Beziehungen</span></div><div class="dwh-diagram">${dwhDiagram()}</div><div class="er-footer">Tabellen auswählen, um Details zu bearbeiten. ${p.tables.length > 30 ? uiText("Das Diagramm zeigt die ersten 30 Tabellen; Liste und SQL-Export enthalten alle Tabellen.") : ""}</div></section>
+        ? localize`<section class="panel dwh-diagram-panel"><div class="panel-head"><h2>Geplantes Datenmodell</h2><span class="small muted">${p.tables.reduce((n, t) => n + t.relations.length, 0)} geplante Beziehungen</span></div><div class="dwh-diagram">${dwhDiagram()}</div><div class="er-footer">Tabellen auswählen, um Details zu bearbeiten. </div></section>
     <div class="schema-layout"><aside class="object-list"><div class="object-items">${p.tables.map((x) => `<button class="object-item ${x.id === t.id ? "active" : ""}" data-action="dwh-select-table" data-id="${x.id}">${icon("table")}<span>${e(x.name)}</span><small>${e(dwhRoles[x.role])}</small></button>`).join("")}</div></aside><section class="panel object-detail"><div class="panel-head"><div><div class="eyebrow">${e(dwhLayers[t.layer])} · ${e(dwhRoles[t.role])}</div><h2>${e(t.name)}</h2></div>${p.can_edit ? localize('<button class="btn" data-action="dwh-edit-table">Tabelle bearbeiten</button>') : ""}</div><div class="panel-body"><p class="dwh-prose">${e(t.description || uiText("Noch keine fachliche Beschreibung"))}</p>${info(uiText("Granularität"), e(t.grain || uiText("Noch offen")))}${info(uiText("Ladeverfahren"), t.load_mode === "incremental" ? uiText("Inkrementell") : uiText("Vollständig"))}${info(uiText("Ladestrategie"), e(t.load_strategy || uiText("Noch offen")))}</div>
     <div class="panel-head"><h3>Zielspalten</h3>${p.can_edit ? localize('<button class="btn" data-action="dwh-add-column">Spalte hinzufügen</button>') : ""}</div><div class="table-wrap"><table><thead><tr><th>Zielfeld</th><th>Typ</th><th>Zweck</th><th>NULL</th><th></th></tr></thead><tbody>${t.columns.map((c) => `<tr><td class="mono">${c.primary_key ? '<span class="key-label">PK</span>' : ""}${e(c.name)}${c.identity ? localize('<div class="small muted">Automatischer Schlüssel</div>') : ""}</td><td class="mono">${e(dwhTypeLabel(c))}</td><td>${e(dwhPurposes[c.purpose])}</td><td>${c.nullable ? uiText("Ja") : uiText("Nein")}</td><td>${p.can_edit ? localize`<button class="text-button" data-action="dwh-edit-column" data-id="${c.id}">Bearbeiten</button>` : ""}</td></tr>`).join("") || localize('<tr><td colspan="5">Noch keine Spalten geplant.</td></tr>')}</tbody></table></div>
     <div class="panel-head"><h3>Geplante Beziehungen</h3>${p.can_edit ? localize('<button class="btn" data-action="dwh-add-relation">Beziehung anlegen</button>') : ""}</div><div class="panel-body">${t.relations.map((r) => `<div class="dwh-relation"><span class="mono">${e(r.columns.join(", "))} → ${e(p.tables.find((x) => x.id === r.target_table_id)?.name)} (${e(r.target_columns.join(", "))})</span>${p.can_edit ? localize`<button class="text-button danger" data-action="dwh-remove-relation" data-id="${r.id}">Entfernen</button>` : ""}</div>`).join("") || localize('<p class="muted">Noch keine Beziehungen geplant.</p>')}</div>${p.can_edit ? localize('<div class="panel-body"><button class="text-button danger" data-action="dwh-remove-table">Zieltabelle aus dem Plan entfernen</button></div>') : ""}</section></div>`
@@ -541,20 +541,33 @@ function dwhTypeLabel(c) {
       ? `DECIMAL(${c.precision}, ${c.scale})`
       : c.data_type.toUpperCase();
 }
-function dwhDiagram(visibleTables = state.dwhProject.tables, limit = 30) {
+function dwhDiagram(visibleTables = state.dwhProject.tables, limit = 300) {
   const tables = visibleTables.slice(0, limit),
     positions = new Map();
-  const counts = [0, 0, 0];
+  const counts = [0, 0, 0],
+    rows = Math.max(1, Math.ceil(Math.sqrt(tables.length)));
+  const laneOf = (t) =>
+    t.role === "dimension" ? 0 : ["fact", "aggregate"].includes(t.role) ? 1 : 2;
+  const totals = [0, 0, 0];
+  tables.forEach((t) => totals[laneOf(t)]++);
+  const offsets = [
+    0,
+    Math.ceil(totals[0] / rows),
+    Math.ceil(totals[0] / rows) + Math.ceil(totals[1] / rows),
+  ];
   tables.forEach((t) => {
-    const lane =
-      t.role === "dimension"
-        ? 0
-        : ["fact", "aggregate"].includes(t.role)
-          ? 1
-          : 2;
-    positions.set(t.id, { x: 25 + lane * 330, y: 25 + counts[lane]++ * 170 });
+    const lane = laneOf(t),
+      index = counts[lane]++;
+    positions.set(t.id, {
+      x: 25 + (offsets[lane] + Math.floor(index / rows)) * 330,
+      y: 25 + (index % rows) * 170,
+    });
   });
-  const height = Math.max(220, Math.max(...counts) * 170 + 30);
+  const height = Math.max(220, Math.min(rows, Math.max(...counts)) * 170 + 30),
+    width = Math.max(
+      330,
+      totals.reduce((sum, n) => sum + Math.ceil(n / rows) * 330, 0) + 30,
+    );
   const links = tables
     .flatMap((t) =>
       t.relations.map((r) => {
@@ -570,7 +583,7 @@ function dwhDiagram(visibleTables = state.dwhProject.tables, limit = 30) {
         const path = sameLane
           ? `M${ax},${ay} C${ax + 170},${ay + 40} ${bx + 170},${by - 40} ${bx},${by}`
           : `M${ax},${ay} C${(ax + bx) / 2},${ay} ${(ax + bx) / 2},${by} ${bx},${by}`;
-        return `<path d="${path}" fill="none" stroke="#739b7c" stroke-width="2" marker-end="url(#dwh-arrow)"><title>${e(t.name)} → ${e(state.dwhProject.tables.find((x) => x.id === r.target_table_id)?.name)}: ${e(r.columns.join(", "))}</title></path>`;
+        return `<path data-edge-source="${t.id}" data-edge-target="${r.target_table_id}" d="${path}" fill="none" stroke="#739b7c" stroke-width="2" marker-end="url(#dwh-arrow)"><title>${e(t.name)} → ${e(state.dwhProject.tables.find((x) => x.id === r.target_table_id)?.name)}: ${e(r.columns.join(", "))}</title></path>`;
       }),
     )
     .join("");
@@ -587,7 +600,7 @@ function dwhDiagram(visibleTables = state.dwhProject.tables, limit = 30) {
         .join("")}</g>`;
     })
     .join("");
-  return localize`<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="${height}" role="img" aria-label="Geplantes DWH-Modell"><defs><marker id="dwh-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10" fill="#739b7c"/></marker></defs>${links}${nodes}</svg>`;
+  return localize`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" role="group" aria-label="Geplantes DWH-Modell"><defs><marker id="dwh-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10" fill="#739b7c"/></marker></defs>${links}${nodes}</svg>`;
 }
 function dwhTableModal(edit = false) {
   const t = edit

@@ -2716,3 +2716,156 @@ button.classification-tag:focus-visible {
     white-space: normal;
   }
 }
+
+/* ER and planned models use a viewport independent of total model size. */
+.diagram-explorer {
+  min-width: 0;
+  position: relative;
+}
+.diagram-toolbar {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.diagram-zoom-tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.diagram-zoom-tools input[type="range"] {
+  width: 100px;
+}
+.diagram-zoom-tools output {
+  min-width: 45px;
+  font-size: 12px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.diagram-search {
+  position: relative;
+  min-width: 230px;
+  flex: 1;
+}
+.diagram-search input {
+  width: 100%;
+}
+.diagram-search-results {
+  position: absolute;
+  z-index: 12;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow: auto;
+  background: white;
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 25px #163a3520;
+  border-radius: 7px;
+  padding: 5px;
+}
+.diagram-search-results button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px;
+  background: white;
+  border: 0;
+  overflow-wrap: anywhere;
+}
+.diagram-search-results button:hover,
+.diagram-search-results button:focus-visible {
+  background: #edf4e9;
+}
+.diagram-search-results > div {
+  padding: 8px;
+}
+.diagram-stage,
+.dwh-diagram.diagram-stage {
+  position: relative;
+  height: 620px;
+  max-height: none;
+  overflow: hidden;
+  cursor: grab;
+}
+.diagram-stage > svg:not(.diagram-minimap) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  user-select: none;
+}
+.diagram-stage > svg:focus-visible {
+  outline: 2px solid #276256;
+  outline-offset: -2px;
+}
+.diagram-dragging,
+.diagram-dragging .er-node,
+.diagram-dragging .dwh-diagram-node {
+  cursor: grabbing;
+}
+.diagram-minimap {
+  position: absolute;
+  bottom: 14px;
+  right: 14px;
+  width: 155px !important;
+  height: 105px !important;
+  border: 1px solid #c7d6cc;
+  border-radius: 6px;
+  background: #ffffffed;
+  box-shadow: 0 2px 8px #163a3514;
+  cursor: crosshair;
+  touch-action: none;
+}
+.diagram-mini-viewport {
+  fill: #27625612;
+}
+.diagram-selected > rect {
+  stroke: #1c7652;
+  stroke-width: 3px;
+}
+.diagram-dimmed {
+  opacity: 0.22;
+}
+.diagram-edge-active {
+  stroke: #276256 !important;
+  stroke-width: 2.5px !important;
+}
+.diagram-explorer:fullscreen {
+  background: #fafbf8;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+}
+.diagram-explorer:fullscreen .diagram-stage {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+@media (max-width: 700px) {
+  .diagram-toolbar {
+    padding: 12px;
+    gap: 12px;
+  }
+  .diagram-zoom-tools .btn {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+  .diagram-search {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+  .diagram-stage,
+  .dwh-diagram.diagram-stage {
+    height: 460px;
+  }
+  .diagram-minimap {
+    width: 115px !important;
+    height: 80px !important;
+  }
+}
