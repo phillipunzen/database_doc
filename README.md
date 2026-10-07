@@ -147,15 +147,36 @@ PostgreSQL materialized views, stored procedures, and ETL or pipeline lineage ar
 
 ### Central warehouses and subject projects
 
-Use **Create central warehouse** on the DWH page to manage one shared target model for SQL Server, PostgreSQL or MariaDB. The setup assistant asks for a business goal, target platform/schema and source connections. Start with one concrete question, such as daily net revenue by product, rather than importing every source table immediately.
+Open **Data Warehouse** in the sidebar. The landing page explains the relationship between application databases, the shared warehouse, departments, and subject projects. The recommended action opens an existing central warehouse when one exists; otherwise, it starts a new central warehouse plan. Separate drafts are listed under **Standalone projects**, with guidance on when to use them.
 
-A central warehouse owns the target tables, columns, relationships and source mappings. **Subject projects** describe business areas such as Sales, Purchasing or Finance and reference selected central tables. Assigning the same dimension to two subject projects reuses its definition and UUID; it does not create a second physical table. Table names are unique throughout the model, and relationships can connect tables used by different subject projects. All tables currently use the central target schema/database.
+| Item               | Purpose                                                                                      | Example                                        |
+| ------------------ | -------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Central warehouse  | One shared target model and implementation roadmap for a target system                       | Company warehouse on PostgreSQL                |
+| Department         | Organizational ownership of one or more subject projects                                     | Production or Maintenance                      |
+| Subject project    | One business analysis within the shared warehouse, referencing central tables                | Machine data or Maintenance analysis           |
+| Standalone project | An independent prototype, separate target system, or design not yet adopted into a warehouse | Trial design for a separate reporting database |
+
+For a central company warehouse, create **one warehouse** and add further analyses as **subject projects inside it**. A subject project is not another warehouse database. A central warehouse owns the target tables, columns, relationships, and source mappings. Assigning the same dimension to two subject projects reuses its definition and UUID; it does not create a second physical table. For example, Production's Machine data project and Maintenance's Maintenance analysis project can use the same `dim_machine`, `dim_date`, and location definitions. All central tables currently use one target schema/database.
+
+**Your first warehouse, using machine data as an example:**
+
+1. **Set up warehouse:** enter the overall purpose, target platform (SQL Server, PostgreSQL, or MariaDB), and target schema/database. This creates a planning record in DatabaseDoc; provision the actual target database in your chosen system separately. Add a target connection when it is ready.
+2. **Define a subject project and department:** add Machine data, department Production, an owner, and a specific question such as daily idle minutes per machine. Additional analyses and departments remain part of the same warehouse.
+3. **Understand application data:** select the relevant application sources in Warehouse settings. Open and scan each source, then inspect its documentation and ER model. Verify meanings, timestamps, units, and keys. Scanning stores metadata; it does not copy rows into the warehouse.
+4. **Design the shared target model:** use a starter draft or plan tables manually. For example, a `fact_machine_events` row describes one machine event with a measure such as `idle_minutes`, linked to machine and date dimensions. Adapt the starter calendar/fact draft and add the machine dimension, its fields, and relationships yourself. Importing a source structure produces a staging draft requiring review; selecting a source does not design a business model automatically. Assign the appropriate central tables to each subject project.
+5. **Plan data origin and loading:** map target fields to scanned source fields or document derivations. Specify transformations, refresh frequency, history, deletion handling, and error/retry behavior. These mappings are a specification for load jobs, not an executed data transfer.
+6. **Build the warehouse in the target system:** download and review the shared SQL draft, then execute it in the provisioned target system. Implement and test the ETL/load jobs separately, including regular execution. Update table implementation statuses and record implementation results under Maintenance. The SQL export defines structures; it does not contain ready-to-run ETL jobs.
+7. **Verify results and maintain operations:** connect the actual target as a source, scan it, and compare its schema with the plan. Also reconcile measures, row counts, completeness, and freshness with the applications; record results, owners, and review dates under Maintenance.
+
+The warehouse **Roadmap** displays these seven steps with **Your task**, **In the tool**, **Expected result**, context-specific actions, and documented status. It expands the next incomplete step. Source, subject-ownership, and implementation/quality counts show what remains. Model and mapping readiness follows saved definitions. Implementation also requires documented implementation tasks; a matching schema alone does not complete data validation. Quality results and an operational task with an owner and review date are required for the final documented step. This is documentation progress, not evidence that DatabaseDoc has executed SQL or verified running ETL jobs.
+
+Each subject project has an optional **Department** and an **Owner**. Department filters apply to subject cards, the global model, data origin, and maintenance. Global maintenance tasks remain visible when filtering a department. Shared tables appear in each department that uses them, with the same central definition. Department labels are case-insensitively grouped; older records without a department appear under **No department assigned**. Assigning departments does not grant or restrict access: warehouse access still follows the grants for all assigned sources and the optional target. The model editor identifies whether you are editing a shared warehouse model or a standalone draft, and provides a link back to the warehouse roadmap.
 
 The warehouse offers six views:
 
-1. **Roadmap:** beginner guidance, source links, suggested next actions and model/source-change warnings. The guide explains facts, dimensions, grain and Raw/Staging, Core and Data Mart layers.
-2. **Subject projects:** document the business question and owner, and select shared central tables. The optional starter assistant creates a fact table with an identity key, a date reference and one decimal measure, plus a shared `dim_date` dimension. Specify what a row represents and the measure's meaning/unit; review types, decimal precision, calendar semantics, mappings and loading strategies before implementation. Subsequent starter models reuse a compatible `dim_date`. These are planning drafts; no source data or target DDL is executed.
-3. **Global model:** view all planned relationships, filter by subject project and search table/field names. The global diagram includes up to all 300 allowed target tables; pointer-centered zoom, panning, a minimap, table search and subject filters keep it navigable. Filtered diagrams show relationships between visible tables. The object inventory shows shared use, manually reported implementation status and structural differences from the latest target scan. Select a table to edit its central definition with the existing five-step modeling workflow.
+1. **Roadmap:** the seven-step build journey above, source links, next actions, documented status and model/source-change hints. It explains facts, dimensions, grain, staging, and the transition from a plan to external implementation.
+2. **Subject projects:** document the business question, department and owner, and select shared central tables. The optional starter assistant creates a fact table with an identity key, a date reference and one decimal measure, plus a shared `dim_date` dimension. Specify what a row represents and the measure's meaning/unit; review types, decimal precision, calendar semantics, mappings and loading strategies before implementation. Subsequent starter models reuse a compatible `dim_date`. These are planning drafts; no source data or target DDL is executed.
+3. **Global model:** view all planned relationships, filter by department and subject project and search table/field names. The global diagram includes up to all 300 allowed target tables; pointer-centered zoom, panning, a minimap, table search and subject filters keep it navigable. Filtered diagrams show relationships between visible tables. The object inventory shows shared use, manually reported implementation status and structural differences from the latest target scan. Select a table to edit its central definition with the existing five-step modeling workflow.
 4. **Data origin:** inspect source fields/snapshot IDs and derivation rules across subject projects. Editors can open a field's mapping directly. Results initially show 100 fields, with a load-more action for larger models; search remains available across all matching fields.
 5. **Target comparison:** inspect the latest successful stored target scan against the shared model, including missing/changed structures, extra columns and extra target tables. Open the target source to scan it or inspect its scanned ER model. This verifies documented structure, not loaded values, executed ETL jobs or business correctness.
 6. **Maintenance:** track implementation, data-quality and operational tasks with an owner, optional subject project, review date, status and result notes. Completed tasks require documented results. Initial tasks cover SQL review, load-job implementation/error handling, measure reconciliation, freshness checks and backup/recovery tests. These are manual records; due dates do not schedule load jobs, checks or notifications.
@@ -166,7 +187,7 @@ Existing standalone projects are retained. **Use as warehouse** attaches the cen
 
 Warehouse permissions follow the existing rules for **all** assigned input sources and the optional target. Revoking a required grant removes access to the whole workspace and its exports. Metadata edits, model edits and project adoption share the master project's optimistic version. Tables assigned to a subject project cannot be deleted until their assignments are removed; removing a subject project retains its central tables. Central master models are protected from deletion as standalone projects. Administrators or authorized editors can explicitly remove warehouse management in its settings: this deletes the subject-project/task records while retaining the target model as a standalone project, with a new version. Export the workspace documentation first if these records need to be retained. Startup adds `warehouse_workspaces`; existing source catalog, projects and settings are retained.
 
-Download the warehouse JSON documentation to include the full central model, subject goals/assignments, maintenance records and current structural comparison. Shared SQL is exported through the master project's existing export endpoint and defines shared dimensions once.
+Download the warehouse JSON documentation to include the full central model, subject goals/department/owner assignments, maintenance records and current structural comparison. Department fields are stored in the existing workspace JSON; no new database table or data conversion is required. Reads return defaults for legacy subject records without rewriting stored content. Shared SQL is exported through the master project's existing export endpoint and defines shared dimensions once.
 
 ```text
 GET/POST /api/dwh/warehouses
@@ -178,12 +199,13 @@ POST /api/dwh/warehouses/{id}/adopt-project
 GET /api/dwh/warehouses/{id}/export
 ```
 
+![Warehouse concepts and guided entry with fictional metadata](docs/warehouse-hub.png)
 ![Central warehouse roadmap with fictional metadata](docs/warehouse-roadmap.png)
 ![Shared global model with fictional metadata](docs/warehouse-global-model.png)
 
 ### Modeling workflow and standalone projects
 
-Open **DWH-Projekte** in the sidebar to design and track a warehouse targeting **SQL Server, PostgreSQL, or MariaDB**. Projects, target models, mappings, requirements, and implementation statuses are stored in the application's MariaDB database. Existing catalog data is retained; startup adds two new tables without replacing sources, snapshots, users, or notes.
+Open **Data Warehouse** in the sidebar to design and track a warehouse targeting **SQL Server, PostgreSQL, or MariaDB**. Projects, target models, mappings, requirements, and implementation statuses are stored in the application's MariaDB database. Existing catalog data is retained; startup adds two new tables without replacing sources, snapshots, users, or notes.
 
 New projects start with a three-page setup assistant: describe the business question, select a target platform/schema, then choose available sources. Nothing is saved until **Start project / Projekt starten**. You can go back without losing entered values and can assign sources or a target connection later. Existing projects keep their requirements, mappings and statuses.
 
@@ -608,3 +630,12 @@ CLASSIFICATION_TEST_URL=http://127.0.0.1:8091 \
 ER_TEST_URL=http://127.0.0.1:8091 \
   NODE_PATH=/tmp/datatlas-browser/node_modules node tests/er-navigation.cjs
 ```
+
+`tests/warehouse-guide.cjs` uses fictional read-only API responses on a disposable instance. It checks the central/standalone distinction, seven-step progress, external implementation boundaries, shared tables across departments, department filters, legacy records, model-search navigator cleanup, source/editor return links, viewer controls and mobile layout in German and English:
+
+```bash
+GUIDE_TEST_URL=http://127.0.0.1:8091 \
+  NODE_PATH=/tmp/datatlas-browser/node_modules node tests/warehouse-guide.cjs
+```
+
+The workspace API tests additionally cover department persistence through model changes and adoption, export contents, version conflicts, length limits and legacy defaults without writes. The real fixture browser test exercises saved department ownership and filters with shared dimensions.

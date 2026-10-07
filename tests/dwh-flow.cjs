@@ -156,6 +156,8 @@ if (!baseURL)
         return route.fulfill({ json: result });
       });
       await page.goto(baseURL + "/#warehouse");
+      if (!(await page.locator('[data-action="dwh-create"]').isVisible()))
+        await page.locator(".wh-standalone > summary").click();
       await page.locator('[data-action="dwh-create"]').click();
       await page.locator('[data-action="dwh-wizard-next"]').click();
       assert.equal(

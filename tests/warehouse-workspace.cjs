@@ -47,16 +47,36 @@ if (!baseURL || !password)
       await page.locator('#dwh-project-form [type="submit"]').click();
       await page.locator("#wh-view").waitFor();
       const warehouseId = await page.evaluate(() => state.wh.id);
+      assert.equal(await page.locator(".wh-build-step").count(), 7);
+      assert.equal(
+        await page.evaluate(
+          () =>
+            whBuildSteps(state.wh).find((step) => step.id === "implementation")
+              .done,
+        ),
+        false,
+      );
+      assert.equal(
+        await page.evaluate(
+          () =>
+            whBuildSteps(state.wh).find((step) => step.id === "validation")
+              .done,
+        ),
+        false,
+      );
       assert.equal(await page.locator('[data-action="wh-tab"]').count(), 6);
       const phase = async (name) => {
         await page
           .locator(`[data-action="wh-tab"][data-tab="${name}"]`)
           .click();
       };
-      const area = async (name) => {
+      const area = async (name, department) => {
         await phase("areas");
         await page.locator('[data-action="wh-add-area"]').click();
         await page.locator('#wh-area-form [name="name"]').fill(name);
+        await page
+          .locator('#wh-area-form [name="department"]')
+          .fill(department);
         await page
           .locator('#wh-area-form [name="goal"]')
           .fill("Daily " + name.toLowerCase() + " by product");
@@ -97,9 +117,9 @@ if (!baseURL || !password)
           fact,
         );
       };
-      const sales = await area("Sales");
+      const sales = await area("Sales", "Production");
       await starter(sales, "fact_sales");
-      const purchasing = await area("Purchasing");
+      const purchasing = await area("Purchasing", "Maintenance");
       await starter(purchasing, "fact_purchasing");
       const tables = await page.evaluate(() => state.dwhProject.tables);
       assert.equal(tables.length, 3);
@@ -110,14 +130,46 @@ if (!baseURL || !password)
           calendar.id,
         ),
       );
+      await phase("areas");
+      await page
+        .locator("#wh-department-filter")
+        .selectOption("dept:production");
+      assert.equal(await page.locator(".wh-card-grid article").count(), 1);
+      assert.match(
+        await page.locator(".wh-card-grid article").textContent(),
+        /Production/,
+      );
       await phase("model");
+      assert.equal(await page.locator(".dwh-diagram-node").count(), 2);
+      assert.equal(
+        await page
+          .locator(`.dwh-diagram-node[data-id="${calendar.id}"]`)
+          .count(),
+        1,
+      );
+      await page
+        .locator("#wh-department-filter")
+        .selectOption("dept:maintenance");
+      assert.equal(await page.locator(".dwh-diagram-node").count(), 2);
+      assert.equal(
+        await page
+          .locator(`.dwh-diagram-node[data-id="${calendar.id}"]`)
+          .count(),
+        1,
+      );
+      await page.locator("#wh-department-filter").selectOption("");
       assert.equal(await page.locator(".dwh-diagram-node").count(), 3);
       assert.equal(await page.locator("#wh-view tbody tr").count(), 3);
       await page.locator("#wh-filter").selectOption(sales);
       assert.equal(await page.locator(".dwh-diagram-node").count(), 2);
       await page.locator("#wh-query").fill("fact_sales");
       assert.equal(await page.locator("#wh-view tbody tr").count(), 1);
+      assert.equal(await page.evaluate(() => diagramControllers.size), 1);
+      assert.equal(await page.locator(".diagram-minimap").count(), 1);
+      await page.locator("#wh-query").fill("no matching model");
+      assert.equal(await page.evaluate(() => diagramControllers.size), 0);
       await page.locator("#wh-query").fill("");
+      assert.equal(await page.evaluate(() => diagramControllers.size), 1);
       await page.locator("#wh-filter").selectOption("");
       if (locale === "en-US") {
         await page.evaluate(() =>

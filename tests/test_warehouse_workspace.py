@@ -226,6 +226,8 @@ def test_project_adoption_requires_explicit_matching_reuse_and_remaps_relations(
             "source_version": project["version"],
             "version": warehouse["project"]["version"],
             "area_name": "Purchasing",
+            "area_department": " Procurement ",
+            "area_owner": "Purchasing team",
         }
         url = f'/api/dwh/warehouses/{warehouse["id"]}/adopt-project'
         result = admin.post(url, json=body)
@@ -251,6 +253,8 @@ def test_project_adoption_requires_explicit_matching_reuse_and_remaps_relations(
         result = admin.post(url, json=body)
         assert result.status_code == 200, result.text
         merged = result.json()
+        assert merged["areas"][1]["department"] == "Procurement"
+        assert merged["areas"][1]["owner"] == "Purchasing team"
         assert len(merged["project"]["tables"]) == 3
         fact = next(
             table
@@ -402,3 +406,49 @@ def test_central_capacity_supports_sixty_sources_and_rejects_invalid_starter(
     result = admin.post(f'/api/dwh/warehouses/{warehouse["id"]}/starter', json=body)
     assert result.status_code == 422
     assert admin.get(f'/api/dwh/warehouses/{warehouse["id"]}').json() == warehouse
+
+
+def test_departments_survive_model_updates_and_are_exported(admin, warehouse):
+    warehouse = add_area(admin, warehouse, "Machine data")
+    areas = copy.deepcopy(warehouse["areas"])
+    areas[0].update(department=" Production ", owner="<script>literal owner</script>")
+    result = metadata(admin, warehouse, areas=areas)
+    assert result.status_code == 200
+    warehouse = result.json()
+    assert warehouse["areas"][0]["department"] == "Production"
+    assert metadata(admin, warehouse, areas=areas, version=1).status_code == 409
+    warehouse = starter(
+        admin, warehouse, warehouse["areas"][0], "fact_machine_events"
+    )
+    body = model_body(warehouse)
+    body["tables"][1]["description"] = "Idle minutes per event"
+    updated = admin.put(
+        f'/api/dwh/warehouses/{warehouse["id"]}/model', json={"project": body}
+    )
+    assert updated.status_code == 200
+    warehouse = updated.json()
+    assert warehouse["areas"][0]["department"] == "Production"
+    exported = admin.get(f'/api/dwh/warehouses/{warehouse["id"]}/export')
+    assert exported.status_code == 200
+    assert exported.json()["areas"] == warehouse["areas"]
+    assert exported.json()["areas"][0]["owner"] == "<script>literal owner</script>"
+    invalid = copy.deepcopy(warehouse["areas"])
+    invalid[0]["department"] = "x" * 191
+    assert metadata(admin, warehouse, areas=invalid).status_code == 422
+    assert admin.get(f'/api/dwh/warehouses/{warehouse["id"]}').json() == warehouse
+
+
+def test_legacy_department_defaults_do_not_rewrite_stored_content(admin, warehouse):
+    warehouse = add_area(admin, warehouse, "Existing subject")
+    with Session() as db:
+        workspace = db.get(WarehouseWorkspace, warehouse["id"])
+        legacy = copy.deepcopy(workspace.content)
+        for area in legacy["areas"]:
+            area.pop("department")
+        workspace.content = legacy
+        db.commit()
+    root = f'/api/dwh/warehouses/{warehouse["id"]}'
+    assert admin.get(root).json()["areas"][0]["department"] == ""
+    assert admin.get(root + "/export").json()["areas"][0]["department"] == ""
+    with Session() as db:
+        assert db.get(WarehouseWorkspace, warehouse["id"]).content == legacy

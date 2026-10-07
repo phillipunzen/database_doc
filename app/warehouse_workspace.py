@@ -38,12 +38,14 @@ class Area(Input):
     id: UUID = Field(default_factory=uuid4)
     name: str = Field(min_length=1, max_length=190)
     goal: str = Field(default="", max_length=10000)
+    department: str = Field(default="", max_length=190)
     owner: str = Field(default="", max_length=190)
     table_ids: list[UUID] = Field(default_factory=list, max_length=300)
 
     @model_validator(mode="after")
     def valid(self):
         self.name = self.name.strip()
+        self.department = self.department.strip()
         if not self.name or len(set(self.table_ids)) != len(self.table_ids):
             raise ValueError(
                 tr(
@@ -112,6 +114,8 @@ class ModelInput(Input):
 class AdoptInput(LinkInput):
     source_version: int = Field(ge=1)
     area_name: str = Field(min_length=1, max_length=190)
+    area_department: str = Field(default="", max_length=190)
+    area_owner: str = Field(default="", max_length=190)
     reuse: dict[UUID, UUID] = Field(default_factory=dict, max_length=300)
 
     @model_validator(mode="after")
@@ -194,7 +198,7 @@ def workspace_json(db, user, workspace, project, detail=True):
     result = {
         "id": workspace.id,
         "project": project_json(db, user, project, detail),
-        **workspace.content,
+        **Content.model_validate(workspace.content).model_dump(mode="json"),
     }
     if detail:
         target = (
@@ -451,7 +455,11 @@ def adopt_project(workspace_id: int, body: AdoptInput, user: User = Depends(curr
         content = Content.model_validate(workspace.content)
         content.areas.append(
             Area(
-                name=body.area_name, goal=incoming.goal, table_ids=list(remap.values())
+                name=body.area_name,
+                goal=incoming.goal,
+                department=body.area_department,
+                owner=body.area_owner,
+                table_ids=list(remap.values()),
             )
         )
         validated = validate_content(content.model_dump(mode="json"), model)

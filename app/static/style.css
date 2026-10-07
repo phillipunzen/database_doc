@@ -2722,6 +2722,169 @@ button.classification-tag:focus-visible {
   min-width: 0;
   position: relative;
 }
+
+/* Warehouse concepts and the actionable build journey. */
+.wh-concept p,
+.wh-step-body p,
+.wh-editor-context p {
+  line-height: 1.65;
+}
+.wh-architecture {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr) 24px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 12px;
+  margin: 22px 0;
+}
+.wh-architecture > div {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px;
+  overflow-wrap: anywhere;
+}
+.wh-architecture .wh-architecture-center {
+  background: #edf4e9;
+  border-color: #abc7a6;
+}
+.wh-architecture h3,
+.wh-recommended h2 {
+  margin: 10px 0;
+}
+.wh-flow-arrow {
+  align-self: center;
+  text-align: center;
+  color: #276256;
+  font-size: 24px;
+}
+.wh-architecture small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+.wh-recommended {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  border-color: #abc7a6;
+}
+.wh-recommended > .btn {
+  flex-shrink: 0;
+}
+.wh-warehouse-list {
+  margin: 28px 0;
+}
+.wh-warehouse-list > h2 {
+  margin-bottom: 16px;
+}
+.wh-guide-progress {
+  padding: 16px 22px;
+}
+.wh-guide-progress progress {
+  width: 100%;
+  accent-color: #276256;
+  height: 8px;
+}
+.wh-build-step {
+  border-top: 1px solid var(--line);
+}
+.wh-build-step summary,
+.wh-standalone > summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 22px;
+  cursor: pointer;
+  list-style: none;
+}
+.wh-build-step summary::-webkit-details-marker,
+.wh-standalone > summary::-webkit-details-marker {
+  display: none;
+}
+.wh-build-step summary::after,
+.wh-standalone > summary::after {
+  content: "+";
+  margin-left: auto;
+  font-size: 18px;
+  color: #276256;
+}
+.wh-build-step[open] > summary::after,
+.wh-standalone[open] > summary::after {
+  content: "−";
+}
+.wh-step-number {
+  display: grid;
+  place-items: center;
+  background: #edf4e9;
+  color: #276256;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  font-weight: 600;
+}
+.wh-step-body {
+  padding: 0 22px 22px 64px;
+}
+.wh-step-body > p {
+  margin: 0 0 14px;
+}
+.wh-step-result {
+  padding: 12px 14px;
+  background: #f4f7f2;
+  border-left: 3px solid #abc7a6;
+}
+.wh-step-body .actions {
+  flex-wrap: wrap;
+}
+.wh-standalone {
+  margin-top: 24px;
+}
+.wh-standalone .panel-body > p {
+  line-height: 1.65;
+  margin: 12px 0;
+}
+.wh-editor-context,
+.wh-model-instruction {
+  margin-bottom: 22px;
+}
+.wh-model-instruction {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+@media (max-width: 900px) {
+  .wh-architecture {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wh-flow-arrow {
+    transform: rotate(90deg);
+  }
+  .wh-recommended {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+@media (max-width: 600px) {
+  .wh-build-step summary {
+    padding: 14px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .wh-build-step summary strong {
+    flex: 1;
+    min-width: 150px;
+  }
+  .wh-step-body {
+    padding: 0 14px 18px;
+  }
+  .wh-build-step .btn,
+  .wh-recommended .btn {
+    white-space: normal;
+  }
+  .wh-guide-progress {
+    padding: 14px;
+  }
+}
 .diagram-toolbar {
   padding: 14px 18px;
   border-bottom: 1px solid var(--line);

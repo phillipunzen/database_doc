@@ -34,10 +34,12 @@ async function whRefresh() {
 function renderWarehouseHub() {
   const warehouses = state.whWarehouses || [];
   const projects = state.dwhProjects.filter((project) => !project.warehouse_id);
-  shell(localize`<div class="page-head"><div><div class="eyebrow">Vom Quellsystem zum Zielmodell</div><h1>DWH-Projekte</h1><p>${e(uiText("Ein zentrales Warehouse, gemeinsame Tabellen und fachliche Teilprojekte."))}</p></div>${state.user.role !== "viewer" ? whButton("Zentrales Warehouse anlegen", "create", "", true) : ""}</div>
-    <section class="panel panel-body wh-welcome"><h2>${e(uiText("Dein Einstieg ins Data Warehouse"))}</h2><p>${e(uiText("Beginne mit einer konkreten Frage, etwa täglichem Umsatz nach Produkt. Lege ein Warehouse an und ergänze darin ein Teilprojekt. Gemeinsame Dimensionen werden einmal geplant und von mehreren Teilprojekten genutzt."))}</p><ol class="wh-mini-roadmap">${["Warehouse einrichten", "Teilprojekt beschreiben", "Tabellen und Datenherkunft planen", "Umsetzen und betreuen"].map((label, index) => `<li><span>${index + 1}</span>${e(uiText(label))}</li>`).join("")}</ol><p class="small muted">${e(uiText("DatabaseDoc plant und dokumentiert. SQL und Ladejobs führt ihr im Zielsystem aus; der Assistent zeigt die nötigen Schritte."))}</p></section>
-    <section class="wh-card-grid">${warehouses.map((workspace) => `<article class="panel panel-body"><div class="eyebrow">${e(dwhEngines[workspace.project.target_kind])} · ${e(workspace.project.target_schema)}</div><h2>${e(workspace.project.name)}</h2><p class="wh-excerpt">${e(workspace.project.goal)}</p><div class="tag-list"><span class="tag">${e(uiText("{0} Teilprojekte", workspace.areas.length))}</span><span class="tag">${e(uiText("{0} zentrale Tabellen", workspace.project.table_count))}</span></div>${whButton("Warehouse öffnen", "open", workspace.id, true)}</article>`).join("")}</section>
-    <section class="panel"><div class="panel-head"><div><h2>${e(uiText("Eigenständige Projekte"))}</h2><p class="small muted">${e(uiText("Bestehende Projekte bleiben erhalten. Du kannst eines als Warehouse verwenden oder seine Planung in ein Warehouse übernehmen."))}</p></div>${state.user.role !== "viewer" ? `<button class="btn" data-action="dwh-create">${e(uiText("Projekt anlegen"))}</button>` : ""}</div><div class="table-wrap"><table><thead><tr><th>${e(uiText("Projekt / Ziel"))}</th><th>${e(uiText("Plattform"))}</th><th>${e(uiText("Zieltabellen"))}</th><th></th></tr></thead><tbody>${projects.map((project) => `<tr><td><strong>${e(project.name)}</strong><p class="small muted">${e(project.goal)}</p></td><td>${e(dwhEngines[project.target_kind])}</td><td>${project.table_count}</td><td><div class="actions"><button class="btn" data-action="dwh-open" data-id="${project.id}">${e(uiText("Projekt öffnen →"))}</button>${project.can_edit ? whButton("Als Warehouse verwenden", "convert", project.id) : ""}</div></td></tr>`).join("") || `<tr><td colspan="4">${e(uiText("Keine eigenständigen Projekte vorhanden."))}</td></tr>`}</tbody></table></div></section>`);
+  shell(`<div class="page-head"><div><div class="eyebrow">${e(uiText("Vom Quellsystem zum Zielmodell"))}</div><h1>${e(uiText("Data Warehouse"))}</h1><p>${e(uiText("Plane ein gemeinsames Zielsystem und begleite seinen Aufbau Schritt für Schritt."))}</p></div>${warehouses.length && state.user.role !== "viewer" ? whButton("Zentrales Warehouse anlegen", "create") : ""}</div>
+    ${whConcept()}
+    <section class="panel panel-body wh-recommended"><div><span class="badge">${e(uiText("Empfohlener Einstieg"))}</span><h2>${e(uiText(warehouses.length ? "Mit deinem bestehenden Warehouse weiterarbeiten" : "Du möchtest ein zentrales Unternehmenswarehouse aufbauen?"))}</h2><p>${e(uiText(warehouses.length ? "Öffne das passende Warehouse und ergänze darin deine nächste Auswertung als Teilprojekt. Ein neues Warehouse brauchst du für ein weiteres, getrenntes Zielsystem." : "Lege ein zentrales Warehouse an. Ergänze darin Teilprojekte wie Maschinendaten, Wartung oder Vertrieb. Weise sie Abteilungen zu und verwende gemeinsame Tabellen für Maschine, Standort oder Datum."))}</p></div>${warehouses.length ? whButton("Warehouse öffnen", "open", warehouses[0].id, true) : state.user.role !== "viewer" ? whButton("Zentrales Warehouse anlegen", "create", "", true) : ""}</section>
+    <section class="wh-warehouse-list"><h2>${e(uiText("Zentrale Warehouses"))}</h2><div class="wh-card-grid">${warehouses.map((workspace) => `<article class="panel panel-body"><div class="eyebrow">${e(dwhEngines[workspace.project.target_kind])} · ${e(workspace.project.target_schema)}</div><h3>${e(workspace.project.name)}</h3><p class="wh-excerpt">${e(workspace.project.goal)}</p><div class="tag-list"><span class="tag">${e(uiText("{0} Teilprojekte", workspace.areas.length))}</span><span class="tag">${e(uiText("{0} zentrale Tabellen", workspace.project.table_count))}</span></div>${whButton("Warehouse öffnen", "open", workspace.id, true)}</article>`).join("") || `<p class="small muted">${e(uiText("Noch kein zentrales Warehouse angelegt. Beginne mit dem empfohlenen Einstieg oben oder verwende einen vorhandenen Entwurf als Warehouse."))}</p>`}</div></section>
+    ${whBuildJourney()}
+    <details class="panel wh-standalone" ${projects.length ? "open" : ""}><summary><strong>${e(uiText("Eigenständige Projekte"))}</strong><span class="badge neutral">${projects.length}</span></summary><div class="panel-body"><h3>${e(uiText("Wann ist ein eigenständiges Projekt sinnvoll?"))}</h3><p>${e(uiText("Für einen Prototyp, eine getrennte Zieldatenbank oder einen Entwurf, der noch nicht zum gemeinsamen Warehouse gehört. Für weitere Auswertungen im selben Zielsystem legst du stattdessen Teilprojekte im Warehouse an."))}</p><p class="small muted">${e(uiText("Vorhandenen Entwurf weiterverwenden: Als Warehouse verwenden macht ihn zum gemeinsamen Modell. Projekt übernehmen kopiert seine Planung als Teilprojekt in ein bereits geöffnetes Warehouse; das Original bleibt separat."))}</p>${state.user.role !== "viewer" ? `<button class="btn" data-action="dwh-create">${e(uiText("Eigenständigen Entwurf anlegen"))}</button>` : ""}</div><div class="table-wrap"><table><thead><tr><th>${e(uiText("Projekt / Ziel"))}</th><th>${e(uiText("Plattform"))}</th><th>${e(uiText("Zieltabellen"))}</th><th></th></tr></thead><tbody>${projects.map((project) => `<tr><td><strong>${e(project.name)}</strong><p class="small muted">${e(project.goal)}</p></td><td>${e(dwhEngines[project.target_kind])}</td><td>${project.table_count}</td><td><div class="actions"><button class="btn" data-action="dwh-open" data-id="${project.id}">${e(uiText("Projekt öffnen →"))}</button>${project.can_edit ? whButton("Als Warehouse verwenden", "convert", project.id) : ""}</div></td></tr>`).join("") || `<tr><td colspan="4">${e(uiText("Keine eigenständigen Projekte vorhanden."))}</td></tr>`}</tbody></table></div></details>`);
 }
 function whAreaUsage(tableId) {
   return state.wh.areas.filter((area) => area.table_ids.includes(tableId));
@@ -45,8 +47,12 @@ function whAreaUsage(tableId) {
 function whVisibleTables() {
   const area = state.wh.areas.find((area) => area.id === state.whAreaFilter);
   const query = (state.whQuery || "").trim().toLowerCase();
+  const departmentTables = new Set(
+    whDepartmentAreas().flatMap((area) => area.table_ids),
+  );
   return state.dwhProject.tables.filter(
     (table) =>
+      (!state.whDepartmentFilter || departmentTables.has(table.id)) &&
       (!area || area.table_ids.includes(table.id)) &&
       (!query ||
         [
@@ -60,48 +66,24 @@ function whVisibleTables() {
   );
 }
 function whScopeControls() {
-  return `<div class="wh-filters"><div class="field"><label for="wh-filter">${e(uiText("Teilprojekt filtern"))}</label><select id="wh-filter"><option value="">${e(uiText("Alle Teilprojekte"))}</option>${state.wh.areas.map((area) => `<option value="${area.id}" ${state.whAreaFilter === area.id ? "selected" : ""}>${e(area.name)}</option>`).join("")}</select></div><div class="field"><label for="wh-query">${e(uiText("Tabellen und Felder suchen"))}</label><input id="wh-query" value="${e(state.whQuery || "")}" type="search"></div></div>`;
-}
-function whHelp() {
-  return `<details class="panel wh-help" ${state.dwhProject.tables.length ? "" : "open"}><summary>${e(uiText("Ich bin neu im Data Warehouse – wie fange ich an?"))}</summary><div class="panel-body"><ol><li><strong>${e(uiText("Formuliere eine Auswertung."))}</strong> ${e(uiText("Zum Beispiel: Wie hoch war der tägliche Nettoumsatz je Produkt? Lege daraus ein Teilprojekt an und benenne einen Verantwortlichen."))}</li><li><strong>${e(uiText("Bestimme, was eine Zeile bedeutet."))}</strong> ${e(uiText("Eine Verkaufsposition ist ein einzelnes Ereignis. Nettoumsatz und Menge sind Kennzahlen dieser Faktentabelle."))}</li><li><strong>${e(uiText("Ergänze den Kontext."))}</strong> ${e(uiText("Datum, Kunde und Produkt sind Dimensionen. Nutze ihre zentralen Tabellen auch in weiteren Teilprojekten."))}</li><li><strong>${e(uiText("Ordne die Herkunft zu."))}</strong> ${e(uiText("Wähle für jedes Zielfeld ein gescanntes Quellfeld oder dokumentiere eine Ableitung. Beschreibe außerdem Aktualisierung, Historie und den Umgang mit Fehlern."))}</li><li><strong>${e(uiText("Setze um und prüfe."))}</strong> ${e(uiText("Prüfe den SQL-Entwurf, lege das Modell im Zielsystem an und implementiere Ladejobs. Vergleiche danach den Zielscan mit dem Plan und prüfe Kennzahlen gegen die Quelle."))}</li></ol><p class="wh-boundary">${e(uiText("Ein Strukturvergleich bestätigt Tabellen und Felder. Ob Daten korrekt geladen wurden, dokumentierst du durch eigene Prüfungen im Bereich Betreuung."))}</p></div></details>`;
+  return `<div class="wh-filters">${whDepartmentControl()}<div class="field"><label for="wh-filter">${e(uiText("Teilprojekt filtern"))}</label><select id="wh-filter"><option value="">${e(uiText("Alle Teilprojekte"))}</option>${whDepartmentAreas()
+    .map(
+      (area) =>
+        `<option value="${area.id}" ${state.whAreaFilter === area.id ? "selected" : ""}>${e(area.name)}</option>`,
+    )
+    .join(
+      "",
+    )}</select></div><div class="field"><label for="wh-query">${e(uiText("Tabellen und Felder suchen"))}</label><input id="wh-query" value="${e(state.whQuery || "")}" type="search"></div></div>`;
 }
 function whOverview() {
   const p = state.dwhProject;
   const areas = state.wh.areas;
   const shared = p.tables.filter((table) => whAreaUsage(table.id).length > 1);
-  const workflow = dwhWorkflow(p, state.wh.comparison);
-  const incomplete = workflow.find((step) => !step.complete);
-  const next =
-    !p.goal.trim() || !p.source_ids.length
-      ? ["Warehouse-Ziel und Quellen festlegen", "settings"]
-      : !areas.length
-        ? ["Erstes Teilprojekt anlegen", "add-area"]
-        : !p.tables.length
-          ? [
-              "Startmodell für dein Teilprojekt entwerfen",
-              "starter",
-              areas[0].id,
-            ]
-          : incomplete?.id === "overview"
-            ? ["Quellscans und Warehouse-Einstellungen prüfen", "settings"]
-            : incomplete?.id === "model" || incomplete?.id === "mappings"
-              ? [
-                  "Zielmodell und Feldzuordnungen vervollständigen",
-                  "editor",
-                  incomplete.id,
-                ]
-              : incomplete?.id === "progress"
-                ? ["Warehouse im Zielsystem umsetzen", "editor", "progress"]
-                : incomplete?.id === "check"
-                  ? ["Umgesetzte Zielstruktur prüfen", "phase", "check"]
-                  : [
-                      "Datenqualität und Betrieb betreuen",
-                      "phase",
-                      "operations",
-                    ];
-  return `<section class="dwh-roadmap"><div class="dwh-roadmap-head"><div><div class="eyebrow">${e(uiText("Als Nächstes"))}</div><h2>${e(uiText(next[0]))}</h2><p>${e(uiText("Ein Warehouse enthält das gemeinsame Modell. Teilprojekte beschreiben fachliche Ziele und verwenden ausgewählte zentrale Tabellen."))}</p></div>${whButton("Jetzt bearbeiten", next[1], next[2] || "", true, !p.can_edit && ["settings", "add-area", "starter"].includes(next[1]))}</div></section>
+  const next = whBuildSteps(state.wh).find((step) => !step.done);
+  const nextAction = next?.buttons.find((button) => !button.disabled);
+  return `<section class="dwh-roadmap"><div class="dwh-roadmap-head"><div><div class="eyebrow">${e(uiText("Als Nächstes"))}</div><h2>${e(uiText(next?.title || "Datenqualität und Betrieb betreuen"))}</h2><p>${e(uiText(next?.task || "Die Aufbauschritte sind dokumentiert. Prüfe Aktualität, Datenqualität und Wiederherstellung regelmäßig und halte die Ergebnisse unter Betreuung fest."))}</p></div>${nextAction ? whButton(nextAction.label, nextAction.action, nextAction.id, true) : whButton("Betreuung öffnen", "phase", "operations")}</div></section>
     <div class="stats">${stat(uiText("Teilprojekte"), areas.length, "grid", uiText("Fachliche Ziele"))}${stat(uiText("Zentrale Tabellen"), p.tables.length, "table", uiText("Ein gemeinsames Zielmodell"))}${stat(uiText("Gemeinsam genutzt"), shared.length, "relations", uiText("In mehreren Teilprojekten"))}${stat(uiText("Offene Aufgaben"), state.wh.tasks.filter((task) => task.status !== "done").length, "clock", uiText("Umsetzung und Betreuung"))}</div>
-    ${whHelp()}<section class="panel panel-body"><h2>${e(uiText("Dein fachliches Ziel"))}</h2><p class="dwh-prose">${e(p.goal || uiText("Noch offen"))}</p><h3>${e(uiText("Projektquellen"))}</h3><div class="tag-list">${p.source_ids.map((id) => `<button class="btn" data-action="wh-input-source" data-id="${id}">${e(state.sources.find((source) => source.id === id)?.name || uiText("Quelle #") + id)}</button>`).join("")}</div><div class="wh-card-grid wh-links">${whButton("Teilprojekte planen", "phase", "areas")}${whButton("Gesamtmodell ansehen", "phase", "model")}${whButton("Datenherkunft prüfen", "phase", "lineage")}${whButton("Umsetzung begleiten", "editor", "progress")}${whButton("Betreuung öffnen", "phase", "operations")}</div></section>
+    ${whBuildJourney(state.wh)}<section class="panel panel-body"><h2>${e(uiText("Dein fachliches Ziel"))}</h2><p class="dwh-prose">${e(p.goal || uiText("Noch offen"))}</p><h3>${e(uiText("Projektquellen"))}</h3><div class="tag-list">${p.source_ids.map((id) => `<button class="btn" data-action="wh-input-source" data-id="${id}">${e(state.sources.find((source) => source.id === id)?.name || uiText("Quelle #") + id)}</button>`).join("")}</div><div class="wh-card-grid wh-links">${whButton("Teilprojekte planen", "phase", "areas")}${whButton("Gesamtmodell ansehen", "phase", "model")}${whButton("Datenherkunft prüfen", "phase", "lineage")}${whButton("Umsetzung begleiten", "editor", "progress")}${whButton("Betreuung öffnen", "phase", "operations")}</div></section>
     <section class="panel panel-body"><h2>${e(uiText("Warehouse-Schichten verstehen"))}</h2><p>${e(uiText("Raw/Staging übernimmt die Quellstruktur. Core enthält gemeinsame Fakten und Dimensionen. Data Marts bereiten ausgewählte Daten für Auswertungen auf. Tabellenkopien aus einer Quelle sind zunächst Staging und brauchen eine fachliche Modellierung."))}</p></section>
     <section class="panel panel-body"><h2>${e(uiText("Änderungen im Blick"))}</h2><p>${e(uiText("{0} Hinweise zur Planung und {1} Hinweise auf geänderte Quellfelder.", p.issues.length, p.mapping_issues.length))}</p>${
       [...p.issues, ...p.mapping_issues].length
@@ -114,16 +96,16 @@ function whOverview() {
 }
 function whAreasView() {
   const p = state.dwhProject;
-  return `<div class="wh-section-head"><p>${e(uiText("Eine Tabelle kann mehreren Teilprojekten zugeordnet werden. Definition, Feldzuordnung und Beziehungen bleiben zentral."))}</p>${p.can_edit ? whButton("Teilprojekt anlegen", "add-area", "", true) : ""}</div><section class="wh-card-grid">${
-    state.wh.areas
+  return `<section class="panel panel-body"><h2>${e(uiText("Abteilungen organisieren ihre Auswertungen"))}</h2><p>${e(uiText("Eine Abteilung betreut ein oder mehrere Teilprojekte. Ordne zum Beispiel Maschinendaten der Produktion und Wartungsanalyse der Instandhaltung zu. Gemeinsame Dimensionen bleiben zentrale Tabellen."))}</p><p class="small muted">${e(uiText("Abteilungszuordnung und Filter beschreiben Zuständigkeiten. Zugriffsrechte folgen weiterhin den Datenquellenfreigaben des gesamten Warehouses."))}</p><div class="wh-filters">${whDepartmentControl()}</div></section><div class="wh-section-head"><p>${e(uiText("Eine Tabelle kann mehreren Teilprojekten zugeordnet werden. Definition, Feldzuordnung und Beziehungen bleiben zentral."))}</p>${p.can_edit ? whButton("Teilprojekt anlegen", "add-area", "", true) : ""}</div><section class="wh-card-grid">${
+    whDepartmentAreas()
       .map((area) => {
         const tables = p.tables.filter((table) =>
           area.table_ids.includes(table.id),
         );
-        return `<article class="panel panel-body"><h2>${e(area.name)}</h2><p class="dwh-prose">${e(area.goal || uiText("Fachliches Ziel noch offen"))}</p><p class="small muted">${e(uiText("Verantwortlich"))}: ${e(area.owner || uiText("Noch offen"))}</p><ul class="wh-area-tables">${tables.map((table) => `<li><button class="text-button" data-action="wh-table" data-id="${table.id}">${e(table.name)}</button> <span class="badge neutral">${e(whAreaUsage(table.id).length > 1 ? uiText("Gemeinsam genutzt") : dwhRoles[table.role])}</span></li>`).join("") || `<li>${e(uiText("Noch keine Tabellen zugeordnet."))}</li>`}</ul><div class="actions">${p.can_edit ? whButton("Ziel und Tabellen bearbeiten", "edit-area", area.id) + whButton("Startmodell anlegen", "starter", area.id) + whButton("Neue Tabelle planen", "add-table", area.id) : ""}${whButton("Modell ansehen", "area-model", area.id)}</div></article>`;
+        return `<article class="panel panel-body"><h2>${e(area.name)}</h2><p class="dwh-prose">${e(area.goal || uiText("Fachliches Ziel noch offen"))}</p><p class="small muted">${e(uiText("Abteilung"))}: ${e(area.department || uiText("Noch nicht zugeordnet"))}<br>${e(uiText("Verantwortlich"))}: ${e(area.owner || uiText("Noch offen"))}</p><ul class="wh-area-tables">${tables.map((table) => `<li><button class="text-button" data-action="wh-table" data-id="${table.id}">${e(table.name)}</button> <span class="badge neutral">${e(whAreaUsage(table.id).length > 1 ? uiText("Gemeinsam genutzt") : dwhRoles[table.role])}</span></li>`).join("") || `<li>${e(uiText("Noch keine Tabellen zugeordnet."))}</li>`}</ul><div class="actions">${p.can_edit ? whButton("Ziel und Tabellen bearbeiten", "edit-area", area.id) + whButton("Startmodell anlegen", "starter", area.id) + whButton("Neue Tabelle planen", "add-table", area.id) : ""}${whButton("Modell ansehen", "area-model", area.id)}</div></article>`;
       })
       .join("") ||
-    `<div class="empty"><h2>${e(uiText("Dein erstes Teilprojekt"))}</h2><p>${e(uiText("Beginne mit einem Fachbereich und einer konkreten Auswertung. Du kannst weitere Bereiche später ergänzen."))}</p></div>`
+    `<div class="empty"><h2>${e(uiText(state.whDepartmentFilter ? "Keine Teilprojekte für diesen Filter" : "Dein erstes Teilprojekt"))}</h2><p>${e(uiText("Beginne mit einem Fachbereich und einer konkreten Auswertung. Du kannst weitere Bereiche später ergänzen."))}</p></div>`
   }</section>`;
 }
 function whModelView() {
@@ -181,7 +163,14 @@ function whOperationsView() {
     String(localDate.getMonth() + 1).padStart(2, "0"),
     String(localDate.getDate()).padStart(2, "0"),
   ].join("-");
-  return `<section class="panel panel-body"><h2>${e(uiText("Umsetzung, Datenqualität und laufenden Betrieb begleiten"))}</h2><p>${e(uiText("Weise Aufgaben einer Person zu, setze Prüftermine und dokumentiere Ergebnisse. Bei erledigten Aufgaben ist ein Ergebnis erforderlich. Alle Statusangaben werden von eurem Team gepflegt."))}</p>${state.dwhProject.can_edit ? whButton("Aufgabe anlegen", "add-task", "", true) : ""}</section><section class="panel"><div class="table-wrap"><table><thead><tr><th>${e(uiText("Aufgabe"))}</th><th>${e(uiText("Teilprojekt / Verantwortlich"))}</th><th>${e(uiText("Termin"))}</th><th>${e(uiText("Status"))}</th><th>${e(uiText("Ergebnis / Notizen"))}</th><th></th></tr></thead><tbody>${state.wh.tasks.map((task) => `<tr><td><strong>${e(task.title)}</strong><p class="small muted">${e(whTaskKinds[task.kind])}</p></td><td>${e(state.wh.areas.find((area) => area.id === task.area_id)?.name || uiText("Gesamtes Warehouse"))}<p class="small muted">${e(task.owner || uiText("Noch offen"))}</p></td><td>${e(task.due_date ? new Date(task.due_date + "T12:00:00").toLocaleDateString(uiLocale) : "—")}${task.status !== "done" && task.due_date && task.due_date < today ? `<span class="badge error">${e(uiText("Überfällig"))}</span>` : ""}</td><td>${e(whTaskStatuses[task.status])}</td><td class="dwh-prose">${e(task.notes || "—")}</td><td>${state.dwhProject.can_edit ? whButton("Bearbeiten", "edit-task", task.id) : ""}</td></tr>`).join("")}</tbody></table></div></section>`;
+  const departmentAreas = new Set(whDepartmentAreas().map((area) => area.id));
+  const tasks = state.wh.tasks.filter(
+    (task) =>
+      !state.whDepartmentFilter ||
+      !task.area_id ||
+      departmentAreas.has(task.area_id),
+  );
+  return `<div class="wh-filters">${whDepartmentControl()}</div><section class="panel panel-body"><h2>${e(uiText("Umsetzung, Datenqualität und laufenden Betrieb begleiten"))}</h2><p>${e(uiText("Weise Aufgaben einer Person zu, setze Prüftermine und dokumentiere Ergebnisse. Bei erledigten Aufgaben ist ein Ergebnis erforderlich. Alle Statusangaben werden von eurem Team gepflegt."))}</p>${state.dwhProject.can_edit ? whButton("Aufgabe anlegen", "add-task", "", true) : ""}</section><section class="panel"><div class="table-wrap"><table><thead><tr><th>${e(uiText("Aufgabe"))}</th><th>${e(uiText("Teilprojekt / Verantwortlich"))}</th><th>${e(uiText("Termin"))}</th><th>${e(uiText("Status"))}</th><th>${e(uiText("Ergebnis / Notizen"))}</th><th></th></tr></thead><tbody>${tasks.map((task) => `<tr><td><strong>${e(task.title)}</strong><p class="small muted">${e(whTaskKinds[task.kind])}</p></td><td>${e(state.wh.areas.find((area) => area.id === task.area_id)?.name || uiText("Gesamtes Warehouse"))}<p class="small muted">${e(task.owner || uiText("Noch offen"))}</p></td><td>${e(task.due_date ? new Date(task.due_date + "T12:00:00").toLocaleDateString(uiLocale) : "—")}${task.status !== "done" && task.due_date && task.due_date < today ? `<span class="badge error">${e(uiText("Überfällig"))}</span>` : ""}</td><td>${e(whTaskStatuses[task.status])}</td><td class="dwh-prose">${e(task.notes || "—")}</td><td>${state.dwhProject.can_edit ? whButton("Bearbeiten", "edit-task", task.id) : ""}</td></tr>`).join("")}</tbody></table></div></section>`;
 }
 function renderWarehouseWorkspace() {
   const p = state.dwhProject;
@@ -194,7 +183,7 @@ function renderWarehouseWorkspace() {
     operations: whOperationsView,
   };
   shell(
-    `<button class="back" data-action="nav" data-view="warehouse">${icon("back")} ${e(uiText("Alle DWH-Projekte"))}</button><div class="page-head"><div><div class="eyebrow">${e(uiText("Zentrales Warehouse"))} · ${e(dwhEngines[p.target_kind])} · ${e(p.target_schema)}</div><h1>${e(p.name)}</h1><p>${e(uiText("Ein gemeinsames Modell für alle Teilprojekte"))} · ${e(uiText("Version"))} ${p.version}</p></div><div class="actions">${whButton("Neu laden", "reload")}${whButton("Dokumentation herunterladen", "export")}${whButton("SQL-Entwurf", "sql")}${p.can_edit ? whButton("Warehouse-Einstellungen", "settings") + whButton("Projekt übernehmen", "adopt") : ""}</div></div>${tabs(whTabs, state.whTab || "overview", "wh-tab")}<div id="wh-view">${(views[state.whTab] || whOverview)()}</div>`,
+    `<button class="back" data-action="nav" data-view="warehouse">${icon("back")} ${e(uiText("Alle Warehouses & Entwürfe"))}</button><div class="page-head"><div><div class="eyebrow">${e(uiText("Zentrales Warehouse"))} · ${e(dwhEngines[p.target_kind])} · ${e(p.target_schema)}</div><h1>${e(p.name)}</h1><p>${e(uiText("Ein gemeinsames Modell für alle Teilprojekte"))} · ${e(uiText("Version"))} ${p.version}</p></div><div class="actions">${whButton("Neu laden", "reload")}${whButton("Dokumentation herunterladen", "export")}${whButton("SQL-Entwurf", "sql")}${p.can_edit ? whButton("Warehouse-Einstellungen", "settings") + whButton("Projekt übernehmen", "adopt") : ""}</div></div>${tabs(whTabs, state.whTab || "overview", "wh-tab")}<div id="wh-view">${(views[state.whTab] || whOverview)()}</div>`,
   );
 }
 function whAreaModal(id = "") {
@@ -203,11 +192,15 @@ function whAreaModal(id = "") {
     name: "",
     goal: "",
     owner: "",
+    department:
+      whDepartments().find(
+        ([key]) => "dept:" + key === state.whDepartmentFilter,
+      )?.[1] || "",
     table_ids: [],
   };
   openModal(
     uiText(id ? "Teilprojekt bearbeiten" : "Teilprojekt anlegen"),
-    `<form id="wh-area-form" data-id="${area.id}">${field(uiText("Name des Teilprojekts"), "name", area.name, "text", 'required maxlength="190"')}${dwhArea(uiText("Welche Auswertung brauchst du?"), "goal", area.goal, uiText("Zum Beispiel: täglicher Nettoumsatz je Produkt; Aktualisierung jeden Morgen; zwei Jahre Historie."), 10000)}${field(uiText("Verantwortlich"), "owner", area.owner, "text", 'maxlength="190"')}<div class="field"><label for="wh-area-tables">${e(uiText("Zentrale Tabellen verwenden"))}</label><select id="wh-area-tables" name="table_ids" multiple size="8">${state.dwhProject.tables.map((table) => `<option value="${table.id}" ${area.table_ids.includes(table.id) ? "selected" : ""}>${e(table.name)} · ${e(dwhRoles[table.role])}</option>`).join("")}</select><small>${e(uiText("Wähle vorhandene Tabellen aus. Sie werden gemeinsam genutzt; alle Teilprojekte sehen dieselbe Definition."))}</small></div>${id ? whButton("Teilprojekt entfernen", "remove-area", id) : ""}${dwhFooter()}</form>`,
+    `<form id="wh-area-form" data-id="${area.id}">${field(uiText("Name des Teilprojekts"), "name", area.name, "text", 'required maxlength="190"')}${dwhArea(uiText("Welche Auswertung brauchst du?"), "goal", area.goal, uiText("Zum Beispiel: täglicher Nettoumsatz je Produkt; Aktualisierung jeden Morgen; zwei Jahre Historie."), 10000)}<div class="form-grid">${field(uiText("Abteilung"), "department", area.department || "", "text", 'maxlength="190" placeholder="' + e(uiText("Zum Beispiel Produktion")) + '"')}${field(uiText("Verantwortlich"), "owner", area.owner, "text", 'maxlength="190"')}</div><p class="small muted">${e(uiText("Die Abteilung ordnet das Teilprojekt organisatorisch ein; der Verantwortliche betreut seine fachlichen Anforderungen."))}</p><div class="field"><label for="wh-area-tables">${e(uiText("Zentrale Tabellen verwenden"))}</label><select id="wh-area-tables" name="table_ids" multiple size="8">${state.dwhProject.tables.map((table) => `<option value="${table.id}" ${area.table_ids.includes(table.id) ? "selected" : ""}>${e(table.name)} · ${e(dwhRoles[table.role])}</option>`).join("")}</select><small>${e(uiText("Wähle vorhandene Tabellen aus. Sie werden gemeinsam genutzt; alle Teilprojekte sehen dieselbe Definition."))}</small></div>${id ? whButton("Teilprojekt entfernen", "remove-area", id) : ""}${dwhFooter()}</form>`,
   );
 }
 function whTaskModal(id = "") {
@@ -254,7 +247,7 @@ async function whAdoptModal() {
   state.whAdoptProjects = projects;
   openModal(
     uiText("Projekt in das Warehouse übernehmen"),
-    `<form id="wh-adopt-form"><p>${e(uiText("Die Planung wird als Teilprojekt ins zentrale Modell übernommen. Das ursprüngliche Projekt bleibt erhalten und wird danach unabhängig gepflegt. Das zentrale Zielschema gilt für alle übernommenen Tabellen."))}</p>${dwhSelect(uiText("Projekt"), "project_id", { "": uiText("Bitte auswählen"), ...Object.fromEntries(projects.map((project) => [project.id, project.name])) }, "")}${field(uiText("Name des Teilprojekts"), "area_name", "", "text", 'required maxlength="190"')}<div id="wh-reuse-fields"></div><p class="small muted">${e(uiText("Gemeinsame Tabellen nur auswählen, wenn die fachliche Bedeutung übereinstimmt. Ihre zentrale Definition und Quellzuordnung bleiben erhalten."))}</p>${dwhFooter(uiText("Planung übernehmen"))}</form>`,
+    `<form id="wh-adopt-form"><p>${e(uiText("Die Planung wird als Teilprojekt ins zentrale Modell übernommen. Das ursprüngliche Projekt bleibt erhalten und wird danach unabhängig gepflegt. Das zentrale Zielschema gilt für alle übernommenen Tabellen."))}</p>${dwhSelect(uiText("Projekt"), "project_id", { "": uiText("Bitte auswählen"), ...Object.fromEntries(projects.map((project) => [project.id, project.name])) }, "")}${field(uiText("Name des Teilprojekts"), "area_name", "", "text", 'required maxlength="190"')}<div class="form-grid">${field(uiText("Abteilung"), "area_department", "", "text", 'maxlength="190"')}${field(uiText("Verantwortlich"), "area_owner", "", "text", 'maxlength="190"')}</div><div id="wh-reuse-fields"></div><p class="small muted">${e(uiText("Gemeinsame Tabellen nur auswählen, wenn die fachliche Bedeutung übereinstimmt. Ihre zentrale Definition und Quellzuordnung bleiben erhalten."))}</p>${dwhFooter(uiText("Planung übernehmen"))}</form>`,
   );
 }
 async function whAdoptSelection() {
@@ -287,8 +280,8 @@ async function whSaveMetadata(areas = state.wh.areas, tasks = state.wh.tasks) {
 async function warehouseWorkspaceClick(button) {
   const action = button.dataset.action.slice(3),
     id = button.dataset.id;
-  if (action === "create") {
-    dwhProjectModal();
+  if (action === "create" || action === "begin") {
+    dwhProjectModal(false, true);
     document.getElementById("dwh-project-form").dataset.workspace = "true";
     document.querySelector("#modal h2").textContent = uiText(
       "Zentrales Warehouse anlegen",
@@ -296,6 +289,7 @@ async function warehouseWorkspaceClick(button) {
     document.querySelector('#dwh-project-form [type="submit"]').textContent =
       uiText("Warehouse starten");
   }
+  if (action === "sources") await navigate("sources");
   if (action === "open") await navigate("warehouse-workspace", id);
   if (action === "convert") {
     const project = state.dwhProjects.find(
@@ -447,6 +441,7 @@ async function warehouseWorkspaceSubmit(form) {
         name: data.name,
         goal: data.goal,
         owner: data.owner,
+        department: data.department,
         table_ids: fd.getAll("table_ids"),
       };
       await whSaveMetadata([
@@ -493,6 +488,8 @@ async function warehouseWorkspaceSubmit(form) {
           project_id: Number(data.project_id),
           source_version: state.whIncomingProject.version,
           area_name: data.area_name,
+          area_department: data.area_department,
+          area_owner: data.area_owner,
           reuse,
           version: state.dwhProject.version,
         }),
@@ -510,6 +507,11 @@ async function warehouseWorkspaceSubmit(form) {
   }
 }
 function warehouseWorkspaceChange(input) {
+  if (input.id === "wh-department-filter") {
+    state.whDepartmentFilter = input.value;
+    state.whAreaFilter = "";
+    renderWarehouseWorkspace();
+  }
   if (input.id === "wh-filter") {
     state.whAreaFilter = input.value;
     renderWarehouseWorkspace();
@@ -525,8 +527,10 @@ function warehouseWorkspaceSearch(input) {
   state.whLineageLimit = 100;
   const cursor = input.selectionStart;
   const container = document.getElementById("wh-view");
+  diagramCleanup();
   container.innerHTML =
     state.whTab === "lineage" ? whLineageView() : whModelView();
+  setupPlannedDiagrams();
   const replacement = document.getElementById("wh-query");
   replacement.focus();
   try {

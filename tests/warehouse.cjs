@@ -34,8 +34,10 @@ const out = path.resolve(__dirname, "../docs");
     await page.locator('#login-form [type="submit"]').click();
     await page.locator('[data-action="nav"][data-view="warehouse"]').click();
     await page
-      .getByRole("heading", { name: "DWH-Projekte", exact: true })
+      .getByRole("heading", { name: "Data Warehouse", exact: true })
       .waitFor();
+    if (!(await page.locator('[data-action="dwh-create"]').isVisible()))
+      await page.locator(".wh-standalone > summary").click();
     await page.locator('[data-action="dwh-create"]').click();
     await page
       .locator('#dwh-project-form [name="name"]')
@@ -305,7 +307,7 @@ const out = path.resolve(__dirname, "../docs");
     await page.locator('[data-action="dwh-delete-project"]').click();
     await page.locator('[data-action="dwh-confirm-delete-project"]').click();
     await page
-      .getByRole("heading", { name: "DWH-Projekte", exact: true })
+      .getByRole("heading", { name: "Data Warehouse", exact: true })
       .waitFor();
     assert.equal((await page.request.get(baseURL + endpoint)).status(), 404);
     assert.equal(

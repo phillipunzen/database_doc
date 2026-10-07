@@ -400,7 +400,7 @@ function dwhRoadmap(steps) {
 function renderDwhProjects() {
   renderWarehouseHub();
 }
-function dwhProjectModal(edit = false) {
+function dwhProjectModal(edit = false, workspace = false) {
   const p = edit
     ? state.dwhProject
     : {
@@ -412,12 +412,22 @@ function dwhProjectModal(edit = false) {
         target_source_id: null,
       };
   const sources = state.sources.filter((s) => s.can_edit);
+  const central = edit ? !!p.warehouse_id : workspace;
   openModal(
-    edit ? uiText("DWH-Projekt bearbeiten") : uiText("DWH-Projekt anlegen"),
+    uiText(
+      central
+        ? edit
+          ? "Warehouse-Einstellungen"
+          : "Zentrales Warehouse anlegen"
+        : edit
+          ? "DWH-Projekt bearbeiten"
+          : "Eigenständigen Entwurf anlegen",
+    ),
     localize`<form id="dwh-project-form" data-edit="${edit}" ${edit ? "" : 'novalidate data-wizard-step="0"'}>
+    <p class="dwh-boundary">${e(uiText(central ? "Du planst das gemeinsame Zielsystem. Fachliche Auswertungen und ihre Abteilungen legst du danach als Teilprojekte innerhalb dieses Warehouses an." : "Du erstellst einen unabhängigen Entwurf, zum Beispiel einen Prototyp oder ein separates Zielsystem. Für Auswertungen im zentralen Warehouse verwende dort ein Teilprojekt."))}</p>
     ${edit ? "" : `<ol class="dwh-wizard-steps">${[uiText("Fachliches Ziel"), uiText("Zielplattform"), uiText("Quellen auswählen")].map((label, index) => `<li data-wizard-indicator="${index}"><span>${index + 1}</span>${e(label)}</li>`).join("")}</ol><p class="dwh-wizard-status small muted" role="status"></p>`}
     <section data-wizard-section="0"><h3>${e(uiText("Was möchtest du auswerten?"))}</h3><p class="muted small">${e(uiText("Beschreibe zuerst die fachliche Frage. Zum Beispiel: täglicher Nettoumsatz nach Kunde und Produkt, mit zwei Jahren Historie."))}</p>
-    ${field(uiText("Projektname"), "name", p.name, "text", 'required maxlength="190"')}
+    ${field(uiText(central ? "Warehouse-Name" : "Projektname"), "name", p.name, "text", 'required maxlength="190"')}
     ${dwhArea(uiText("Fachliches Ziel & Anforderungen"), "goal", p.goal, uiText("Welche Auswertungen, Kennzahlen und Historisierung werden benötigt?"), 10000)}
     </section><section data-wizard-section="1"><h3>${e(uiText("Wo soll das Warehouse entstehen?"))}</h3><p class="muted small">${e(uiText("Wähle die Plattform für den SQL-Entwurf. Eine Verbindung zum fertigen Warehouse kannst du später hinzufügen."))}</p>
     <div class="form-grid">${dwhSelect(uiText("Zielplattform"), "target_kind", dwhEngines, p.target_kind)}${field(uiText("Zielschema / Zieldatenbank"), "target_schema", p.target_schema, "text", 'required maxlength="63" pattern="[A-Za-z_][A-Za-z0-9_]*"')}</div>
@@ -489,8 +499,8 @@ function renderDwhProject() {
     (step, index) => index > current && !step.complete,
   );
   const forward = pendingAfter < 0 ? current + 1 : pendingAfter;
-  shell(localize`${p.warehouse_id ? whButton("Zur Warehouse-Gesamtübersicht", "return", p.warehouse_id) : ""}<button class="back" data-action="nav" data-view="warehouse">${icon("back")} Alle DWH-Projekte</button><div class="page-head"><div><div class="eyebrow">${e(dwhEngines[p.target_kind])} · ${e(p.target_schema)}</div><h1 class="dwh-project-title">${e(p.name)}</h1><p>Zielmodell und Umsetzung · Projektversion ${p.version}</p></div><div class="actions"><button class="btn" data-action="dwh-reload">${icon("refresh")} Neu laden</button><button class="btn" data-action="dwh-export" data-format="markdown">${icon("download")} Dokumentation</button><button class="btn" data-action="dwh-export" data-format="json">JSON</button><button class="btn" data-action="dwh-export" data-format="sql">${icon("download")} SQL-Entwurf</button>${p.can_edit ? localize('<button class="btn" data-action="dwh-settings">Projekt bearbeiten</button>') : ""}</div></div>
-    <nav class="dwh-process" aria-label="${e(uiText("DWH-Prozess"))}">${steps.map((step, index) => dwhStepButton(step, index, index === current)).join("")}</nav>
+  shell(localize`<button class="back" data-action="nav" data-view="warehouse">${icon("back")} ${e(uiText("Alle Warehouses & Entwürfe"))}</button><div class="page-head"><div><div class="eyebrow">${e(dwhEngines[p.target_kind])} · ${e(p.target_schema)}</div><h1 class="dwh-project-title">${e(p.name)}</h1><p>Zielmodell und Umsetzung · Projektversion ${p.version}</p></div><div class="actions"><button class="btn" data-action="dwh-reload">${icon("refresh")} Neu laden</button><button class="btn" data-action="dwh-export" data-format="markdown">${icon("download")} Dokumentation</button><button class="btn" data-action="dwh-export" data-format="json">JSON</button><button class="btn" data-action="dwh-export" data-format="sql">${icon("download")} SQL-Entwurf</button>${p.can_edit ? localize('<button class="btn" data-action="dwh-settings">Projekt bearbeiten</button>') : ""}</div></div>
+    ${whEditorContext(p)}<nav class="dwh-process" aria-label="${e(uiText("DWH-Prozess"))}">${steps.map((step, index) => dwhStepButton(step, index, index === current)).join("")}</nav>
     ${tab === "overview" ? dwhRoadmap(steps) : ""}
     ${dwhGuide(steps[current], current)}
     ${tab === "model" ? dwhModelView() : tab === "mappings" ? dwhMappingView() : tab === "progress" ? dwhProgressView() : tab === "check" ? dwhCheckView() : dwhOverview()}
@@ -522,7 +532,7 @@ function dwhSelectedTable() {
 function dwhModelView() {
   const p = state.dwhProject;
   const t = dwhSelectedTable();
-  return `<div class="dwh-model-actions">${p.can_edit ? localize`<button class="btn primary" data-action="dwh-add-table">${icon("plus")} Zieltabelle anlegen</button><button class="btn" data-action="dwh-import">${icon("database")} Aus Quellstruktur übernehmen</button>` : localize('<span class="muted">Leserechte für dieses Zielmodell</span>')}</div>
+  return `<p class="wh-model-instruction">${e(uiText("Der Modelleditor plant Tabellenstrukturen. Eine übernommene Quelltabelle ist zunächst ein Staging-Entwurf; prüfe Typen und Schlüssel und ergänze die fachlichen Fakten und Dimensionen. Hier werden keine Daten kopiert."))}</p><div class="dwh-model-actions">${p.can_edit ? localize`<button class="btn primary" data-action="dwh-add-table">${icon("plus")} Zieltabelle anlegen</button><button class="btn" data-action="dwh-import">${icon("database")} Aus Quellstruktur übernehmen</button>` : localize('<span class="muted">Leserechte für dieses Zielmodell</span>')}</div>
     ${
       p.tables.length
         ? localize`<section class="panel dwh-diagram-panel"><div class="panel-head"><h2>Geplantes Datenmodell</h2><span class="small muted">${p.tables.reduce((n, t) => n + t.relations.length, 0)} geplante Beziehungen</span></div><div class="dwh-diagram">${dwhDiagram()}</div><div class="er-footer">Tabellen auswählen, um Details zu bearbeiten. </div></section>
