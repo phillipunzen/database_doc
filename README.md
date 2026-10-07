@@ -66,7 +66,7 @@ Retain the existing `.env` for upgrades. Replacing `ENCRYPTION_KEY` makes previo
 
 The image is published to GitHub Container Registry as **`ghcr.io/phillipunzen/database_doc`**, linked to [this repository's packages](https://github.com/phillipunzen/database_doc/pkgs/container/database_doc). It contains the application, locally served assets, PDF fonts and database drivers including Microsoft ODBC Driver 18. The application runs as user UID `10001` and includes a health check. The supported native platform is **Linux AMD64**; ARM64 images are not currently published.
 
-The [Docker image workflow](https://github.com/phillipunzen/database_doc/actions/workflows/docker-image.yml) builds the image and runs the application, catalog, PDF, warehouse, language, branding and central-warehouse tests before publishing. It uses GitHub's automatic `GITHUB_TOKEN` with package-write permission; no personal access token or registry password needs to be added to repository secrets. Pull requests build and test without publishing. Pushes to `main` publish `latest`, `main` and a `sha-<full commit SHA>` tag. Version tags such as `v1.0.0` publish `v1.0.0`, `1.0.0` and `1.0`; they do not replace `latest`. The workflow can also be run manually from the Actions page on `main`.
+The [Docker image workflow](https://github.com/phillipunzen/database_doc/actions/workflows/docker-image.yml) builds the image and runs the application, catalog, PDF, warehouse, language, branding, central-warehouse and private-designer tests before publishing. It uses GitHub's automatic `GITHUB_TOKEN` with package-write permission; no personal access token or registry password needs to be added to repository secrets. Pull requests build and test without publishing. Pushes to `main` publish `latest`, `main` and a `sha-<full commit SHA>` tag. Version tags such as `v1.0.0` publish `v1.0.0`, `1.0.0` and `1.0`; they do not replace `latest`. The workflow can also be run manually from the Actions page on `main`.
 
 GitHub initially creates container packages as private, even for public repositories. The package owner can select **Package settings → Change visibility → Public** to allow unauthenticated downloads. If the package remains private, authenticate once before `docker compose pull` using a GitHub personal access token **(classic)** with `read:packages`:
 
@@ -126,6 +126,7 @@ Then add a SQLite source in the application with the container path `/sources/be
 The source dashboard defaults to a compact list with locally served database-engine logos. Search by name, server, database, schema, tag, or owner; combine engine, server, tag, and scan-status filters; sort by name, engine, server, object count, status, or last scan. Pagination supports 25, 50, or 100 sources per page. An optional card view uses the same filters and pagination. Filters and page selection are retained while navigating between a source and the catalog. The mobile list uses compact stacked rows.
 
 - Central warehouses with shared subject projects, a global target model, beginner guidance, source mappings, SQL generation for three engines, target comparison and manual maintenance records.
+- Private database designs under **Tools**, explicit read/edit sharing, interactive ER models, and separate database/table/drop SQL scripts for SQL Server, PostgreSQL and MariaDB.
 - Multiple data sources with individual connection settings and encrypted credentials.
 - Database discovery on a server. Each source documents one database; an optional schema setting narrows the scan.
 - Manual and scheduled background scans of tables, views, columns, data types, nullability, defaults, primary and foreign keys, indexes, unique constraints, and database comments where supported by the adapter.
@@ -142,6 +143,36 @@ For MongoDB, scans collect collections, indexes, and validators by default. Opti
 Scans are limited to 2,000 objects and run on two threads in a single application process. The queue accepts up to ten active or queued jobs. After a restart, interrupted jobs are marked as failed and can be started again.
 
 PostgreSQL materialized views, stored procedures, and ETL or pipeline lineage are not yet supported.
+
+## Database designer (Tools)
+
+Open **Tools → New database design** to plan a regular application database independently of warehouse projects. Choose SQL Server, PostgreSQL or MariaDB, enter a design name, the actual database name and a schema (MariaDB uses the database name as its schema). New designs are private. The designer stores plans in the application's MariaDB; it never opens a connection to a source or target database.
+
+1. Add tables, then columns with portable types, lengths/decimal precision, nullability, primary keys and optional integer identity keys. Tables may remain incomplete while planning; table SQL requires at least one column in each table.
+2. Add foreign-key relationships using existing columns and the complete target primary key in order. Linked column types must match. The ER diagram supports zoom, pan, table search, neighbors, fullscreen and a minimap. Rename a column to update its planned relationships; removing a table or column also removes affected relationships after confirmation.
+3. Open **SQL scripts** to preview or download one script at a time: **Create database**, **Create tables & relationships**, or **Remove database (DROP DATABASE)**. Create the database first, reconnect to that database, then run the table script. PostgreSQL `CREATE DATABASE`/`DROP DATABASE` must run outside a transaction; the designer does not emit client-specific reconnect commands. The scripts are for initial creation, not ALTER migrations of an existing schema, and do not transfer data. Review and run them yourself on the intended server.
+4. Use **Visibility & sharing** to find registered users and grant **Read** or **Edit** access. Save the selection to apply it. **Make private** revokes all grants immediately. JSON exports preserve the complete saved plan.
+
+Every authenticated account may create and edit its own designs, including accounts whose source-catalog role is Viewer. Designer permissions are explicit and independent of source grants and DWH access: owners can edit, manage grants and delete their own plans; shared readers can inspect and export; shared editors can change the model but cannot manage sharing or delete the plan. Other administrators have no implicit access to private designs. Revocation removes access to the list, model and every export immediately. Shared recipients see the owner's name but not the recipient list. Owners can search up to 100 active users at a time by username/display name; no credentials or identity-provider identifiers are exposed.
+
+**Delete design** removes only the saved DatabaseDoc plan and its grants. **DROP DATABASE** produces a separate, explicitly confirmed SQL script that deletes the entire real database and its data if you execute it externally. Generating or downloading this script does not execute it. The Tools area does not execute SQL or remove catalog connections.
+
+Names are restricted to 1–63 ASCII letters/digits/underscores starting with a letter or underscore, and SQL identifiers are quoted for each engine. Descriptions are retained as documentation rather than inserted into SQL. A design supports up to 300 tables, 200 columns per table and 30,000 columns total. Saves, sharing changes and deletions use a common version counter to reject conflicting edits. A stale save returns 409 without overwriting another user's changes; reload and reconcile your edit. Design and sharing changes appear in the activity log.
+
+Startup adds `database_designs` and `database_design_grants` without changing existing sources, tags, warehouse plans or connection credentials. Include these tables in the application's usual MariaDB backup.
+
+```text
+GET/POST /api/tools/designs
+GET/PUT/DELETE /api/tools/designs/{id}       # DELETE requires ?version=
+GET /api/tools/designs/{id}/users?q=        # Owner only
+PUT /api/tools/designs/{id}/sharing         # {version, grants: [{user_id, edit}]}
+GET /api/tools/designs/{id}/export?format=json
+GET /api/tools/designs/{id}/export?format=sql&mode=database|schema|drop
+```
+
+![Application database design with fictional tables](docs/database-designer.png)
+
+![Explicit read/edit sharing of a fictional database design](docs/database-design-sharing.png)
 
 ## Data warehouse projects
 
@@ -502,7 +533,7 @@ The backend uses FastAPI and SQLAlchemy. The bilingual interface uses locally se
 docker compose run --rm \
   -v "$PWD/app:/app/app:ro" \
   -v "$PWD/tests:/app/tests:ro" \
-  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py tests/test_warehouse_workspace.py tests/test_catalog_tags.py
+  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py tests/test_warehouse_workspace.py tests/test_catalog_tags.py tests/test_design_tools.py
 ```
 
 Application tests use temporary SQLite databases for both application storage and sources. They verify encrypted credentials, scanning, metadata, notes, exports, CSRF and Origin checks, roles and source grants, preview authorization, account deactivation, read-only SQLite access, path boundaries, and session revocation. The feature suite additionally covers permission-filtered global search, literal search patterns, note indexing, snapshot/index rollback, schema comparisons, persistent scheduling, duplicate-scan deferral, access revocation, daylight-saving transitions, additive migrations, and cleanup on source deletion. PDF tests parse the actual generated files and cover full/single-object and historical exports, viewer permissions, literal markup, Unicode text, long notes and oversized table cells, 85-object diagrams, cross-page references, composite/self/external foreign keys, and empty/inferred schemas.
@@ -639,3 +670,13 @@ GUIDE_TEST_URL=http://127.0.0.1:8091 \
 ```
 
 The workspace API tests additionally cover department persistence through model changes and adoption, export contents, version conflicts, length limits and legacy defaults without writes. The real fixture browser test exercises saved department ownership and filters with shared dimensions.
+
+`tests/test_design_tools.py` verifies private designs (including isolation from other administrators), read/edit grants, immediate revocation, owner-only sharing/deletion, inactive accounts, CSRF, atomic version conflicts, model validation, separate SQL scripts for all three engines and additive startup. `tests/design-tools.cjs` runs real design/sharing actions with fictional plans on a disposable instance, exercising both languages, model editing, relationship cleanup, all SQL dialects, downloads, ER navigation and mobile layouts:
+
+```bash
+TOOLS_TEST_URL=http://127.0.0.1:8091 \
+  TOOLS_TEST_PASSWORD=YOUR_FIXTURE_PASSWORD \
+  NODE_PATH=/tmp/datatlas-browser/node_modules node tests/design-tools.cjs
+```
+
+Never run this designer browser suite against a live application database.

@@ -209,6 +209,29 @@ class WarehouseWorkspace(Base):
     content: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
+class DatabaseDesign(Base):
+    __tablename__ = "database_designs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    owner_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    content: Mapped[dict] = mapped_column(JSON, default=dict)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created: Mapped[datetime] = mapped_column(DateTime, default=now)
+    updated: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class DatabaseDesignGrant(Base):
+    __tablename__ = "database_design_grants"
+    design_id: Mapped[int] = mapped_column(
+        ForeignKey("database_designs.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    edit: Mapped[bool] = mapped_column(Boolean, default=False)
+
+
 if os.getenv("TEST_DATABASE_URL"):
     engine = create_engine(
         os.environ["TEST_DATABASE_URL"], connect_args={"check_same_thread": False}

@@ -61,6 +61,7 @@ from .jobs import (
 from .search import migrate, reindex_source
 from .schema_diff import compare
 from .warehouse_api import router as warehouse_router
+from .design_tools import router as design_tools_router
 from .branding import router as branding_router
 from .warehouse_workspace import router as warehouse_workspace_router
 from .catalog_tags import (
@@ -139,6 +140,7 @@ app.include_router(warehouse_router)
 app.include_router(branding_router)
 app.include_router(warehouse_workspace_router)
 app.include_router(catalog_tags_router)
+app.include_router(design_tools_router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 oauth = OAuth()
 if (

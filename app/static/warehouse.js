@@ -551,7 +551,19 @@ function dwhTypeLabel(c) {
       ? `DECIMAL(${c.precision}, ${c.scale})`
       : c.data_type.toUpperCase();
 }
-function dwhDiagram(visibleTables = state.dwhProject.tables, limit = 300) {
+function dwhDiagram(
+  visibleTables = state.dwhProject.tables,
+  limit = 300,
+  context = null,
+) {
+  context ||= {
+    tables: state.dwhProject.tables,
+    selectedId: dwhSelectedTable()?.id,
+    action:
+      state.view === "warehouse-workspace" ? "wh-table" : "dwh-select-table",
+    caption: (table) => `${dwhRoles[table.role]} · ${dwhLayers[table.layer]}`,
+    label: uiText("Geplantes DWH-Modell"),
+  };
   const tables = visibleTables.slice(0, limit),
     positions = new Map();
   const counts = [0, 0, 0],
@@ -593,15 +605,15 @@ function dwhDiagram(visibleTables = state.dwhProject.tables, limit = 300) {
         const path = sameLane
           ? `M${ax},${ay} C${ax + 170},${ay + 40} ${bx + 170},${by - 40} ${bx},${by}`
           : `M${ax},${ay} C${(ax + bx) / 2},${ay} ${(ax + bx) / 2},${by} ${bx},${by}`;
-        return `<path data-edge-source="${t.id}" data-edge-target="${r.target_table_id}" d="${path}" fill="none" stroke="#739b7c" stroke-width="2" marker-end="url(#dwh-arrow)"><title>${e(t.name)} → ${e(state.dwhProject.tables.find((x) => x.id === r.target_table_id)?.name)}: ${e(r.columns.join(", "))}</title></path>`;
+        return `<path data-edge-source="${t.id}" data-edge-target="${r.target_table_id}" d="${path}" fill="none" stroke="#739b7c" stroke-width="2" marker-end="url(#dwh-arrow)"><title>${e(t.name)} → ${e(context.tables.find((x) => x.id === r.target_table_id)?.name)}: ${e(r.columns.join(", "))}</title></path>`;
       }),
     )
     .join("");
   const nodes = tables
     .map((t) => {
       const p = positions.get(t.id),
-        selected = dwhSelectedTable()?.id === t.id;
-      return `<g data-action="${state.view === "warehouse-workspace" ? "wh-table" : "dwh-select-table"}" data-id="${t.id}" role="button" tabindex="0" aria-label="${e(t.name)}" class="dwh-diagram-node"><rect x="${p.x}" y="${p.y}" width="280" height="140" rx="8" fill="${t.role === "fact" ? "#edf4df" : "white"}" stroke="${selected ? "#276256" : "#cddbd2"}" stroke-width="${selected ? 2 : 1}"/><text x="${p.x + 14}" y="${p.y + 23}" fill="#6d8077" font-size="11">${e(dwhRoles[t.role])} · ${e(dwhLayers[t.layer])}</text><text x="${p.x + 14}" y="${p.y + 45}" font-size="14" font-weight="bold" fill="#163a35">${e(t.name.length > 29 ? t.name.slice(0, 28) + "…" : t.name)}<title>${e(t.name)}</title></text>${t.columns
+        selected = context.selectedId === t.id;
+      return `<g data-action="${context.action}" data-id="${t.id}" role="button" tabindex="0" aria-label="${e(t.name)}" class="dwh-diagram-node"><rect x="${p.x}" y="${p.y}" width="280" height="140" rx="8" fill="${t.role === "fact" ? "#edf4df" : "white"}" stroke="${selected ? "#276256" : "#cddbd2"}" stroke-width="${selected ? 2 : 1}"/><text x="${p.x + 14}" y="${p.y + 23}" fill="#6d8077" font-size="11">${e(context.caption(t))}</text><text x="${p.x + 14}" y="${p.y + 45}" font-size="14" font-weight="bold" fill="#163a35">${e(t.name.length > 29 ? t.name.slice(0, 28) + "…" : t.name)}<title>${e(t.name)}</title></text>${t.columns
         .slice(0, 4)
         .map(
           (c, i) =>
@@ -610,7 +622,7 @@ function dwhDiagram(visibleTables = state.dwhProject.tables, limit = 300) {
         .join("")}</g>`;
     })
     .join("");
-  return localize`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" role="group" aria-label="Geplantes DWH-Modell"><defs><marker id="dwh-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10" fill="#739b7c"/></marker></defs>${links}${nodes}</svg>`;
+  return localize`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" role="group" aria-label="${e(context.label)}"><defs><marker id="dwh-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10" fill="#739b7c"/></marker></defs>${links}${nodes}</svg>`;
 }
 function dwhTableModal(edit = false) {
   const t = edit

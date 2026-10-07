@@ -164,7 +164,7 @@ async function showLogin() {
 }
 function shell(content) {
   diagramCleanup();
-  root.innerHTML = localize`<div class="layout"><aside class="sidebar">${brand()}<nav><div class="nav-label">Arbeitsbereich</div><button class="nav-button ${["sources", "source"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="sources">${icon("database")}<span>Datenquellen</span></button>${localize`<button class="nav-button ${state.view === "search" ? "active" : ""}" data-action="nav" data-view="search">${icon("search")}<span>Globale Suche</span></button>`}<button class="nav-button ${["warehouse", "warehouse-project", "warehouse-workspace"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="warehouse" title="Data Warehouse">${icon("relations")}<span>Data Warehouse</span></button>${state.user.role === "admin" ? localize`<div class="nav-label" style="margin-top:30px">Administration</div><button class="nav-button ${state.view === "users" ? "active" : ""}" data-action="nav" data-view="users">${icon("users")}<span>Benutzer & Rechte</span></button><button class="nav-button ${state.view === "audit" ? "active" : ""}" data-action="nav" data-view="audit">${icon("shield")}<span>Aktivitätsprotokoll</span></button><button class="nav-button ${state.view === "branding" ? "active" : ""}" data-action="nav" data-view="branding" title="Firmenlogo">${icon("eye")}<span>Firmenlogo</span></button>` : ""}</nav><div class="sidebar-bottom"><div class="user-line"><div class="avatar">${e(state.user.display_name.slice(0, 1).toUpperCase())}</div><div><div class="small">${e(state.user.display_name)}</div><div style="font-size:10px;color:#a7c0b3">${roles[state.user.role]}</div></div></div>${state.user.provider === "local" ? localize('<button data-action="password">Passwort ändern</button>') : ""}<button data-action="logout">Abmelden</button></div></aside><main class="main"><header class="topbar"><div class="breadcrumb">Arbeitsbereich <span>/</span> <strong>${state.view === "source" ? e(state.source.name) : state.view === "search" ? uiText("Globale Suche") : ["warehouse", "warehouse-project", "warehouse-workspace"].includes(state.view) ? uiText("Data Warehouse") : state.view === "users" ? uiText("Benutzer & Rechte") : state.view === "audit" ? uiText("Aktivitätsprotokoll") : state.view === "branding" ? uiText("Firmenlogo") : uiText("Datenquellen")}</strong></div><div class="env-pill"><span class="dot"></span> ${roles[state.user.role]}</div><button class="btn ghost mobile-logout" data-action="logout" style="display:none">Abmelden</button></header><div class="content">${content}</div></main></div>`;
+  root.innerHTML = localize`<div class="layout"><aside class="sidebar">${brand()}<nav><div class="nav-label">Arbeitsbereich</div><button class="nav-button ${["sources", "source"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="sources">${icon("database")}<span>Datenquellen</span></button>${localize`<button class="nav-button ${state.view === "search" ? "active" : ""}" data-action="nav" data-view="search">${icon("search")}<span>Globale Suche</span></button>`}<button class="nav-button ${["warehouse", "warehouse-project", "warehouse-workspace"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="warehouse" title="Data Warehouse">${icon("relations")}<span>Data Warehouse</span></button><button class="nav-button ${["tools", "tool-design"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="tools">${icon("edit")}<span>Tools</span></button>${state.user.role === "admin" ? localize`<div class="nav-label" style="margin-top:30px">Administration</div><button class="nav-button ${state.view === "users" ? "active" : ""}" data-action="nav" data-view="users">${icon("users")}<span>Benutzer & Rechte</span></button><button class="nav-button ${state.view === "audit" ? "active" : ""}" data-action="nav" data-view="audit">${icon("shield")}<span>Aktivitätsprotokoll</span></button><button class="nav-button ${state.view === "branding" ? "active" : ""}" data-action="nav" data-view="branding" title="Firmenlogo">${icon("eye")}<span>Firmenlogo</span></button>` : ""}</nav><div class="sidebar-bottom"><div class="user-line"><div class="avatar">${e(state.user.display_name.slice(0, 1).toUpperCase())}</div><div><div class="small">${e(state.user.display_name)}</div><div style="font-size:10px;color:#a7c0b3">${roles[state.user.role]}</div></div></div>${state.user.provider === "local" ? localize('<button data-action="password">Passwort ändern</button>') : ""}<button data-action="logout">Abmelden</button></div></aside><main class="main"><header class="topbar"><div class="breadcrumb">Arbeitsbereich <span>/</span> <strong>${["tools", "tool-design"].includes(state.view) ? "Tools" : state.view === "source" ? e(state.source.name) : state.view === "search" ? uiText("Globale Suche") : ["warehouse", "warehouse-project", "warehouse-workspace"].includes(state.view) ? uiText("Data Warehouse") : state.view === "users" ? uiText("Benutzer & Rechte") : state.view === "audit" ? uiText("Aktivitätsprotokoll") : state.view === "branding" ? uiText("Firmenlogo") : uiText("Datenquellen")}</strong></div><div class="env-pill"><span class="dot"></span> ${roles[state.user.role]}</div><button class="btn ghost mobile-logout" data-action="logout" style="display:none">Abmelden</button></header><div class="content">${content}</div></main></div>`;
   setupPlannedDiagrams();
 }
 function status(source) {
@@ -519,6 +519,19 @@ async function navigate(view, id, target = {}) {
       state.whLineageLimit = 100;
       renderWarehouseWorkspace();
     }
+    if (view === "tools") {
+      state.toolDesigns = await api("/api/tools/designs");
+      renderTools();
+    }
+    if (view === "tool-design") {
+      state.toolDesign = await api(`/api/tools/designs/${id}`);
+      state.toolTab = ["model", "sql", "sharing"].includes(target.tab)
+        ? target.tab
+        : "model";
+      state.toolTableId = target.table || null;
+      state.toolSql = null;
+      renderToolDesign();
+    }
     if (view === "search") {
       if (target.q !== undefined) state.searchQuery = target.q;
       if (state.searchQuery.trim().length >= 2) await runSearch();
@@ -543,21 +556,27 @@ async function navigate(view, id, target = {}) {
     }
   }
   const params = new URLSearchParams(
-    view === "source"
-      ? target
-      : view === "warehouse-project" && state.dwhTab !== "overview"
-        ? {
-            step: state.dwhTab,
-            ...(target.table ? { table: target.table } : {}),
-          }
-        : view === "warehouse-workspace"
-          ? { phase: state.whTab }
-          : view === "search" && state.searchQuery
-            ? { q: state.searchQuery }
-            : {},
+    view === "tool-design"
+      ? {
+          tab: state.toolTab,
+          ...(state.toolTableId ? { table: state.toolTableId } : {}),
+        }
+      : view === "source"
+        ? target
+        : view === "warehouse-project" && state.dwhTab !== "overview"
+          ? {
+              step: state.dwhTab,
+              ...(target.table ? { table: target.table } : {}),
+            }
+          : view === "warehouse-workspace"
+            ? { phase: state.whTab }
+            : view === "search" && state.searchQuery
+              ? { q: state.searchQuery }
+              : {},
   );
   const hash =
-    (view === "source" ||
+    (view === "tool-design" ||
+    view === "source" ||
     view === "warehouse-project" ||
     view === "warehouse-workspace"
       ? `${view}/${id}`
@@ -1085,6 +1104,7 @@ document.addEventListener("click", async (ev) => {
   if (!button) return;
   const a = button.dataset.action;
   try {
+    if (a.startsWith("tool-")) await toolsClick(button);
     if (a.startsWith("ct-")) await classificationClick(button);
     if (a.startsWith("wh-")) await warehouseWorkspaceClick(button);
     if (a.startsWith("dwh-")) await warehouseClick(button);
@@ -1275,6 +1295,11 @@ document.addEventListener("click", async (ev) => {
 });
 document.addEventListener("submit", async (ev) => {
   const form = ev.target;
+  if (form.id.startsWith("tool-")) {
+    ev.preventDefault();
+    await toolsSubmit(form);
+    return;
+  }
   if (form.id.startsWith("ct-")) {
     ev.preventDefault();
     await classificationSubmit(form);
@@ -1448,6 +1473,7 @@ document.addEventListener("submit", async (ev) => {
   }
 });
 document.addEventListener("input", (ev) => {
+  if (ev.target.id === "tool-search") toolsFilter();
   warehouseWorkspaceSearch(ev.target);
   if (ev.target.id === "source-tags") classificationPreview();
   if (ev.target.closest("#ct-definition-form")) classificationUpdate();
@@ -1462,6 +1488,7 @@ document.addEventListener("input", (ev) => {
     );
 });
 document.addEventListener("change", (ev) => {
+  toolsChange(ev.target);
   warehouseWorkspaceChange(ev.target);
   if (ev.target.closest("#ct-definition-form, #ct-assignment-form"))
     classificationUpdate();
@@ -1510,6 +1537,8 @@ async function route() {
   const [view, id] = path.split("/");
   await navigate(
     [
+      "tools",
+      "tool-design",
       "sources",
       "source",
       "search",

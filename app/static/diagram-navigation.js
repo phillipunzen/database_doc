@@ -631,6 +631,8 @@ function setupPlannedDiagrams() {
     ".dwh-diagram > svg:not(.diagram-minimap)",
   )) {
     if (svg.diagramNavigation) continue;
+    const project =
+      state.view === "tool-design" ? state.toolDesign : state.dwhProject;
     const stage = svg.parentElement;
     stage.classList.add("diagram-stage");
     const explorer = document.createElement("div");
@@ -647,8 +649,7 @@ function setupPlannedDiagrams() {
         return {
           id: element.dataset.id,
           label:
-            state.dwhProject.tables.find((t) => t.id === element.dataset.id)
-              ?.name || "",
+            project.tables.find((t) => t.id === element.dataset.id)?.name || "",
           x: Number(r.getAttribute("x")),
           y: Number(r.getAttribute("y")),
           width: 280,
@@ -667,7 +668,7 @@ function setupPlannedDiagrams() {
     svg.removeAttribute("height");
     svg.setAttribute("role", "group");
     diagramNavigator(svg, nodes, {
-      scope: `dwh:${state.dwhProject.id}:${nodes.map((n) => n.id).join(",")}`,
+      scope: `${state.view === "tool-design" ? "tools" : "dwh"}:${project.id}:${nodes.map((n) => n.id).join(",")}`,
       clickNode: (id) =>
         byId
           .get(id)

@@ -3032,3 +3032,64 @@ button.classification-tag:focus-visible {
     height: 80px !important;
   }
 }
+
+/* Independent, private database planning tools. */
+.tool-intro {
+  margin-bottom: 20px;
+}
+.tool-filters,
+.tool-sql-modes {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+.tool-filters input {
+  flex: 1;
+  min-width: 180px;
+}
+.tool-design-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 16px;
+}
+.tool-design-card h2 {
+  margin-top: 18px;
+  overflow-wrap: anywhere;
+}
+.tool-design-card[hidden] {
+  display: none;
+}
+.tool-sql-preview {
+  background: #f2f6f3;
+  border: 1px solid #d8e4db;
+  padding: 20px;
+  border-radius: 8px;
+  overflow: auto;
+  max-height: 560px;
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre;
+}
+.tool-sql-modes label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.tool-sql {
+  margin-bottom: 20px;
+}
+.tool-sharing-list {
+  margin: 20px 0;
+}
+.tool-sharing-list .dwh-relation,
+.tool-user-results .dwh-relation {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.tool-sharing-list .dwh-relation > span,
+.tool-user-results .dwh-relation > span {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
