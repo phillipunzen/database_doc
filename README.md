@@ -130,7 +130,7 @@ The source dashboard defaults to a compact list with locally served database-eng
 - Multiple data sources with individual connection settings and encrypted credentials.
 - Database discovery on a server. Each source documents one database; an optional schema setting narrows the scan.
 - Manual and scheduled background scans of tables, views, columns, data types, nullability, defaults, primary and foreign keys, indexes, unique constraints, and database comments where supported by the adapter.
-- Interactive ER diagrams based on declared foreign keys, with pointer-centered zoom, panning, fullscreen, a minimap, table search, neighbor highlighting, draggable source tables, and complete SVG export. Diagrams include all scanned objects (up to the scanner limit of 2,000).
+- Interactive ER diagrams based on declared foreign keys, with pointer-centered zoom, panning, fullscreen, a minimap, table search, neighbor highlighting, draggable source tables, and complete SVG export. Diagrams include all scanned objects.
 - Documentation notes for each object, retained across subsequent scans.
 - Stored schema snapshots with comparisons of any two retained versions, plus JSON, Markdown, and PDF exports.
 - Source tags, a responsible person or team, and contact email, shown in the catalog and documentation exports.
@@ -140,7 +140,7 @@ The source dashboard defaults to a compact list with locally served database-eng
 
 For MongoDB, scans collect collections, indexes, and validators by default. Optional field inference reads up to 100 documents per collection and stores only field names and observed types. It may miss rare or unobserved fields. Relationships are not inferred from field names, and data previews require a separate permission.
 
-Scans are limited to 2,000 objects and run on two threads in a single application process. The queue accepts up to ten active or queued jobs. After a restart, interrupted jobs are marked as failed and can be started again.
+Scans have no fixed object-count limit and run on two threads in a single application process. The selected database/schema scope and the source account's metadata permissions determine which objects can be documented. The queue accepts up to ten active or queued jobs. After a restart, interrupted jobs are marked as failed and can be started again.
 
 PostgreSQL materialized views, stored procedures, and ETL or pipeline lineage are not yet supported.
 
@@ -557,10 +557,12 @@ The backend uses FastAPI and SQLAlchemy. The bilingual interface uses locally se
 docker compose run --rm \
   -v "$PWD/app:/app/app:ro" \
   -v "$PWD/tests:/app/tests:ro" \
-  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py tests/test_warehouse_workspace.py tests/test_catalog_tags.py tests/test_design_tools.py tests/test_warehouse_assessment.py
+  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py tests/test_warehouse_workspace.py tests/test_catalog_tags.py tests/test_design_tools.py tests/test_warehouse_assessment.py tests/test_scan_scale.py
 ```
 
 Application tests use temporary SQLite databases for both application storage and sources. They verify encrypted credentials, scanning, metadata, notes, exports, CSRF and Origin checks, roles and source grants, preview authorization, account deactivation, read-only SQLite access, path boundaries, and session revocation. The feature suite additionally covers permission-filtered global search, literal search patterns, note indexing, snapshot/index rollback, schema comparisons, persistent scheduling, duplicate-scan deferral, access revocation, daylight-saving transitions, additive migrations, and cleanup on source deletion. PDF tests parse the actual generated files and cover full/single-object and historical exports, viewer permissions, literal markup, Unicode text, long notes and oversized table cells, 85-object diagrams, cross-page references, composite/self/external foreign keys, and empty/inferred schemas.
+
+`tests/test_scan_scale.py` verifies scans beyond 2,000 objects: a real read-only SQLite scan with persisted snapshots and complete search indexing, simulated SQL Server/PostgreSQL catalogs spanning multiple schemas, optional schema filtering, and a large MongoDB catalog without document reads.
 
 ### Connector integration tests
 

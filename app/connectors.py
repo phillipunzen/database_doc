@@ -214,12 +214,6 @@ def scan(kind, cfg, infer=False):
             names = [(n, "table") for n in inspector.get_table_names(schema=schema)]
             names += [(n, "view") for n in inspector.get_view_names(schema=schema)]
             for name, object_type in names:
-                if len(tables) >= 2000:
-                    raise ConnectorError(
-                        tr(
-                            "Scan-Limit von 2.000 Objekten erreicht. Bitte ein einzelnes Schema auswählen."
-                        )
-                    )
                 columns = inspector.get_columns(name, schema=schema)
                 pk = optional(
                     lambda: inspector.get_pk_constraint(name, schema=schema), {}
@@ -295,8 +289,6 @@ def scan_mongo(cfg, infer):
     tables = []
     with mongo(cfg) as db:
         infos = list(db.list_collections())
-        if len(infos) > 2000:
-            raise ConnectorError(tr("Scan-Limit von 2.000 Collections erreicht."))
         for info in infos:
             name = info["name"]
             fields = {}
