@@ -166,7 +166,7 @@ async function showLogin() {
 }
 function shell(content) {
   diagramCleanup();
-  root.innerHTML = localize`<div class="layout"><aside class="sidebar">${brand()}<nav><div class="nav-label">Arbeitsbereich</div><button class="nav-button ${["sources", "source"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="sources">${icon("database")}<span>Datenquellen</span></button>${localize`<button class="nav-button ${state.view === "search" ? "active" : ""}" data-action="nav" data-view="search">${icon("search")}<span>Globale Suche</span></button>`}<button class="nav-button ${["warehouse", "warehouse-project", "warehouse-workspace"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="warehouse" title="Data Warehouse">${icon("relations")}<span>Data Warehouse</span></button><button class="nav-button ${["tools", "tool-design"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="tools">${icon("edit")}<span>Tools</span></button>${state.user.role === "admin" ? localize`<div class="nav-label" style="margin-top:30px">Administration</div><button class="nav-button ${state.view === "users" ? "active" : ""}" data-action="nav" data-view="users">${icon("users")}<span>Benutzer & Rechte</span></button><button class="nav-button ${state.view === "audit" ? "active" : ""}" data-action="nav" data-view="audit">${icon("shield")}<span>Aktivitätsprotokoll</span></button><button class="nav-button ${state.view === "settings" ? "active" : ""}" data-action="nav" data-view="settings" title="Systemeinstellungen">${icon("settings")}<span>Systemeinstellungen</span></button>` : ""}</nav><div class="sidebar-bottom"><div class="user-line"><div class="avatar">${e(state.user.display_name.slice(0, 1).toUpperCase())}</div><div><div class="small">${e(state.user.display_name)}</div><div style="font-size:10px;color:#a7c0b3">${roles[state.user.role]}</div></div></div>${state.user.provider === "local" ? localize('<button data-action="password">Passwort ändern</button>') : ""}<button data-action="logout">Abmelden</button></div></aside><main class="main"><header class="topbar"><div class="breadcrumb">${state.view === "settings" ? uiText("Administration") : uiText("Arbeitsbereich")} <span>/</span> <strong>${["tools", "tool-design"].includes(state.view) ? "Tools" : state.view === "source" ? e(state.source.name) : state.view === "search" ? uiText("Globale Suche") : ["warehouse", "warehouse-project", "warehouse-workspace"].includes(state.view) ? uiText("Data Warehouse") : state.view === "users" ? uiText("Benutzer & Rechte") : state.view === "audit" ? uiText("Aktivitätsprotokoll") : state.view === "settings" ? uiText("Systemeinstellungen") : uiText("Datenquellen")}</strong></div><div class="env-pill"><span class="dot"></span> ${roles[state.user.role]}</div><button class="btn ghost mobile-logout" data-action="logout" style="display:none">Abmelden</button></header><div class="content">${content}</div></main></div>`;
+  root.innerHTML = localize`<div class="layout"><aside class="sidebar">${brand()}<nav><div class="nav-label">Arbeitsbereich</div><button class="nav-button ${["sources", "source"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="sources">${icon("database")}<span>Datenquellen</span></button>${localize`<button class="nav-button ${state.view === "search" ? "active" : ""}" data-action="nav" data-view="search">${icon("search")}<span>Globale Suche</span></button>`}<button class="nav-button ${state.view === "analysis" ? "active" : ""}" data-action="nav" data-view="analysis">${icon("grid")}<span>Analyse & Fachbegriffe</span></button><button class="nav-button ${["warehouse", "warehouse-project", "warehouse-workspace"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="warehouse" title="Data Warehouse">${icon("relations")}<span>Data Warehouse</span></button><button class="nav-button ${["tools", "tool-design"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="tools">${icon("edit")}<span>Tools</span></button>${state.user.role === "admin" ? localize`<div class="nav-label" style="margin-top:30px">Administration</div><button class="nav-button ${state.view === "users" ? "active" : ""}" data-action="nav" data-view="users">${icon("users")}<span>Benutzer & Rechte</span></button><button class="nav-button ${state.view === "audit" ? "active" : ""}" data-action="nav" data-view="audit">${icon("shield")}<span>Aktivitätsprotokoll</span></button><button class="nav-button ${state.view === "settings" ? "active" : ""}" data-action="nav" data-view="settings" title="Systemeinstellungen">${icon("settings")}<span>Systemeinstellungen</span></button>` : ""}</nav><div class="sidebar-bottom"><div class="user-line"><div class="avatar">${e(state.user.display_name.slice(0, 1).toUpperCase())}</div><div><div class="small">${e(state.user.display_name)}</div><div style="font-size:10px;color:#a7c0b3">${roles[state.user.role]}</div></div></div>${state.user.provider === "local" ? localize('<button data-action="password">Passwort ändern</button>') : ""}<button data-action="logout">Abmelden</button></div></aside><main class="main"><header class="topbar"><div class="breadcrumb">${state.view === "settings" ? uiText("Administration") : uiText("Arbeitsbereich")} <span>/</span> <strong>${state.view === "analysis" ? uiText("Analyse & Fachbegriffe") : ["tools", "tool-design"].includes(state.view) ? "Tools" : state.view === "source" ? e(state.source.name) : state.view === "search" ? uiText("Globale Suche") : ["warehouse", "warehouse-project", "warehouse-workspace"].includes(state.view) ? uiText("Data Warehouse") : state.view === "users" ? uiText("Benutzer & Rechte") : state.view === "audit" ? uiText("Aktivitätsprotokoll") : state.view === "settings" ? uiText("Systemeinstellungen") : uiText("Datenquellen")}</strong></div><div class="env-pill"><span class="dot"></span> ${roles[state.user.role]}</div><button class="btn ghost mobile-logout" data-action="logout" style="display:none">Abmelden</button></header><div class="content">${content}</div></main></div>`;
   setupPlannedDiagrams();
 }
 function status(source) {
@@ -457,7 +457,11 @@ async function navigate(view, id, target = {}) {
     }
     if (!state.source) throw new Error(uiText("Datenquelle nicht verfügbar."));
     state.view = "source";
-    state.tab = target.tab === "er" ? "er" : "overview";
+    state.tab = ["er", "analysis"].includes(target.tab)
+      ? target.tab
+      : "overview";
+    state.sa = null;
+    state.saTable = target.table || null;
     state.table = 0;
     state.tableTab = "columns";
     state.highlightColumn = null;
@@ -474,13 +478,14 @@ async function navigate(view, id, target = {}) {
         (t) => t.key === target.table,
       );
       if (index >= 0) {
-        state.tab = "schema";
+        if (target.tab !== "analysis") state.tab = "schema";
         state.table = index;
         state.tableTab = target.section === "notes" ? "notes" : "columns";
         state.highlightColumn = target.column || null;
       } else
         toast(uiText("Objekt ist im aktuellen Schema nicht mehr vorhanden."));
     }
+    if (state.tab === "analysis") await analysisLoadSource(true);
     renderSource();
   } else {
     state.view = view;
@@ -535,6 +540,13 @@ async function navigate(view, id, target = {}) {
       state.toolTableId = target.table || null;
       state.toolSql = null;
       renderToolDesign();
+    }
+    if (view === "analysis") {
+      await loadSources();
+      state.analysisQuery = "";
+      state.anSourcesPage = state.anConceptsPage = state.anSuggestionsPage = 1;
+      await analysisLoadCatalog();
+      renderAnalysisCatalog();
     }
     if (view === "search") {
       if (target.q !== undefined) state.searchQuery = target.q;
@@ -598,6 +610,7 @@ function renderSource() {
         ["overview", uiText("Übersicht"), "grid"],
         ["schema", uiText("Tabellen & Felder"), "table"],
         ["er", uiText("ER-Modell"), "relations"],
+        ["analysis", uiText("Analyse"), "grid"],
         ["compare", uiText("Schema-Vergleich"), "relations"],
         ["history", uiText("Scan-Verlauf"), "clock"],
         ["organization", uiText("Tags & Verantwortliche"), "users"],
@@ -608,6 +621,7 @@ function renderSource() {
     )}<div id="source-body">${sourceBody()}</div>`,
   );
   if (state.tab === "er") setupER();
+  if (state.tab === "analysis") analysisPaint();
 }
 function info(label, value) {
   return `<div class="info-line"><span>${label}</span><span>${value}</span></div>`;
@@ -615,6 +629,7 @@ function info(label, value) {
 function sourceBody() {
   const s = state.source,
     snap = state.snapshot;
+  if (state.tab === "analysis") return sourceAnalysisView();
   if (state.tab === "history") return historyView();
   if (state.tab === "organization") return organizationView();
   if (state.tab === "schedule") return scheduleView();
@@ -922,6 +937,11 @@ const auditLabels = {
   warehouse_created: uiText("Warehouse angelegt"),
   warehouse_updated: uiText("Warehouse geändert"),
   warehouse_project_adopted: uiText("Projekt ins Warehouse übernommen"),
+  analysis_preparation_saved: uiText("DWH-Vorbereitung gespeichert"),
+  analysis_rules_saved: uiText("Qualitätsregeln gespeichert"),
+  analysis_profile_created: uiText("Datenprofil erstellt"),
+  analysis_concept_saved: uiText("Fachbegriff gespeichert"),
+  analysis_concept_removed: uiText("Fachbegriff entfernt"),
   company_logo_updated: uiText("Firmenlogo gespeichert"),
   company_logo_removed: uiText("Firmenlogo entfernt"),
   dwh_project_saved: uiText("DWH-Projekt gespeichert"),
@@ -1045,7 +1065,7 @@ async function grantsModal(id) {
   const people = state.users.filter((u) => u.role !== "admin");
   openModal(
     "Freigaben · " + source.name,
-    localize`<p class="small muted" style="margin-bottom:16px">„Lesen“ erlaubt die Dokumentation. Bearbeiten setzt die Rolle Bearbeiter voraus. Die Datenvorschau wird separat freigegeben.</p><form id="grants-form" data-id="${id}">${people
+    localize`<p class="small muted" style="margin-bottom:16px">„Lesen“ erlaubt die Dokumentation. Bearbeiten setzt die Rolle Bearbeiter voraus. Datenvorschauen und Datenprofile werden separat freigegeben.</p><form id="grants-form" data-id="${id}">${people
       .map((u) => {
         const g = grants.find((g) => g.user_id === u.id);
         return localize`<div class="grant-row" data-user="${u.id}"><div>${e(u.display_name)}<div class="muted small">${roles[u.role]}</div></div><label><input type="checkbox" name="read-${u.id}" ${g ? "checked" : ""}>Lesen</label><label><input type="checkbox" name="edit-${u.id}" ${g?.edit ? "checked" : ""} ${u.role !== "editor" ? "disabled" : ""}>Bearbeiten</label><label><input type="checkbox" name="data-${u.id}" ${g?.data ? "checked" : ""}>Daten</label></div>`;
@@ -1085,6 +1105,8 @@ async function changeSourceTab(tab) {
   state.source =
     state.sources.find((s) => s.id === state.source.id) || state.source;
   state.tab = tab;
+  if (tab === "analysis")
+    await analysisLoadSource(state.sa?.source_id !== state.source.id);
   if (tab === "history" || tab === "compare")
     state.history = await api(`/api/sources/${state.source.id}/history`);
   if (
@@ -1102,12 +1124,17 @@ async function changeSourceTab(tab) {
     if (state.compareBefore) await loadComparison();
   }
   renderSource();
+  if (tab === "analysis")
+    history.replaceState(null, "", `#source/${state.source.id}?tab=analysis`);
+  else if (location.hash.includes("tab=analysis"))
+    history.replaceState(null, "", `#source/${state.source.id}`);
 }
 document.addEventListener("click", async (ev) => {
   const button = ev.target.closest("[data-action]");
   if (!button) return;
   const a = button.dataset.action;
   try {
+    if (a.startsWith("an-")) await analysisClick(button);
     if (a.startsWith("wa-")) await warehouseAssessmentClick(button);
     if (a.startsWith("tool-")) await toolsClick(button);
     if (a.startsWith("ct-")) await classificationClick(button);
@@ -1300,6 +1327,11 @@ document.addEventListener("click", async (ev) => {
 });
 document.addEventListener("submit", async (ev) => {
   const form = ev.target;
+  if (form.id.startsWith("an-")) {
+    ev.preventDefault();
+    await analysisSubmit(form);
+    return;
+  }
   if (form.id.startsWith("tool-")) {
     ev.preventDefault();
     await toolsSubmit(form);
@@ -1478,6 +1510,7 @@ document.addEventListener("submit", async (ev) => {
   }
 });
 document.addEventListener("input", (ev) => {
+  analysisInput(ev.target);
   if (ev.target.id === "wa-object-query") {
     state.waObjectPage = 0;
     assessmentPaint();
@@ -1497,6 +1530,7 @@ document.addEventListener("input", (ev) => {
     );
 });
 document.addEventListener("change", (ev) => {
+  analysisChange(ev.target);
   if (ev.target.id === "wa-severity") {
     state.waFindingPage = 0;
     assessmentPaint();
@@ -1555,6 +1589,7 @@ async function route() {
       "sources",
       "source",
       "search",
+      "analysis",
       "warehouse",
       "warehouse-project",
       "warehouse-workspace",

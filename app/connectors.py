@@ -282,7 +282,10 @@ def scan(kind, cfg, infer=False):
                         ],
                     }
                 )
-    return {"kind": kind, "tables": tables, "warnings": [], "inferred": False}
+        from .catalog_analysis import enrich
+
+        warnings = enrich(kind, conn, tables)
+    return {"kind": kind, "tables": tables, "warnings": warnings, "inferred": False}
 
 
 def scan_mongo(cfg, infer):

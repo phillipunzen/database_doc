@@ -232,6 +232,36 @@ class DatabaseDesignGrant(Base):
     edit: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
+class SourceAnalysis(Base):
+    __tablename__ = "source_analysis"
+    source_id: Mapped[int] = mapped_column(
+        ForeignKey("sources.id", ondelete="CASCADE"), primary_key=True
+    )
+    content: Mapped[dict] = mapped_column(JSON, default=dict)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    updated: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class SourceProfile(Base):
+    __tablename__ = "source_profiles"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    source_id: Mapped[int] = mapped_column(
+        ForeignKey("sources.id", ondelete="CASCADE"), index=True
+    )
+    snapshot_id: Mapped[int] = mapped_column(Integer)
+    table_key: Mapped[str] = mapped_column(Text)
+    content: Mapped[dict] = mapped_column(JSON)
+    created: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class BusinessConcept(Base):
+    __tablename__ = "business_concepts"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    content: Mapped[dict] = mapped_column(JSON)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    updated: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
 if os.getenv("TEST_DATABASE_URL"):
     engine = create_engine(
         os.environ["TEST_DATABASE_URL"], connect_args={"check_same_thread": False}

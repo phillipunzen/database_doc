@@ -411,6 +411,40 @@ Only the latest successful snapshot of each source is indexed. Successful scans 
 
 The index uses literal substring matching over stored metadata, including literal `%` and `_` characters. For very large schemas, narrow the source/type filters; result pagination limits responses but does not eliminate the cost of scanning matching text.
 
+## Source analysis and business concepts
+
+Open a scanned source and choose **Analysis**. The object list is searchable and paginated; selecting a table opens structural hints, DWH preparation, data profiles and quality rules, or dependencies. The global **Analysis & business concepts** page compares metadata across the sources you are permitted to see.
+
+1. **Review the structure.** Inspect missing declared primary keys, isolated objects, foreign-key index candidates, special types, old scans and optional catalog row/size estimates. These are review hints, not automatic tuning recommendations. A missing declared relationship does not prove that no business relationship exists.
+2. **Prepare each table for the DWH.** Document its role, grain (what one row means), full or incremental loading, a change-detection field and handling of deleted source records. The four preparation indicators reflect documented decisions; they do not verify an implemented pipeline. This preparation complements the central warehouse workflow and does not create or load target tables.
+3. **Run a targeted profile explicitly.** Select up to 20 scanned fields and a limit of 100–5,000 rows. The source is queried read-only, with one extra row to detect a limited result. The query reads the first rows without a guaranteed order; this sample is not random or representative. Profiles show NULL/blank counts, distinct values, duplicate non-NULL values, numeric/date ranges, lengths and declared-key duplicates when all key fields are selected. Only aggregates are saved, never raw rows, text values or value hashes. Up to 20 profiles per object are retained. Opening the analysis page does not read source rows.
+4. **Define quality rules.** Supported rules cover NULLs, empty values, uniqueness, numeric ranges and freshness. Rules run when a user starts a profile and produce a dated history with the scan and settings version. A passing limited sample does not establish table-wide quality. Sample freshness can be inconclusive; absent fields, empty reads or unsuitable types can remain unchecked. Text duplicate checks are case-sensitive and independent of database collation; NULLs require their own rule. Naive timestamps are interpreted as UTC.
+5. **Confirm business concepts.** Metadata suggestions use matching field names and compatible type families; they never establish a join automatically. Confirm relevant fields manually, define their business meaning and owner, choose the leading system and document key translation. Changed or missing mapped fields remain visible for review. Editing a definition does not silently accept a changed schema: use **Confirm current field** and save to update the pinned mapping. Concept definitions are shared with users who can see every bound source. Editing requires editing permission for all bound sources. Referenced sources cannot be deleted or redirected until their concept bindings are removed.
+
+Automatic scan schedules continue to collect structure only; they do not execute data profiles or quality rules. For MongoDB, field inference must be enabled during a scan before inferred fields can be profiled; its schema remains an inference from at most 100 documents.
+
+Dependencies include declared foreign keys for scanned relational databases and catalog view dependencies within the scanned scope for SQL Server, PostgreSQL and supported MySQL versions. MariaDB, SQLite and MongoDB do not provide view-dependency enrichment in this release. Stored procedures, dynamic SQL, triggers, external databases and application/ETL dependencies are not parsed. Optional catalog queries may be unavailable because of database version or permissions; a safe warning accompanies a successful structural scan. Catalog row estimates are not exact counts. Byte sizes are available for PostgreSQL/MySQL/MariaDB where permitted; SQL Server currently provides row estimates only. Existing snapshots acquire these extra fields on the next explicit or scheduled scan.
+
+Structural analysis and DWH preparation require source access; saving preparation and rules requires editing access. Starting profiles and reading their aggregate history require the separate **data permission**, including for viewers. Permissions, source connection identity and scan/settings versions are checked again before a completed profile is stored. Two profiles may run concurrently per application process. Profile reads retain the existing connector timeouts and may still cause database work; use a source account with read-only privileges.
+
+![Source analysis and explicit quality profiling](docs/source-analysis.png)
+
+![Shared business concepts and source metadata](docs/business-concepts.png)
+
+| Endpoint                                                | Purpose                                                                               |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `GET /api/sources/{id}/analysis`                        | Structural findings and per-object DWH preparation from stored metadata.              |
+| `PUT /api/sources/{id}/analysis/preparation`            | Save one object's preparation with an optimistic settings version.                    |
+| `PUT /api/sources/{id}/analysis/rules`                  | Save quality rules with an optimistic settings version.                               |
+| `GET /api/sources/{id}/analysis/profiles?table_key=...` | Read aggregate history with data permission.                                          |
+| `POST /api/sources/{id}/analysis/profiles`              | Explicit bounded profile using pinned scan/settings versions.                         |
+| `GET /api/analysis/catalog`                             | Permitted sources, confirmed concepts and metadata suggestions.                       |
+| `POST /api/analysis/concepts`                           | Create a confirmed concept with scanned field bindings.                               |
+| `PUT /api/analysis/concepts/{id}`                       | Update a concept using its version; `confirm_current` explicitly refreshes a binding. |
+| `DELETE /api/analysis/concepts/{id}`                    | Remove a concept with its current version in the request body.                        |
+
+The upgrade adds `source_analysis`, `source_profiles` and `business_concepts` to application storage. Existing source records, snapshots, grants and warehouse projects are preserved. No profiles, scans or concept assignments run during migration.
+
 ## Upgrading an existing installation
 
 Back up the application database and encryption key, then pull and recreate the app with `docker compose pull app` followed by `docker compose up -d --no-deps app`. Local builds use the explicit `compose.build.yaml` override described above. Startup creates the additional metadata, schedule, search-index, and migration-version tables without altering existing source records. The initial migration indexes the latest existing snapshots and notes once; subsequent startups skip this backfill. Source connections, users, grants, snapshots, and notes are retained.
@@ -557,7 +591,7 @@ The backend uses FastAPI and SQLAlchemy. The bilingual interface uses locally se
 docker compose run --rm \
   -v "$PWD/app:/app/app:ro" \
   -v "$PWD/tests:/app/tests:ro" \
-  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py tests/test_warehouse_workspace.py tests/test_catalog_tags.py tests/test_design_tools.py tests/test_warehouse_assessment.py tests/test_scan_scale.py
+  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py tests/test_warehouse_workspace.py tests/test_catalog_tags.py tests/test_design_tools.py tests/test_warehouse_assessment.py tests/test_scan_scale.py tests/test_source_analysis.py
 ```
 
 Application tests use temporary SQLite databases for both application storage and sources. They verify encrypted credentials, scanning, metadata, notes, exports, CSRF and Origin checks, roles and source grants, preview authorization, account deactivation, read-only SQLite access, path boundaries, and session revocation. The feature suite additionally covers permission-filtered global search, literal search patterns, note indexing, snapshot/index rollback, schema comparisons, persistent scheduling, duplicate-scan deferral, access revocation, daylight-saving transitions, additive migrations, and cleanup on source deletion. PDF tests parse the actual generated files and cover full/single-object and historical exports, viewer permissions, literal markup, Unicode text, long notes and oversized table cells, 85-object diagrams, cross-page references, composite/self/external foreign keys, and empty/inferred schemas.
@@ -713,3 +747,15 @@ Never run this designer browser suite against a live application database.
 ASSESSMENT_TEST_URL=http://127.0.0.1:8091 \
   NODE_PATH=/tmp/datatlas-browser/node_modules node tests/warehouse-assessment.cjs
 ```
+
+### Source analysis verification
+
+`tests/test_source_analysis.py` checks metadata-only reads, data/edit permission isolation, CSRF, version conflicts, concurrent permission revocation, profile aggregate privacy, sampling semantics, numeric precision, orphaned rules/fields and explicit acceptance of changed concept bindings. `tests/source-analysis.cjs` exercises real preparation/rule/profile/concept operations in both languages, a catalog of 64 fictional sources, pagination, escaped user text, viewer controls and mobile layout. Run it only against a disposable instance seeded with `tests/seed_analysis_fixture.py`, using an empty SQLite application database and a separate fictional SQLite source:
+
+```bash
+ANALYSIS_TEST_URL=http://127.0.0.1:8091 \
+  ANALYSIS_TEST_PASSWORD=YOUR_FIXTURE_PASSWORD \
+  NODE_PATH=/tmp/datatlas-browser/node_modules node tests/source-analysis.cjs
+```
+
+`tests/test_analysis_connectors.py` is opt-in (`ANALYSIS_CONNECTOR_INTEGRATION=1`) and uses only fixed disposable container hostnames: `databasedoc-analysis-postgres`, `databasedoc-analysis-mysql`, `databasedoc-analysis-mariadb`, `databasedoc-analysis-mssql` and `databasedoc-analysis-mongo`, on an isolated Docker network. It creates fictional tables/views/documents and checks catalog estimates, supported view dependencies and bounded aggregate profiles. Fixture credentials are defined in the test. Use fresh instances and remove them after testing; with the variable unset, all five checks are skipped.

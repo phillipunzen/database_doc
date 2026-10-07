@@ -3145,3 +3145,92 @@ button.classification-tag:focus-visible {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Database analysis and confirmed business mappings. */
+.an-intro,
+.an-detail {
+  margin-bottom: 24px;
+}
+.an-detail .tabs {
+  overflow-x: auto;
+}
+.an-detail form,
+#an-concept-form,
+#an-rule-form {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+.an-detail fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+.an-detail .an-columns {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  max-height: 300px;
+  overflow: auto;
+}
+.an-columns label,
+.an-binding-list strong,
+.an-literal {
+  overflow-wrap: anywhere;
+}
+.an-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0;
+}
+.an-literal {
+  white-space: pre-wrap;
+}
+#an-detail ul,
+#an-concepts ul,
+#an-suggestions ul {
+  padding-left: 20px;
+  margin: 12px 0;
+}
+#an-concepts li {
+  margin: 10px 0;
+  overflow-wrap: anywhere;
+}
+#an-detail .wa-finding .btn,
+#an-concepts .wa-finding .btn {
+  margin: 4px 6px 4px 0;
+}
+#an-object-query {
+  max-width: 360px;
+  min-width: 0;
+}
+#an-global-query {
+  width: 100%;
+}
+@media (max-width: 760px) {
+  #source-body > .panel .panel-head:has(#an-object-query) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  #an-object-query {
+    width: 100%;
+    max-width: none;
+  }
+  .an-columns {
+    grid-template-columns: 1fr !important;
+  }
+  .an-detail .tabs .tab {
+    flex-shrink: 0;
+  }
+}
+#an-detail {
+  margin-top: 24px;
+}
+.an-catalog-panel {
+  margin-bottom: 24px;
+}

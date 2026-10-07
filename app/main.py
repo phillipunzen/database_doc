@@ -34,6 +34,8 @@ from .models import (
     WarehouseProject,
     WarehouseProjectSource,
     ApplicationBranding,
+    SourceAnalysis,
+    SourceProfile,
     now,
 )
 from .security import (
@@ -69,6 +71,11 @@ from .catalog_tags import (
     styles_for,
     definitions,
     normalize_tags,
+)
+from .analysis_api import router as analysis_router
+from .business_catalog import (
+    router as business_catalog_router,
+    uses_source as business_uses_source,
 )
 
 from .i18n import LANGUAGE, MESSAGES, negotiate_language
@@ -141,6 +148,8 @@ app.include_router(branding_router)
 app.include_router(warehouse_workspace_router)
 app.include_router(catalog_tags_router)
 app.include_router(design_tools_router)
+app.include_router(analysis_router)
+app.include_router(business_catalog_router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 oauth = OAuth()
 if (
@@ -533,12 +542,25 @@ def update_source(source_id: int, body: SourceInput, user: User = Depends(curren
                     "Diese Quelle gehört zu einem DWH-Projekt. Für eine andere Datenbank bitte eine neue Datenquelle anlegen oder zuerst die Projektzuordnungen entfernen."
                 ),
             )
+        if target_changed and business_uses_source(db, source_id):
+            raise HTTPException(
+                409,
+                tr(
+                    "Diese Quelle hat fachliche Feldzuordnungen. Zuerst die Zuordnungen entfernen oder eine neue Datenquelle anlegen."
+                ),
+            )
         source.name = body.name
         source.config_encrypted = encrypt(updated)
         source.kind = body.kind
         source.mongo_infer = body.mongo_infer
         # A different target must not inherit the previous target's documentation.
         if target_changed:
+            db.execute(
+                delete(SourceProfile).where(SourceProfile.source_id == source_id)
+            )
+            db.execute(
+                delete(SourceAnalysis).where(SourceAnalysis.source_id == source_id)
+            )
             db.execute(delete(Snapshot).where(Snapshot.source_id == source_id))
             db.execute(delete(Note).where(Note.source_id == source_id))
         reindex_source(db, source)
@@ -565,7 +587,16 @@ def delete_source(source_id: int, user: User = Depends(current)):
                     "Diese Datenquelle gehört zu einem DWH-Projekt. Bitte zuerst die Projektzuordnungen entfernen."
                 ),
             )
+        if business_uses_source(db, source_id):
+            raise HTTPException(
+                409,
+                tr(
+                    "Diese Quelle hat fachliche Feldzuordnungen. Zuerst die Zuordnungen entfernen oder eine neue Datenquelle anlegen."
+                ),
+            )
         for model in (
+            SourceProfile,
+            SourceAnalysis,
             SearchEntry,
             ScanSchedule,
             SourceMetadata,
