@@ -14,7 +14,7 @@ Database names, comments, tags, owners, notes, business requirements, transforma
 
 ## Quick start
 
-Requirements: Docker Engine and Docker Compose, with network access to the databases you want to document.
+Requirements: Docker Engine and Docker Compose v2 on Linux AMD64 (x86-64), with network access to the databases you want to document.
 
 ```bash
 git clone https://github.com/phillipunzen/database_doc.git
@@ -32,15 +32,57 @@ Before starting, edit `.env`:
 
 ```bash
 mkdir -p sources
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 docker compose ps
 ```
 
-Open the URL configured in `APP_URL`. The default application port is `8090`; MariaDB does not expose a host port.
+Open the URL configured in `APP_URL`. The default application port is `8090`; MariaDB does not expose a host port. The default `docker-compose.yml` downloads the prebuilt application image; no local Python environment or source build is needed to run it.
 
 Existing deployments need no database migration for the DatabaseDoc rename. The internal MariaDB database/user and session-cookie identifiers retain their legacy names to preserve stored documentation and existing sign-ins. Backups created after the rename use the `databasedoc-` filename prefix; existing backups remain compatible.
 
 The existing development deployment is available at **http://192.168.10.70:8090**, with its checkout at `/opt/datenbankdokumentation`.
+
+## Prebuilt Docker image
+
+The image is published to GitHub Container Registry as **`ghcr.io/phillipunzen/database_doc`**, linked to [this repository's packages](https://github.com/phillipunzen/database_doc/pkgs/container/database_doc). It contains the application, locally served assets, PDF fonts and database drivers including Microsoft ODBC Driver 18. The application runs as user UID `10001` and includes a health check. The supported native platform is **Linux AMD64**; ARM64 images are not currently published.
+
+The [Docker image workflow](https://github.com/phillipunzen/database_doc/actions/workflows/docker-image.yml) builds the image and runs the application, catalog, PDF, warehouse, language, branding and central-warehouse tests before publishing. It uses GitHub's automatic `GITHUB_TOKEN` with package-write permission; no personal access token or registry password needs to be added to repository secrets. Pull requests build and test without publishing. Pushes to `main` publish `latest`, `main` and a `sha-<full commit SHA>` tag. Version tags such as `v1.0.0` publish `v1.0.0`, `1.0.0` and `1.0`; they do not replace `latest`. The workflow can also be run manually from the Actions page on `main`.
+
+GitHub initially creates container packages as private, even for public repositories. The package owner can select **Package settings → Change visibility → Public** to allow unauthenticated downloads. If the package remains private, authenticate once before `docker compose pull` using a GitHub personal access token **(classic)** with `read:packages`:
+
+```bash
+docker login ghcr.io -u YOUR_GITHUB_USERNAME
+```
+
+Enter the token at Docker's password prompt; do not put it in the Compose file or commit it. See GitHub's [Container Registry documentation](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry) for package access and visibility.
+
+To use a specific image instead of the moving `latest` tag, set `DATABASEDOC_IMAGE` in `.env`, for example `ghcr.io/phillipunzen/database_doc:sha-<full commit SHA>` or `ghcr.io/phillipunzen/database_doc@sha256:<image digest>`. The workflow summary records the published digest and tags.
+
+The image contains no `.env`, credentials, SQLite source files or application database. MariaDB storage uses a persistent volume; SQLite sources are mounted read-only from `./sources`. Authentication, source connections, documentation, the company logo and warehouse models remain in MariaDB. Preserve `.env`, especially `ENCRYPTION_KEY`, when replacing containers or moving to another host.
+
+### Updating an image deployment
+
+Back up MariaDB and `.env` first. From the existing deployment directory, retaining the same Compose project name and volume:
+
+```bash
+docker compose pull app
+docker compose up -d --no-deps app
+docker compose ps
+```
+
+Changing the application image recreates only the app; startup adds any new application tables. Follow the release documentation for schema compatibility before downgrading an image. Never remove the database volume as part of an update.
+
+### Building locally
+
+For development, use the explicit build override instead of pulling the published image:
+
+```bash
+docker compose -f docker-compose.yml -f compose.build.yaml up -d --build
+docker compose -f docker-compose.yml -f compose.build.yaml run --rm app python -c 'import app.main'
+```
+
+The override tags the local image `databasedoc:local` and builds it from the checkout. When building or recreating a local development container, keep using both `-f` options. Existing deployments upgraded from `compose.yaml` should remove that obsolete file so it cannot take precedence over `docker-compose.yml`; the repository now has only one default Compose file. The app/MariaDB service names, database credentials and `mariadb_data` volume key are unchanged.
 
 ## First sign-in
 
@@ -181,7 +223,7 @@ GET /api/sources/{id}/export?format=er_pdf&snapshot_id={snapshot_id}
 
 `table_key` is the object's exact key from the snapshot API. An omitted snapshot ID uses the latest successful snapshot. Historical snapshots must belong to the requested source. `table_key` is supported only for `format=pdf`. The existing JSON and Markdown exports also accept an optional snapshot ID.
 
-Upgrading requires rebuilding the Docker image (`docker compose up -d --build app`) to install the pinned ReportLab dependencies and the local fonts. No additional database migration is required for PDF export.
+Upgrading requires pulling the updated image (or rebuilding locally with the build override) to include the pinned ReportLab dependencies and local fonts. No additional database migration is required for PDF export.
 
 ## Company logo
 
@@ -241,7 +283,7 @@ The index uses literal substring matching over stored metadata, including litera
 
 ## Upgrading an existing installation
 
-Back up the application database and encryption key, then rebuild and recreate the app with `docker compose up -d --build app`. Startup creates the additional metadata, schedule, search-index, and migration-version tables without altering existing source records. The initial migration indexes the latest existing snapshots and notes once; subsequent startups skip this backfill. Source connections, users, grants, snapshots, and notes are retained.
+Back up the application database and encryption key, then pull and recreate the app with `docker compose pull app` followed by `docker compose up -d --no-deps app`. Local builds use the explicit `compose.build.yaml` override described above. Startup creates the additional metadata, schedule, search-index, and migration-version tables without altering existing source records. The initial migration indexes the latest existing snapshots and notes once; subsequent startups skip this backfill. Source connections, users, grants, snapshots, and notes are retained.
 
 All existing sources begin without tags/owners and with automatic scanning disabled. The migration does not connect to or scan source databases. Initial startup can take longer when backfilling a large existing catalog.
 
@@ -276,7 +318,8 @@ Roles are managed within DatabaseDoc in this version; AD and Entra groups are no
 Run these commands from your checkout directory:
 
 ```bash
-docker compose up -d --build
+docker compose pull
+docker compose up -d
 docker compose ps
 docker compose logs --tail=100 app
 ```

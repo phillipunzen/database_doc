@@ -1,12 +1,18 @@
 services:
   app:
-    build: .
+    image: ${DATABASEDOC_IMAGE:-ghcr.io/phillipunzen/database_doc:latest}
+    platform: linux/amd64
     restart: unless-stopped
     env_file: .env
     environment:
       APP_DB_HOST: mariadb
       APP_DB_NAME: datatlas
       APP_DB_USER: datatlas
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Create .env first}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Create .env first}
+      SESSION_SECRET: ${SESSION_SECRET:?Create .env first}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Create .env first}
+      APP_URL: ${APP_URL:?Set the browser URL in .env}
     ports:
       - "${APP_BIND:-0.0.0.0}:${APP_PORT:-8090}:8000"
     volumes:
@@ -37,8 +43,8 @@ services:
     environment:
       MARIADB_DATABASE: datatlas
       MARIADB_USER: datatlas
-      MARIADB_PASSWORD: ${APP_DB_PASSWORD:?Bitte .env erstellen}
-      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Bitte .env erstellen}
+      MARIADB_PASSWORD: ${APP_DB_PASSWORD:?Create .env first}
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:?Create .env first}
     volumes:
       - mariadb_data:/var/lib/mysql
     healthcheck:

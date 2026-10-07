@@ -1,0 +1,6 @@
+# Local development: docker compose -f docker-compose.yml -f compose.build.yaml up -d --build
+services:
+  app:
+    image: databasedoc:local
+    build: .
+    pull_policy: build
