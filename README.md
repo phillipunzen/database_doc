@@ -288,7 +288,25 @@ Comparisons use stored metadata and do not connect to the source database. Renam
 
 Use **Tags & Verantwortliche** inside a source to set up to 20 tags, a responsible person or team, and a contact email. Tags are comma-separated in the interface, trimmed, and deduplicated without regard to case. Each tag may contain up to 60 characters.
 
-Tags appear in catalog rows and have their own filter. Catalog text search also matches tags, owner names, and contact emails. JSON and Markdown documentation exports include ownership and tags. These fields describe responsibility; they do not grant access or send notifications.
+Tags appear as colored labels in catalog rows and cards and have their own filter. Catalog text search also matches tags, owner names, and contact emails. JSON and Markdown documentation exports include ownership and tags. These fields describe responsibility; they do not grant access or send notifications.
+
+Administrators can select **Manage tags** in the source overview to define shared tag colors and categories: **Location**, **Function**, **Environment**, or **Other**. Examples include Berlin (blue/location), ERP (purple/function), and Production (red/environment). Seven fixed colors keep tag text legible; labels remain visible without relying on color. Shared definitions are explicitly visible to all signed-in users; private source tags are not automatically published into this catalog. Definitions match tag names without regard to case. Existing free-form tags remain usable and appear gray under Other until classified. Editing a definition updates its appearance across all assigned sources; removing a definition retains source tag assignments. Concurrent definition changes are version checked.
+
+Click a tag to filter the overview or use the tag/category filters. Under **Tags & owners** on a source, select **Choose shared tags** to add an existing definition to the comma-separated input, then save the source metadata. Administrators manage shared appearance; editors need an editing grant to change source assignments, and viewers can inspect and filter.
+
+Use **Classify multiple sources** to add or remove tags for up to 200 editable sources matching the current filters, including other catalog pages. The modal lists the exact source selection for review; select/deselect individual databases before saving. To classify databases on a server, first use the server filter, then apply a location/function tag to the selected databases. These remain explicit source assignments; databases added later do not automatically inherit server tags. Additions preserve existing tags and ownership/contact fields. The backend checks editing access for every selected source and the 20-tag limit before committing; a failed batch makes no partial changes.
+
+Startup creates the additive `catalog_tags` table without changing existing source metadata. Color/category definitions are included in regular MariaDB backups. Source API responses include a `tag_styles` map for their current tags; existing export tag names remain unchanged. Classification never changes connection settings or queries source databases.
+
+```text
+GET /api/catalog/tags
+PUT /api/catalog/tags                 # Administrator; name/color/category/version
+DELETE /api/catalog/tags/{key}?version={version}
+POST /api/catalog/tags/assign         # source_ids, tags, mode: add|remove
+```
+
+![Colored classification of fictional data sources](docs/catalog-classification.png)
+
 
 ## Global search
 
@@ -446,7 +464,7 @@ The backend uses FastAPI and SQLAlchemy. The bilingual interface uses locally se
 docker compose run --rm \
   -v "$PWD/app:/app/app:ro" \
   -v "$PWD/tests:/app/tests:ro" \
-  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py tests/test_warehouse_workspace.py
+  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py tests/test_warehouse_workspace.py tests/test_catalog_tags.py
 ```
 
 Application tests use temporary SQLite databases for both application storage and sources. They verify encrypted credentials, scanning, metadata, notes, exports, CSRF and Origin checks, roles and source grants, preview authorization, account deactivation, read-only SQLite access, path boundaries, and session revocation. The feature suite additionally covers permission-filtered global search, literal search patterns, note indexing, snapshot/index rollback, schema comparisons, persistent scheduling, duplicate-scan deferral, access revocation, daylight-saving transitions, additive migrations, and cleanup on source deletion. PDF tests parse the actual generated files and cover full/single-object and historical exports, viewer permissions, literal markup, Unicode text, long notes and oversized table cells, 85-object diagrams, cross-page references, composite/self/external foreign keys, and empty/inferred schemas.
@@ -559,3 +577,11 @@ NODE_PATH=/tmp/datatlas-browser/node_modules node tests/warehouse-workspace.cjs
 ```
 
 This browser test creates warehouses, subject projects, target drafts and task records in its fixture. It checks shared calendar reuse, global filters, direct mapping edits, target binding/return links, project adoption, downloads, both languages, viewer controls and mobile layout. Never point it at a live installation.
+
+`tests/test_catalog_tags.py` checks shared colors, case-insensitive definitions, version conflicts, definition removal without lost assignments, atomic bulk limits, preserved ownership, grant isolation and CSRF/origin checks. `tests/classification.cjs` exercises definition editing, 64 fictional sources, assignments across pages, category/tag filtering, cards, source pickers, viewers and mobile layout in both languages. Run it only against a disposable seeded instance:
+
+```bash
+CLASSIFICATION_TEST_URL=http://127.0.0.1:8091 \
+  CLASSIFICATION_TEST_PASSWORD=YOUR_FIXTURE_PASSWORD \
+  NODE_PATH=/tmp/datatlas-browser/node_modules node tests/classification.cjs
+```

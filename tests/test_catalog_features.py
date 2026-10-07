@@ -102,6 +102,7 @@ def test_metadata_validation_permissions_and_exports(client, catalog):
         "tags": ["Production", "Finance"],
         "owner": "Data Team",
         "owner_email": "data@example.org",
+        "tag_styles": {},
     }
     source = next(s for s in client.get("/api/sources").json() if s["id"] == ids[0])
     assert source["tags"] == ["Production", "Finance"]

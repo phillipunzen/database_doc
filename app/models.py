@@ -112,6 +112,15 @@ class SourceMetadata(Base):
     owner_email: Mapped[str] = mapped_column(String(190), default="")
 
 
+class CatalogTag(Base):
+    __tablename__ = "catalog_tags"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    name: Mapped[str] = mapped_column(String(60))
+    color: Mapped[str] = mapped_column(String(20), default="gray")
+    category: Mapped[str] = mapped_column(String(20), default="other")
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+
 class ScanSchedule(Base):
     __tablename__ = "scan_schedules"
     source_id: Mapped[int] = mapped_column(

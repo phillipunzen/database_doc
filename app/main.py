@@ -63,6 +63,12 @@ from .schema_diff import compare
 from .warehouse_api import router as warehouse_router
 from .branding import router as branding_router
 from .warehouse_workspace import router as warehouse_workspace_router
+from .catalog_tags import (
+    router as catalog_tags_router,
+    styles_for,
+    definitions,
+    normalize_tags,
+)
 
 from .i18n import LANGUAGE, MESSAGES, negotiate_language
 
@@ -132,6 +138,7 @@ def english_catalog():
 app.include_router(warehouse_router)
 app.include_router(branding_router)
 app.include_router(warehouse_workspace_router)
+app.include_router(catalog_tags_router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 oauth = OAuth()
 if (
@@ -420,7 +427,7 @@ def warehouse_uses_source(db, source_id):
     )
 
 
-def source_json(db, source, user):
+def source_json(db, source, user, tag_definitions=None):
     config = decrypt(source)
     metadata = db.get(SourceMetadata, source.id)
     schedule = db.get(ScanSchedule, source.id)
@@ -448,6 +455,9 @@ def source_json(db, source, user):
         "config": visible_config,
         "mongo_infer": source.mongo_infer,
         "tags": metadata.tags if metadata else [],
+        "tag_styles": styles_for(
+            db, metadata.tags if metadata else [], tag_definitions
+        ),
         "owner": metadata.owner if metadata else "",
         "owner_email": metadata.owner_email if metadata else "",
         "schedule": schedule_json(schedule),
@@ -476,7 +486,8 @@ def sources(user: User = Depends(current)):
         query = select(Source).order_by(Source.name)
         if user.role != "admin":
             query = query.join(Grant).where(Grant.user_id == user.id)
-        return [source_json(db, s, user) for s in db.scalars(query)]
+        known_tags = definitions(db)
+        return [source_json(db, s, user, known_tags) for s in db.scalars(query)]
 
 
 @app.post("/api/sources")
@@ -1024,19 +1035,7 @@ class MetadataInput(BaseModel):
 
 @app.put("/api/sources/{source_id}/metadata")
 def save_metadata(source_id: int, body: MetadataInput, user: User = Depends(current)):
-    tags, seen = [], set()
-    for value in body.tags:
-        tag = value.strip()
-        if not tag or len(tag) > 60 or any(ord(c) < 32 for c in tag) or "," in tag:
-            raise HTTPException(
-                422,
-                tr(
-                    "Tags müssen 1–60 Zeichen lang sein und dürfen keine Kommas oder Steuerzeichen enthalten."
-                ),
-            )
-        if tag.casefold() not in seen:
-            tags.append(tag)
-            seen.add(tag.casefold())
+    tags = normalize_tags(body.tags)
     email = body.owner_email.strip()
     if email and (
         email.count("@") != 1
@@ -1055,7 +1054,7 @@ def save_metadata(source_id: int, body: MetadataInput, user: User = Depends(curr
         record.owner_email = email
         audit(db, user, "source_metadata_updated", source_id)
         db.commit()
-        return metadata_json(record)
+        return {**metadata_json(record), "tag_styles": styles_for(db, record.tags)}
 
 
 class ScheduleInput(BaseModel):

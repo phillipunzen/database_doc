@@ -2609,3 +2609,110 @@ dialog::backdrop {
 .dwh-wizard-footer > .actions {
   margin-left: auto;
 }
+
+/* Shared classification: text labels remain meaningful without color. */
+.catalog-toolbar {
+  grid-template-columns: minmax(180px, 1fr) repeat(4, minmax(105px, 150px));
+}
+.classification-tag {
+  border: 1px solid transparent;
+  text-align: left;
+  line-height: 1.5;
+}
+button.classification-tag {
+  cursor: pointer;
+  font-family: inherit;
+}
+.classification-tag.tag-blue {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #bfdbfe;
+}
+.classification-tag.tag-green {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+.classification-tag.tag-orange {
+  background: #ffedd5;
+  color: #9a3412;
+  border-color: #fed7aa;
+}
+.classification-tag.tag-red {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+.classification-tag.tag-purple {
+  background: #f3e8ff;
+  color: #6b21a8;
+  border-color: #e9d5ff;
+}
+.classification-tag.tag-teal {
+  background: #ccfbf1;
+  color: #115e59;
+  border-color: #99f6e4;
+}
+.classification-tag.tag-gray {
+  background: #f3f4f6;
+  color: #374151;
+  border-color: #e5e7eb;
+}
+button.classification-tag:focus-visible {
+  outline: 2px solid #163a35;
+  outline-offset: 2px;
+}
+.card-classification {
+  margin: 0 22px 14px;
+}
+.ct-manager-head {
+  margin: 16px 0;
+}
+.ct-definition-list,
+.ct-source-list {
+  max-height: 50vh;
+  overflow: auto;
+  margin: 14px 0;
+}
+.ct-definition {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e2e8e3;
+}
+.ct-definition > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+.ct-source-list .checkbox {
+  padding: 10px 0;
+  border-bottom: 1px solid #e2e8e3;
+}
+.ct-source-list .checkbox > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ct-source-list .small {
+  display: block;
+}
+@media (max-width: 1100px) {
+  .catalog-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .catalog-toolbar .search {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 600px) {
+  .catalog-dashboard .page-head > .actions {
+    width: 100%;
+  }
+  .catalog-dashboard .page-head > .actions .btn {
+    white-space: normal;
+  }
+}

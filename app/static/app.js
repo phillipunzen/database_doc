@@ -19,6 +19,8 @@ const state = {
   statusFilter: "all",
   hostFilter: "all",
   tagFilter: "all",
+  tagCategoryFilter: "all",
+  catalogTags: [],
   schedule: null,
   comparison: null,
   compareBefore: null,
@@ -198,7 +200,7 @@ function sourceStats(sources) {
   )}</div>`;
 }
 function card(s) {
-  return localize`<article class="source-card"><div class="source-card-top"><div class="db-icon ${s.kind}">${databaseLogo(s.kind)}</div><div style="flex:1;min-width:0"><button class="source-title" data-action="open" data-id="${s.id}">${e(s.name)}</button><div class="small muted">${names[s.kind]}</div></div>${status(s)}</div><div class="source-meta">${icon("server")}<span>${e(s.kind === "sqlite" ? s.config.path : s.config.host + (s.config.port ? ":" + s.config.port : "") + " / " + s.config.database)}</span></div><div class="card-stats"><div><strong>${s.table_count}</strong><span>Objekte</span></div><div><strong>${s.column_count}</strong><span>Spalten</span></div><div><strong>${s.relation_count}</strong><span>Beziehungen</span></div></div><div class="card-footer"><span>${e(dt(s.scanned_at))}</span><button data-action="open" data-id="${s.id}">Öffnen ${icon("arrow")}</button></div></article>`;
+  return localize`<article class="source-card"><div class="source-card-top"><div class="db-icon ${s.kind}">${databaseLogo(s.kind)}</div><div style="flex:1;min-width:0"><button class="source-title" data-action="open" data-id="${s.id}">${e(s.name)}</button><div class="small muted">${names[s.kind]}</div></div>${status(s)}</div><div class="source-meta">${icon("server")}<span>${e(s.kind === "sqlite" ? s.config.path : s.config.host + (s.config.port ? ":" + s.config.port : "") + " / " + s.config.database)}</span></div><div class="tag-list card-classification">${(s.tags || []).map((t) => tagBadge(t, s, true)).join("")}</div><div class="card-stats"><div><strong>${s.table_count}</strong><span>Objekte</span></div><div><strong>${s.column_count}</strong><span>Spalten</span></div><div><strong>${s.relation_count}</strong><span>Beziehungen</span></div></div><div class="card-footer"><span>${e(dt(s.scanned_at))}</span><button data-action="open" data-id="${s.id}">Öffnen ${icon("arrow")}</button></div></article>`;
 }
 const sourceSortLabels = {
   name: "Name",
@@ -256,6 +258,10 @@ function filteredSources() {
         state.statusFilter === sourceStatus(s)) &&
       (state.hostFilter === "all" || state.hostFilter === sourceHost(s)) &&
       (state.tagFilter === "all" || (s.tags || []).includes(state.tagFilter)) &&
+      (state.tagCategoryFilter === "all" ||
+        (s.tags || []).some(
+          (tag) => tagStyle(tag, s).category === state.tagCategoryFilter,
+        )) &&
       terms.every((term) => searchable.includes(term))
     );
   });
@@ -302,10 +308,10 @@ function sourceRow(s) {
       s.tags || []
     )
       .slice(0, 3)
-      .map((tag) => `<span class="tag">${e(tag)}</span>`)
+      .map((tag) => tagBadge(tag, s, true))
       .join(
         "",
-      )}${(s.tags || []).length > 3 ? `<span class="tag">+${s.tags.length - 3}</span>` : ""}</div></div></div></td>
+      )}${(s.tags || []).length > 3 ? `<button type="button" class="tag" data-action="ct-show" data-id="${s.id}">+${s.tags.length - 3}</button>` : ""}</div></div></div></td>
     <td class="engine-cell">${e(names[s.kind])}</td>
     <td class="source-target-cell"><span class="source-host" title="${e(sourceHost(s))}">${e(sourceHost(s))}${s.config.port && s.kind !== "sqlite" ? ":" + e(s.config.port) : ""}</span><span class="source-database" title="${e(target)}">${e(target || "—")}${s.config.schema ? " · " + e(s.config.schema) : ""}</span></td>
     <td class="numeric">${s.snapshot_id ? s.table_count.toLocaleString(uiLocale) : "—"}</td>
@@ -368,7 +374,8 @@ function paintSources() {
     state.filter === "all" &&
     state.statusFilter === "all" &&
     state.hostFilter === "all" &&
-    state.tagFilter === "all";
+    state.tagFilter === "all" &&
+    state.tagCategoryFilter === "all";
 }
 function resetSourceFilters() {
   state.query = "";
@@ -376,11 +383,13 @@ function resetSourceFilters() {
   state.statusFilter = "all";
   state.hostFilter = "all";
   state.tagFilter = "all";
+  state.tagCategoryFilter = "all";
   state.sourcePage = 1;
   document.getElementById("source-search").value = "";
   document.getElementById("source-status-filter").value = "all";
   document.getElementById("source-host-filter").value = "all";
   document.getElementById("source-tag-filter").value = "all";
+  document.getElementById("source-category-filter").value = "all";
   paintSources();
 }
 function renderSources() {
@@ -391,7 +400,7 @@ function renderSources() {
     sourceCollator.compare,
   );
   shell(localize`<div class="catalog-dashboard">
-    <div class="page-head"><div><div class="eyebrow">Datenkatalog</div><h1>Datenquellen</h1><p>Datenbanken finden, Schema-Stände prüfen und Dokumentationen öffnen.</p></div>${state.user.role === "admin" ? localize`<button class="btn primary" data-action="add-source">${icon("plus")} Datenquelle hinzufügen</button>` : ""}</div>
+    <div class="page-head"><div><div class="eyebrow">Datenkatalog</div><h1>Datenquellen</h1><p>Datenbanken finden, Schema-Stände prüfen und Dokumentationen öffnen.</p></div>${classificationActions()}</div>
     ${sourceStats(state.sources)}
     <div class="engine-filters" role="group" aria-label="Nach Datenbanksystem filtern"><button class="engine-filter" data-action="source-kind" data-kind="all">Alle Systeme <span>${state.sources.length}</span></button>${Object.entries(
       names,
@@ -402,7 +411,7 @@ function renderSources() {
       )
       .join("")}</div>
     <section class="panel catalog-panel">
-      <div class="catalog-toolbar"><div class="search">${icon("search")}<input id="source-search" aria-label="Datenquellen durchsuchen" placeholder="Name, Server, Tag oder Verantwortliche suchen …" value="${e(state.query)}"></div><select id="source-host-filter" aria-label="Nach Server filtern"><option value="all">Alle Server</option>${hosts.map((host) => `<option value="${e(host)}" ${state.hostFilter === host ? "selected" : ""}>${e(host)}</option>`).join("")}</select><select id="source-tag-filter" aria-label="Nach Tag filtern"><option value="all">Alle Tags</option>${tags.map((tag) => `<option value="${e(tag)}" ${state.tagFilter === tag ? "selected" : ""}>${e(tag)}</option>`).join("")}</select><select id="source-status-filter" aria-label="Nach Scan-Status filtern"><option value="all">Alle Status</option>${Object.entries(
+      <div class="catalog-toolbar"><div class="search">${icon("search")}<input id="source-search" aria-label="Datenquellen durchsuchen" placeholder="Name, Server, Tag oder Verantwortliche suchen …" value="${e(state.query)}"></div><select id="source-host-filter" aria-label="Nach Server filtern"><option value="all">Alle Server</option>${hosts.map((host) => `<option value="${e(host)}" ${state.hostFilter === host ? "selected" : ""}>${e(host)}</option>`).join("")}</select><select id="source-tag-filter" aria-label="Nach Tag filtern"><option value="all">Alle Tags</option>${tags.map((tag) => `<option value="${e(tag)}" ${state.tagFilter === tag ? "selected" : ""}>${e(tag)}</option>`).join("")}</select>${classificationFilter()}<select id="source-status-filter" aria-label="Nach Scan-Status filtern"><option value="all">Alle Status</option>${Object.entries(
         sourceStatusLabels,
       )
         .map(
@@ -581,7 +590,7 @@ function sourceBody() {
     return localize`<div class="empty">${icon("table")}<h2>Die Dokumentation beginnt mit einem Scan</h2><p>${s.can_edit ? uiText("DatabaseDoc liest die Struktur der Datenbank aus und erstellt daraus Tabellenübersichten und Beziehungen.") : uiText("Ein Bearbeiter muss zunächst einen Schema-Scan starten.")}</p>${s.can_edit ? localize('<button class="btn primary" data-action="scan">Schema scannen</button>') : ""}</div>`;
   if (state.tab === "schema") return schemaView();
   if (state.tab === "er") return erView();
-  return localize`${sourceStats([s])}<div class="info-grid"><section class="panel"><div class="panel-head"><h2>Verbindungsinformationen</h2>${status(s)}</div><div class="panel-body">${info("Tags", tagList(s.tags))}${info(uiText("Verantwortlich"), e(s.owner || uiText("Nicht zugewiesen")))}${info(uiText("Kontakt"), e(s.owner_email || "—"))}${info(uiText("Automatische Scans"), s.schedule?.enabled ? e({ hourly: uiText("Stündlich"), daily: uiText("Täglich"), weekly: uiText("Wöchentlich") }[s.schedule.cadence]) + " · " + e(dt(s.schedule.next_run)) : uiText("Deaktiviert"))}${info(uiText("Datenbanktyp"), names[s.kind])}${info(uiText("Datenbank"), e(s.config.database || uiText("SQLite-Datei")))}${info(uiText("Host / Datei"), e(s.config.host || s.config.path))}${info("Schema", e(s.config.schema || uiText("Alle zugänglichen Schemas")))}${info(uiText("Letzter Scan"), e(dt(s.scanned_at)))}${info(uiText("Deine Berechtigungen"), (s.can_edit ? uiText("Bearbeiten") : uiText("Lesen")) + (s.can_data ? " · Datenvorschau" : ""))}</div></section><section class="panel"><div class="panel-head"><h2>Dokumentierte Objekte</h2><button class="text-button" data-action="source-tab" data-tab="schema">Alle anzeigen →</button></div><div class="table-wrap"><table><thead><tr><th>Objekt</th><th>Typ</th><th>Spalten</th></tr></thead><tbody>${snap.payload.tables
+  return localize`${sourceStats([s])}<div class="info-grid"><section class="panel"><div class="panel-head"><h2>Verbindungsinformationen</h2>${status(s)}</div><div class="panel-body">${info("Tags", tagList(s.tags, s))}${info(uiText("Verantwortlich"), e(s.owner || uiText("Nicht zugewiesen")))}${info(uiText("Kontakt"), e(s.owner_email || "—"))}${info(uiText("Automatische Scans"), s.schedule?.enabled ? e({ hourly: uiText("Stündlich"), daily: uiText("Täglich"), weekly: uiText("Wöchentlich") }[s.schedule.cadence]) + " · " + e(dt(s.schedule.next_run)) : uiText("Deaktiviert"))}${info(uiText("Datenbanktyp"), names[s.kind])}${info(uiText("Datenbank"), e(s.config.database || uiText("SQLite-Datei")))}${info(uiText("Host / Datei"), e(s.config.host || s.config.path))}${info("Schema", e(s.config.schema || uiText("Alle zugänglichen Schemas")))}${info(uiText("Letzter Scan"), e(dt(s.scanned_at)))}${info(uiText("Deine Berechtigungen"), (s.can_edit ? uiText("Bearbeiten") : uiText("Lesen")) + (s.can_data ? " · Datenvorschau" : ""))}</div></section><section class="panel"><div class="panel-head"><h2>Dokumentierte Objekte</h2><button class="text-button" data-action="source-tab" data-tab="schema">Alle anzeigen →</button></div><div class="table-wrap"><table><thead><tr><th>Objekt</th><th>Typ</th><th>Spalten</th></tr></thead><tbody>${snap.payload.tables
     .slice(0, 7)
     .map(
       (t, i) =>
@@ -858,6 +867,9 @@ function renderUsers() {
   );
 }
 const auditLabels = {
+  tag_style_saved: uiText("Tag-Definition gespeichert"),
+  tag_style_deleted: uiText("Tag-Definition entfernt"),
+  source_metadata_updated: uiText("Tags und Verantwortliche gespeichert."),
   warehouse_removed: uiText("Warehouse-Verwaltung entfernt"),
   warehouse_created: uiText("Warehouse angelegt"),
   warehouse_updated: uiText("Warehouse geändert"),
@@ -1048,6 +1060,7 @@ document.addEventListener("click", async (ev) => {
   if (!button) return;
   const a = button.dataset.action;
   try {
+    if (a.startsWith("ct-")) await classificationClick(button);
     if (a.startsWith("wh-")) await warehouseWorkspaceClick(button);
     if (a.startsWith("dwh-")) await warehouseClick(button);
     if (a === "search-page") {
@@ -1239,6 +1252,11 @@ document.addEventListener("click", async (ev) => {
 });
 document.addEventListener("submit", async (ev) => {
   const form = ev.target;
+  if (form.id.startsWith("ct-")) {
+    ev.preventDefault();
+    await classificationSubmit(form);
+    return;
+  }
   if (form.id.startsWith("wh-")) {
     ev.preventDefault();
     await warehouseWorkspaceSubmit(form);
@@ -1408,6 +1426,8 @@ document.addEventListener("submit", async (ev) => {
 });
 document.addEventListener("input", (ev) => {
   warehouseWorkspaceSearch(ev.target);
+  if (ev.target.id === "source-tags") classificationPreview();
+  if (ev.target.closest("#ct-definition-form")) classificationUpdate();
   if (ev.target.id === "source-search") {
     state.query = ev.target.value;
     state.sourcePage = 1;
@@ -1424,11 +1444,14 @@ document.addEventListener("input", (ev) => {
 });
 document.addEventListener("change", (ev) => {
   warehouseWorkspaceChange(ev.target);
+  if (ev.target.closest("#ct-definition-form, #ct-assignment-form"))
+    classificationUpdate();
   if (ev.target.id.startsWith("dwh-") || ev.target.dataset.dwhStatus)
     warehouseChange(ev.target);
   const catalogFields = {
     "source-host-filter": "hostFilter",
     "source-tag-filter": "tagFilter",
+    "source-category-filter": "tagCategoryFilter",
     "source-status-filter": "statusFilter",
     "source-sort": "sourceSort",
     "source-page-size": "sourcePageSize",
@@ -1545,14 +1568,14 @@ setInterval(async () => {
   }
 })();
 
-function tagList(tags) {
+function tagList(tags, source = {}) {
   return (tags || []).length
-    ? `<span class="tag-list">${tags.map((t) => `<span class="tag">${e(t)}</span>`).join("")}</span>`
+    ? `<span class="tag-list">${tags.map((t) => tagBadge(t, source)).join("")}</span>`
     : localize('<span class="muted">Keine Tags</span>');
 }
 function organizationView() {
   const s = state.source;
-  return localize`<section class="panel feature-panel"><div class="panel-head"><div><h2>Tags & Verantwortliche</h2><p class="muted small">Ordne diese Datenbank einem Team zu und finde sie mit Tags im Katalog.</p></div></div><div class="panel-body"><form id="organization-form" class="feature-form"><fieldset ${s.can_edit ? "" : "disabled"}><div class="field"><label for="source-tags">Tags</label><input id="source-tags" name="tags" value="${e((s.tags || []).join(", "))}" placeholder="Produktion, Finance, Data Warehouse"><small>Mit Kommas trennen. Bis zu 20 Tags mit jeweils 60 Zeichen.</small></div><div class="form-grid"><div class="field"><label for="source-owner">Verantwortliche Person oder Team</label><input id="source-owner" name="owner" maxlength="190" value="${e(s.owner)}" placeholder="Data Platform Team"></div><div class="field"><label for="source-owner-email">Kontakt-E-Mail</label><input id="source-owner-email" name="owner_email" type="email" maxlength="190" value="${e(s.owner_email)}" placeholder="data-team@example.org"></div></div>${s.can_edit ? localize('<button class="btn primary" type="submit">Zuständigkeit speichern</button>') : localize('<p class="muted">Du hast Leserechte für diese Angaben.</p>')}</fieldset><div id="form-error" class="error-text" role="alert"></div></form></div></section><div class="hint">${icon("info")}<span>Die Zuständigkeit dient der Dokumentation. Zugriffsrechte vergibt ein Administrator unter „Benutzer & Rechte“.</span></div>`;
+  return localize`<section class="panel feature-panel"><div class="panel-head"><div><h2>Tags & Verantwortliche</h2><p class="muted small">Ordne diese Datenbank einem Team zu und finde sie mit Tags im Katalog.</p></div></div><div class="panel-body"><form id="organization-form" class="feature-form"><fieldset ${s.can_edit ? "" : "disabled"}><div class="field"><label for="source-tags">Tags</label><input id="source-tags" name="tags" value="${e((s.tags || []).join(", "))}" placeholder="Produktion, Finance, Data Warehouse"><small>Mit Kommas trennen. Bis zu 20 Tags mit jeweils 60 Zeichen.</small>${classificationEditorHints()}</div><div class="form-grid"><div class="field"><label for="source-owner">Verantwortliche Person oder Team</label><input id="source-owner" name="owner" maxlength="190" value="${e(s.owner)}" placeholder="Data Platform Team"></div><div class="field"><label for="source-owner-email">Kontakt-E-Mail</label><input id="source-owner-email" name="owner_email" type="email" maxlength="190" value="${e(s.owner_email)}" placeholder="data-team@example.org"></div></div>${s.can_edit ? localize('<button class="btn primary" type="submit">Zuständigkeit speichern</button>') : localize('<p class="muted">Du hast Leserechte für diese Angaben.</p>')}</fieldset><div id="form-error" class="error-text" role="alert"></div></form></div></section><div class="hint">${icon("info")}<span>Die Zuständigkeit dient der Dokumentation. Zugriffsrechte vergibt ein Administrator unter „Benutzer & Rechte“.</span></div>`;
 }
 function scheduleView() {
   const s = state.source,
