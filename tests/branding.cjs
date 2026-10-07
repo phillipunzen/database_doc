@@ -31,12 +31,34 @@ if (!baseURL || !password)
       await page.locator('[name="password"]').fill(password);
       await page.locator('#login-form [type="submit"]').click();
       await page.locator("#source-results").waitFor();
-      await page.locator('[data-view="branding"]').click();
+      await page.locator('[data-view="settings"]').click();
       await page.locator("#branding-form").waitFor();
       assert.equal(
         await page.locator("h1").textContent(),
+        locale === "de-DE" ? "Systemeinstellungen" : "System settings",
+      );
+
+      assert.equal(
+        await page.locator("#company-logo-title").textContent(),
         locale === "de-DE" ? "Firmenlogo" : "Company logo",
       );
+      assert.equal(await page.locator('[data-view="branding"]').count(), 0);
+      assert(page.url().endsWith("#settings"));
+      assert(
+        (await page.locator(".breadcrumb").textContent()).includes(
+          "Administration",
+        ),
+      );
+      assert(
+        await page
+          .locator('[data-view="settings"]')
+          .evaluate((el) => el.classList.contains("active")),
+      );
+      // Existing links to the logo page still open the new system settings.
+      await page.goto(baseURL + "/#branding");
+      await page.waitForURL("**/#settings");
+      await page.locator("#branding-form").waitFor();
+      assert(page.url().endsWith("#settings"));
 
       const makeLogo = async (color) =>
         Buffer.from(
@@ -175,16 +197,24 @@ if (!baseURL || !password)
       });
       await page.reload();
       await page.locator("#source-results").waitFor();
-      assert.equal(await page.locator('[data-view="branding"]').count(), 0);
+      assert.equal(await page.locator('[data-view="settings"]').count(), 0);
       assert.equal(
         await page.locator(".company-logo").getAttribute("src"),
         replacedURL,
       );
       assert(page.url().endsWith("#sources"));
+      for (const route of ["settings", "branding"]) {
+        await page.goto(baseURL + "/#" + route);
+        await page.waitForURL("**/#sources");
+        await page.locator("#source-results").waitFor();
+        assert.equal(await page.locator("#branding-form").count(), 0);
+        assert(page.url().endsWith("#sources"));
+      }
+
       await page.unroute("**/api/auth/me");
       await page.reload();
       await page.locator("#source-results").waitFor();
-      await page.locator('[data-view="branding"]').click();
+      await page.locator('[data-view="settings"]').click();
       await page.locator("#branding-form").waitFor();
       page.once("dialog", (dialog) => dialog.dismiss());
       await page.locator('[data-action="branding-remove"]').click();

@@ -86,6 +86,8 @@ const paths = {
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/>',
   file: '<path d="M14 3H5v18h14V8zM14 3v5h5M8 12h8M8 16h8"/>',
   eye: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12"/><circle cx="12" cy="12" r="3"/>',
+  settings:
+    '<circle cx="12" cy="12" r="3"/><path d="m9 3-1 3-3 1-2 2 2 3-2 3 2 2 3 1 1 3h6l1-3 3-1 2-2-2-3 2-3-2-2-3-1-1-3z"/>',
   check: '<path d="m5 12 4 4L19 6"/>',
   trash: '<path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/>',
 };
@@ -164,7 +166,7 @@ async function showLogin() {
 }
 function shell(content) {
   diagramCleanup();
-  root.innerHTML = localize`<div class="layout"><aside class="sidebar">${brand()}<nav><div class="nav-label">Arbeitsbereich</div><button class="nav-button ${["sources", "source"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="sources">${icon("database")}<span>Datenquellen</span></button>${localize`<button class="nav-button ${state.view === "search" ? "active" : ""}" data-action="nav" data-view="search">${icon("search")}<span>Globale Suche</span></button>`}<button class="nav-button ${["warehouse", "warehouse-project", "warehouse-workspace"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="warehouse" title="Data Warehouse">${icon("relations")}<span>Data Warehouse</span></button><button class="nav-button ${["tools", "tool-design"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="tools">${icon("edit")}<span>Tools</span></button>${state.user.role === "admin" ? localize`<div class="nav-label" style="margin-top:30px">Administration</div><button class="nav-button ${state.view === "users" ? "active" : ""}" data-action="nav" data-view="users">${icon("users")}<span>Benutzer & Rechte</span></button><button class="nav-button ${state.view === "audit" ? "active" : ""}" data-action="nav" data-view="audit">${icon("shield")}<span>Aktivitätsprotokoll</span></button><button class="nav-button ${state.view === "branding" ? "active" : ""}" data-action="nav" data-view="branding" title="Firmenlogo">${icon("eye")}<span>Firmenlogo</span></button>` : ""}</nav><div class="sidebar-bottom"><div class="user-line"><div class="avatar">${e(state.user.display_name.slice(0, 1).toUpperCase())}</div><div><div class="small">${e(state.user.display_name)}</div><div style="font-size:10px;color:#a7c0b3">${roles[state.user.role]}</div></div></div>${state.user.provider === "local" ? localize('<button data-action="password">Passwort ändern</button>') : ""}<button data-action="logout">Abmelden</button></div></aside><main class="main"><header class="topbar"><div class="breadcrumb">Arbeitsbereich <span>/</span> <strong>${["tools", "tool-design"].includes(state.view) ? "Tools" : state.view === "source" ? e(state.source.name) : state.view === "search" ? uiText("Globale Suche") : ["warehouse", "warehouse-project", "warehouse-workspace"].includes(state.view) ? uiText("Data Warehouse") : state.view === "users" ? uiText("Benutzer & Rechte") : state.view === "audit" ? uiText("Aktivitätsprotokoll") : state.view === "branding" ? uiText("Firmenlogo") : uiText("Datenquellen")}</strong></div><div class="env-pill"><span class="dot"></span> ${roles[state.user.role]}</div><button class="btn ghost mobile-logout" data-action="logout" style="display:none">Abmelden</button></header><div class="content">${content}</div></main></div>`;
+  root.innerHTML = localize`<div class="layout"><aside class="sidebar">${brand()}<nav><div class="nav-label">Arbeitsbereich</div><button class="nav-button ${["sources", "source"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="sources">${icon("database")}<span>Datenquellen</span></button>${localize`<button class="nav-button ${state.view === "search" ? "active" : ""}" data-action="nav" data-view="search">${icon("search")}<span>Globale Suche</span></button>`}<button class="nav-button ${["warehouse", "warehouse-project", "warehouse-workspace"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="warehouse" title="Data Warehouse">${icon("relations")}<span>Data Warehouse</span></button><button class="nav-button ${["tools", "tool-design"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="tools">${icon("edit")}<span>Tools</span></button>${state.user.role === "admin" ? localize`<div class="nav-label" style="margin-top:30px">Administration</div><button class="nav-button ${state.view === "users" ? "active" : ""}" data-action="nav" data-view="users">${icon("users")}<span>Benutzer & Rechte</span></button><button class="nav-button ${state.view === "audit" ? "active" : ""}" data-action="nav" data-view="audit">${icon("shield")}<span>Aktivitätsprotokoll</span></button><button class="nav-button ${state.view === "settings" ? "active" : ""}" data-action="nav" data-view="settings" title="Systemeinstellungen">${icon("settings")}<span>Systemeinstellungen</span></button>` : ""}</nav><div class="sidebar-bottom"><div class="user-line"><div class="avatar">${e(state.user.display_name.slice(0, 1).toUpperCase())}</div><div><div class="small">${e(state.user.display_name)}</div><div style="font-size:10px;color:#a7c0b3">${roles[state.user.role]}</div></div></div>${state.user.provider === "local" ? localize('<button data-action="password">Passwort ändern</button>') : ""}<button data-action="logout">Abmelden</button></div></aside><main class="main"><header class="topbar"><div class="breadcrumb">${state.view === "settings" ? uiText("Administration") : uiText("Arbeitsbereich")} <span>/</span> <strong>${["tools", "tool-design"].includes(state.view) ? "Tools" : state.view === "source" ? e(state.source.name) : state.view === "search" ? uiText("Globale Suche") : ["warehouse", "warehouse-project", "warehouse-workspace"].includes(state.view) ? uiText("Data Warehouse") : state.view === "users" ? uiText("Benutzer & Rechte") : state.view === "audit" ? uiText("Aktivitätsprotokoll") : state.view === "settings" ? uiText("Systemeinstellungen") : uiText("Datenquellen")}</strong></div><div class="env-pill"><span class="dot"></span> ${roles[state.user.role]}</div><button class="btn ghost mobile-logout" data-action="logout" style="display:none">Abmelden</button></header><div class="content">${content}</div></main></div>`;
   setupPlannedDiagrams();
 }
 function status(source) {
@@ -446,6 +448,7 @@ async function loadSources() {
   state.sources = await api("/api/sources");
 }
 async function navigate(view, id, target = {}) {
+  if (view === "branding") view = "settings";
   if (view === "source") {
     state.source = state.sources.find((s) => s.id === Number(id));
     if (!state.source) {
@@ -546,7 +549,7 @@ async function navigate(view, id, target = {}) {
       state.audit = await api("/api/audit");
       renderAudit();
     }
-    if (view === "branding") {
+    if (view === "settings") {
       if (state.user.role !== "admin") {
         await navigate("sources");
         toast(uiText("Nur Administratoren dürfen diese Aktion ausführen."));
@@ -1557,6 +1560,7 @@ async function route() {
       "warehouse-workspace",
       "users",
       "audit",
+      "settings",
       "branding",
     ].includes(view)
       ? view

@@ -340,7 +340,7 @@ Upgrading requires pulling the updated image (or rebuilding locally with the bui
 
 ## Company logo
 
-Administrators can open **Company logo** in the Administration section to upload, preview, replace or remove one shared company logo. Select **Save logo** to publish it for all users; selecting a file alone only shows an unsaved preview. The logo appears on the sign-in page, in the sidebar, and in the header of newly generated table and ER PDFs. DatabaseDoc's product name remains visible. Removing the logo restores the default appearance.
+Administrators can open **Administration → System settings → Company logo** to upload, preview, replace or remove one shared company logo. Select **Save logo** to publish it for all users; selecting a file alone only shows an unsaved preview. The logo appears on the sign-in page, in the sidebar, and in the header of newly generated table and ER PDFs. DatabaseDoc's product name remains visible. Removing the logo restores the default appearance.
 
 Supported uploads are non-animated PNG, JPEG and WebP images up to 2 MiB, with at most 4,096 pixels per side and 4 million pixels overall. Transparent PNGs are recommended. The server verifies the actual image content, strips image metadata and converts the logo to PNG, scaling it proportionally to fit within 1,200 × 400 pixels. SVG and animated images are not accepted.
 

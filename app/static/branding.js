@@ -4,9 +4,9 @@ async function loadBranding() {
 
 function renderBranding() {
   const logo = state.branding?.logo_url;
-  shell(localize`<div class="page-head"><div><div class="eyebrow">Administration</div><h1>Firmenlogo</h1><p>Ein gemeinsames Logo für eure DatabaseDoc-Installation.</p></div></div>
-    <section class="panel branding-panel"><div class="panel-body"><form id="branding-form">
-      <h2>Logo-Vorschau</h2><div class="branding-preview" id="branding-preview">${logo ? `<img src="${e(logo)}" alt="${e(uiText("Firmenlogo"))}">` : `<p class="muted">${e(uiText("Kein Firmenlogo hinterlegt."))}</p>`}</div>
+  shell(localize`<div class="page-head"><div><div class="eyebrow">Administration</div><h1>Systemeinstellungen</h1><p>Gemeinsame Einstellungen für eure DatabaseDoc-Installation.</p></div></div>
+    <section class="panel branding-panel" aria-labelledby="company-logo-title"><div class="panel-head"><h2 id="company-logo-title">Firmenlogo</h2></div><div class="panel-body"><form id="branding-form">
+      <h3>Logo-Vorschau</h3><div class="branding-preview" id="branding-preview">${logo ? `<img src="${e(logo)}" alt="${e(uiText("Firmenlogo"))}">` : `<p class="muted">${e(uiText("Kein Firmenlogo hinterlegt."))}</p>`}</div>
       <p class="muted">Das Logo erscheint auf der Anmeldung, in der Seitenleiste und in Tabellen- und ER-PDFs. Es gilt für alle Benutzer.</p>
       <div class="field"><label for="company-logo-file">Logo auswählen</label><input id="company-logo-file" name="logo" type="file" accept="image/png,image/jpeg,image/webp" required aria-describedby="company-logo-help"><small id="company-logo-help">PNG, JPEG oder WebP, maximal 2 MB. Transparente PNGs eignen sich besonders gut. Das Logo wird proportional verkleinert.</small></div>
       <p class="small muted" id="branding-preview-status" role="status"></p><div id="form-error" class="error-text" role="alert"></div>
