@@ -19,10 +19,10 @@ Requirements: Docker Engine and Docker Compose v2 on Linux AMD64 (x86-64), with 
 ```bash
 git clone https://github.com/phillipunzen/database_doc.git
 cd database_doc
-python3 scripts/init-env.py
+bash scripts/init-env.sh
 ```
 
-The initialization script creates `.env` with individual passwords and encryption/session secrets. It does not print secrets or overwrite an existing file. Alternatively, copy `.env.example` to `.env` and configure these values yourself.
+The initialization script uses **Bash and OpenSSL**, not a host Python installation. It creates `.env` with individual passwords and encryption/session secrets, with permissions `0600`. It does not print secrets or overwrite an existing file. If OpenSSL is missing on Debian, install it as root with `apt-get update` and `apt-get install -y openssl` (or prefix these commands with `sudo`). Alternatively, copy `.env.example` to `.env` and configure these values yourself.
 
 Before starting, edit `.env`:
 
@@ -42,6 +42,25 @@ Open the URL configured in `APP_URL`. The default application port is `8090`; Ma
 Existing deployments need no database migration for the DatabaseDoc rename. The internal MariaDB database/user and session-cookie identifiers retain their legacy names to preserve stored documentation and existing sign-ins. Backups created after the rename use the `databasedoc-` filename prefix; existing backups remain compatible.
 
 The existing development deployment is available at **http://192.168.10.70:8090**, with its checkout at `/opt/datenbankdokumentation`.
+
+### Generating keys manually on Debian (no Python)
+
+For a **new installation**, the script above generates all five settings automatically. If you have already copied `.env.example` to `.env`, the script deliberately refuses to replace it. Generate the values manually and replace the corresponding placeholders in your editor:
+
+```bash
+# ENCRYPTION_KEY: keep the trailing = padding.
+openssl rand -base64 32 | tr '/+' '_-'
+
+# SESSION_SECRET: generate a separate value.
+openssl rand -hex 32
+
+# Run separately for APP_DB_PASSWORD, MARIADB_ROOT_PASSWORD and ADMIN_PASSWORD.
+openssl rand -hex 32
+```
+
+The encryption key is URL-safe Base64 of 32 random bytes, as required by [Fernet](https://cryptography.io/en/latest/fernet/); [OpenSSL rand](https://docs.openssl.org/3.0/man1/openssl-rand/) supplies cryptographically secure random bytes. The other four values each use independent 32-byte random hex strings. After editing, run `chmod 600 .env`. Set `APP_URL` to the actual browser URL and then run `docker compose pull` and `docker compose up -d`.
+
+Retain the existing `.env` for upgrades. Replacing `ENCRYPTION_KEY` makes previously stored connections unreadable; changing MariaDB password variables does not update users in an already initialized database volume.
 
 ## Prebuilt Docker image
 
