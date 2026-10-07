@@ -76,6 +76,7 @@ if (!baseURL)
         }
         let result;
         if (url.pathname === "/api/branding") result = { logo_url: null };
+        else if (url.pathname === "/api/dwh/warehouses") result = [];
         else if (url.pathname === "/api/auth/me")
           result = {
             user: {

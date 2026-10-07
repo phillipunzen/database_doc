@@ -64,7 +64,7 @@ Then add a SQLite source in the application with the container path `/sources/be
 
 The source dashboard defaults to a compact list with locally served database-engine logos. Search by name, server, database, schema, tag, or owner; combine engine, server, tag, and scan-status filters; sort by name, engine, server, object count, status, or last scan. Pagination supports 25, 50, or 100 sources per page. An optional card view uses the same filters and pagination. Filters and page selection are retained while navigating between a source and the catalog. The mobile list uses compact stacked rows.
 
-- Data warehouse projects with target modeling, snapshot-based field mappings, SQL generation for three engines, implementation tracking, and planned-versus-scanned target comparison.
+- Central warehouses with shared subject projects, a global target model, beginner guidance, source mappings, SQL generation for three engines, target comparison and manual maintenance records.
 - Multiple data sources with individual connection settings and encrypted credentials.
 - Database discovery on a server. Each source documents one database; an optional schema setting narrows the scan.
 - Manual and scheduled background scans of tables, views, columns, data types, nullability, defaults, primary and foreign keys, indexes, unique constraints, and database comments where supported by the adapter.
@@ -83,6 +83,44 @@ Scans are limited to 2,000 objects and run on two threads in a single applicatio
 PostgreSQL materialized views, stored procedures, and ETL or pipeline lineage are not yet supported.
 
 ## Data warehouse projects
+
+### Central warehouses and subject projects
+
+Use **Create central warehouse** on the DWH page to manage one shared target model for SQL Server, PostgreSQL or MariaDB. The setup assistant asks for a business goal, target platform/schema and source connections. Start with one concrete question, such as daily net revenue by product, rather than importing every source table immediately.
+
+A central warehouse owns the target tables, columns, relationships and source mappings. **Subject projects** describe business areas such as Sales, Purchasing or Finance and reference selected central tables. Assigning the same dimension to two subject projects reuses its definition and UUID; it does not create a second physical table. Table names are unique throughout the model, and relationships can connect tables used by different subject projects. All tables currently use the central target schema/database.
+
+The warehouse offers six views:
+
+1. **Roadmap:** beginner guidance, source links, suggested next actions and model/source-change warnings. The guide explains facts, dimensions, grain and Raw/Staging, Core and Data Mart layers.
+2. **Subject projects:** document the business question and owner, and select shared central tables. The optional starter assistant creates a fact table with an identity key, a date reference and one decimal measure, plus a shared `dim_date` dimension. Specify what a row represents and the measure's meaning/unit; review types, decimal precision, calendar semantics, mappings and loading strategies before implementation. Subsequent starter models reuse a compatible `dim_date`. These are planning drafts; no source data or target DDL is executed.
+3. **Global model:** view all planned relationships, filter by subject project and search table/field names. The global diagram includes up to all 300 allowed target tables; scrolling and filters keep it navigable. Filtered diagrams show relationships between visible tables. The object inventory shows shared use, manually reported implementation status and structural differences from the latest target scan. Select a table to edit its central definition with the existing five-step modeling workflow.
+4. **Data origin:** inspect source fields/snapshot IDs and derivation rules across subject projects. Editors can open a field's mapping directly. Results initially show 100 fields, with a load-more action for larger models; search remains available across all matching fields.
+5. **Target comparison:** inspect the latest successful stored target scan against the shared model, including missing/changed structures, extra columns and extra target tables. Open the target source to scan it or inspect its scanned ER model. This verifies documented structure, not loaded values, executed ETL jobs or business correctness.
+6. **Maintenance:** track implementation, data-quality and operational tasks with an owner, optional subject project, review date, status and result notes. Completed tasks require documented results. Initial tasks cover SQL review, load-job implementation/error handling, measure reconciliation, freshness checks and backup/recovery tests. These are manual records; due dates do not schedule load jobs, checks or notifications.
+
+To implement the first warehouse, define a subject project and starter/manual model, complete source mappings and loading/history rules in the modeling workflow, then export the shared SQL draft. Review and run it in the intended target system and implement/test load jobs there. Bind and scan the target, compare its structure, and record data reconciliations and subsequent review work under Maintenance. DatabaseDoc supports this planning and review cycle; its SQL export remains an initial schema-creation script rather than a migration or ETL runner.
+
+Existing standalone projects are retained. **Use as warehouse** attaches the central workspace to an existing project's model without copying or replacing its tables. **Adopt project** copies another standalone design into a subject project of an existing warehouse; the original project remains independent afterwards. Both must use the same target platform. Name collisions require an explicit shared-table choice or renaming in the original project. Shared-table reuse requires matching model roles, columns/types, nullability, keys, generated-key flags, field purposes and relationships; the central table's existing definition and source mappings are retained. Confirm that its business meaning matches as well. Copied table/column/relationship IDs and relationship targets are remapped together, and source grants are validated for the combined model. Adoptions and starter creation are atomic and version checked.
+
+Warehouse permissions follow the existing rules for **all** assigned input sources and the optional target. Revoking a required grant removes access to the whole workspace and its exports. Metadata edits, model edits and project adoption share the master project's optimistic version. Tables assigned to a subject project cannot be deleted until their assignments are removed; removing a subject project retains its central tables. Central master models are protected from deletion as standalone projects. Administrators or authorized editors can explicitly remove warehouse management in its settings: this deletes the subject-project/task records while retaining the target model as a standalone project, with a new version. Export the workspace documentation first if these records need to be retained. Startup adds `warehouse_workspaces`; existing source catalog, projects and settings are retained.
+
+Download the warehouse JSON documentation to include the full central model, subject goals/assignments, maintenance records and current structural comparison. Shared SQL is exported through the master project's existing export endpoint and defines shared dimensions once.
+
+```text
+GET/POST /api/dwh/warehouses
+POST /api/dwh/warehouses/from-project
+GET/PUT/DELETE /api/dwh/warehouses/{id}
+PUT /api/dwh/warehouses/{id}/model
+POST /api/dwh/warehouses/{id}/starter
+POST /api/dwh/warehouses/{id}/adopt-project
+GET /api/dwh/warehouses/{id}/export
+```
+
+![Central warehouse roadmap with fictional metadata](docs/warehouse-roadmap.png)
+![Shared global model with fictional metadata](docs/warehouse-global-model.png)
+
+### Modeling workflow and standalone projects
 
 Open **DWH-Projekte** in the sidebar to design and track a warehouse targeting **SQL Server, PostgreSQL, or MariaDB**. Projects, target models, mappings, requirements, and implementation statuses are stored in the application's MariaDB database. Existing catalog data is retained; startup adds two new tables without replacing sources, snapshots, users, or notes.
 
@@ -107,7 +145,7 @@ Projects also export JSON and Markdown documentation. Grain, mappings, transform
 
 Access follows **all** assigned source grants, including the optional target source: administrators can manage every project; editors need edit grants on every assigned source to change a project; viewers need read grants on every assigned source. Projects without sources are visible only to their creator and administrators. Removing a required grant immediately removes project access, including exports and comparisons. Referenced sources cannot be deleted or pointed at a different server/database/schema until their project bindings/mappings are removed. Source names, credentials, and TLS settings can still be updated. Conflicting edits are rejected using project versions, so an older editor cannot silently overwrite a newer save.
 
-Limits: 30 input sources, 100 target tables, 200 columns per target table, and 3,000 target columns per project; import at most 50 objects per request. Portable target identifiers use ASCII letters, digits, and underscores, start with a letter/underscore, and contain up to 63 characters. Source identifiers remain unchanged in mappings. Generated SQL supports the documented portable type set and primary-key-based relationships; advanced physical design needs further review.
+Limits: 100 input sources, 300 target tables, 200 columns per target table, and 30,000 target columns per shared model or standalone project; import at most 50 objects per request. A warehouse supports 100 subject projects and 300 maintenance tasks. Portable target identifiers use ASCII letters, digits, and underscores, start with a letter/underscore, and contain up to 63 characters. Source identifiers remain unchanged in mappings. Generated SQL supports the documented portable type set and primary-key-based relationships; advanced physical design needs further review.
 
 ```text
 GET/POST /api/dwh/projects
@@ -346,7 +384,7 @@ The backend uses FastAPI and SQLAlchemy. The bilingual interface uses locally se
 docker compose run --rm \
   -v "$PWD/app:/app/app:ro" \
   -v "$PWD/tests:/app/tests:ro" \
-  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py
+  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py tests/test_warehouse_workspace.py
 ```
 
 Application tests use temporary SQLite databases for both application storage and sources. They verify encrypted credentials, scanning, metadata, notes, exports, CSRF and Origin checks, roles and source grants, preview authorization, account deactivation, read-only SQLite access, path boundaries, and session revocation. The feature suite additionally covers permission-filtered global search, literal search patterns, note indexing, snapshot/index rollback, schema comparisons, persistent scheduling, duplicate-scan deferral, access revocation, daylight-saving transitions, additive migrations, and cleanup on source deletion. PDF tests parse the actual generated files and cover full/single-object and historical exports, viewer permissions, literal markup, Unicode text, long notes and oversized table cells, 85-object diagrams, cross-page references, composite/self/external foreign keys, and empty/inferred schemas.
@@ -449,3 +487,13 @@ NODE_PATH=/tmp/datatlas-browser/node_modules node tests/dwh-flow.cjs
 ```
 
 `tests/test_warehouse_ddl_integration.py` executes the generated initial DDL in dedicated disposable containers named `databasedoc-ddl-postgres`, `databasedoc-ddl-mariadb`, or `databasedoc-ddl-mssql`. Set `WAREHOUSE_TEST_ENGINE` to `postgresql`, `mariadb`, or `mssql` for the corresponding container on the application's Docker network. PostgreSQL/MariaDB fixtures use a database named `databasedoc_ddl_fixture`; the SQL Server check creates that database in its disposable instance. The fixture password is `Dwh-disposable-test-password-2026`. These checks reset fixture schemas/tables, insert fictional rows to verify identity generation, rescan the created model, and verify foreign-key enforcement. Use only the dedicated disposable test instances. With the variable unset, the integration test is skipped.
+
+`tests/test_warehouse_workspace.py` verifies single shared definitions, SQL generation, table-assignment integrity, project conversion/adoption, relationship remapping, optimistic conflicts, required task results, source-grant revocation and CSRF/origin protection. The real UI workflow is tested against an isolated deployment seeded with fictional source/target metadata:
+
+```bash
+WORKSPACE_TEST_URL=http://127.0.0.1:8091 \
+WORKSPACE_TEST_PASSWORD=your-disposable-admin-password \
+NODE_PATH=/tmp/datatlas-browser/node_modules node tests/warehouse-workspace.cjs
+```
+
+This browser test creates warehouses, subject projects, target drafts and task records in its fixture. It checks shared calendar reuse, global filters, direct mapping edits, target binding/return links, project adoption, downloads, both languages, viewer controls and mobile layout. Never point it at a live installation.

@@ -116,6 +116,7 @@ if (!baseURL)
       };
       await page.route("**/api/**", (route) => {
         const path = new URL(route.request().url()).pathname;
+        if (path === "/api/dwh/warehouses") return route.fulfill({ json: [] });
         // Serve the real shared translation catalog.
         if (path === "/api/i18n/en.js") return route.continue();
         assert.equal(

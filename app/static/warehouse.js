@@ -81,7 +81,19 @@ function dwhBody() {
     ].map((k) => [k, structuredClone(p[k])]),
   );
 }
-async function dwhSave(body) {
+async function dwhSave(body, areaId = null) {
+  if (state.view === "warehouse-workspace") {
+    whSet(
+      await api(`/api/dwh/warehouses/${state.wh.id}/model`, "PUT", {
+        project: body,
+        area_id: areaId,
+      }),
+    );
+    modal.close();
+    renderWarehouseWorkspace();
+    toast(uiText("Warehouse gespeichert."));
+    return;
+  }
   const p = await api(`/api/dwh/projects/${state.dwhProject.id}`, "PUT", body);
   state.dwhProject = p;
   state.dwhComparison = null;
@@ -89,7 +101,10 @@ async function dwhSave(body) {
   renderDwhProject();
   toast(uiText("DWH-Projekt gespeichert."));
 }
-function dwhWorkflow(project = state.dwhProject) {
+function dwhWorkflow(
+  project = state.dwhProject,
+  comparison = state.dwhComparison,
+) {
   const tables = project.tables;
   const columns = tables.flatMap((table) =>
     table.columns.map((column) => ({ table, column })),
@@ -100,7 +115,6 @@ function dwhWorkflow(project = state.dwhProject) {
   const target = state.sources.find(
     (source) => source.id === project.target_source_id,
   );
-  const comparison = state.dwhComparison;
   const firstEmpty = tables.find((table) => !table.columns.length);
   const firstGrain = tables.find(
     (table) =>
@@ -384,11 +398,7 @@ function dwhRoadmap(steps) {
 }
 
 function renderDwhProjects() {
-  const projects = state.dwhProjects || [];
-  shell(localize`<div class="page-head"><div><div class="eyebrow">Vom Quellsystem zum Zielmodell</div><h1>DWH-Projekte</h1><p>Data Warehouses konzipieren und ihre Umsetzung begleiten.</p></div>${state.user.role !== "viewer" ? localize`<button class="btn primary" data-action="dwh-create">${icon("plus")} Projekt anlegen</button>` : ""}</div>
-    <section class="dwh-intro"><div><h2>${e(uiText("Vom fachlichen Ziel zum geprüften Warehouse"))}</h2><p>${e(uiText("Lege ein Projekt an. Ein Fahrplan führt dich anschließend durch diese fünf Schritte und zeigt dir die offenen Aufgaben."))}</p></div><ol>${[uiText("Ziel & Quellen"), uiText("Zielmodell"), uiText("Datenherkunft & Laden"), uiText("Umsetzen"), uiText("Ergebnis prüfen")].map((label, index) => `<li><span>${index + 1}</span>${e(label)}</li>`).join("")}</ol></section>
-    <section class="panel"><div class="panel-head"><h2>Deine Projekte</h2><span class="badge neutral">${projects.length}</span></div>${projects.length ? localize`<div class="table-wrap"><table><thead><tr><th>Projekt / Ziel</th><th>Plattform</th><th>Zieltabellen</th><th>Umgesetzt</th><th></th></tr></thead><tbody>${projects.map((p) => localize`<tr><td><strong>${e(p.name)}</strong><div class="small muted dwh-excerpt">${e(p.goal || uiText("Fachliches Ziel noch offen"))}</div></td><td>${databaseLogo(p.target_kind)} ${e(dwhEngines[p.target_kind])}<div class="small muted">${e(p.target_schema)}</div></td><td>${p.table_count}</td><td>${p.implemented_count} / ${p.table_count}</td><td><button class="text-button" data-action="dwh-open" data-id="${p.id}">Projekt öffnen →</button></td></tr>`).join("")}</tbody></table></div>` : localize`<div class="empty">${icon("relations")}<h2>Dein erstes DWH-Projekt</h2><p>Wähle dokumentierte Quellen aus und entwickle daraus ein Zielmodell für SQL Server, PostgreSQL oder MariaDB.</p></div>`}</section>
-    <div class="hint">${icon("info")}<span>Quellstrukturen liefern einen Ausgangspunkt. Fachliche Kennzahlen, Granularität, Historisierung und Ladeverfahren werden im Projekt festgelegt.</span></div>`);
+  renderWarehouseHub();
 }
 function dwhProjectModal(edit = false) {
   const p = edit
@@ -423,7 +433,7 @@ function dwhProjectModal(edit = false) {
       .join(
         "",
       )}</select><small>Optional: Hinterlege und scanne das umgesetzte DWH als Datenquelle, um es mit dem Plan zu vergleichen.</small></div>
-    </${edit ? "div" : "details"}><p class="muted small">Projektrechte folgen den Freigaben aller zugeordneten Quellen einschließlich des Ziels. Projekte ohne Quellen sind nur für Ersteller und Administratoren sichtbar.</p></section>${edit ? localize('<button type="button" class="text-button danger" data-action="dwh-delete-project">Projekt entfernen</button>') : ""}${edit ? dwhFooter(uiText("Projekt speichern")) : `<div id="form-error" class="error-text" role="alert"></div><div class="modal-footer dwh-wizard-footer"><button type="button" class="btn" data-action="dwh-wizard-back">${e(uiText("Zurück"))}</button><div class="actions"><button type="button" class="btn primary" data-action="dwh-wizard-next">${e(uiText("Weiter"))} ${icon("arrow")}</button><button type="submit" class="btn primary">${e(uiText("Projekt starten"))} ${icon("arrow")}</button></div></div>`}</form>`,
+    </${edit ? "div" : "details"}><p class="muted small">Projektrechte folgen den Freigaben aller zugeordneten Quellen einschließlich des Ziels. Projekte ohne Quellen sind nur für Ersteller und Administratoren sichtbar.</p></section>${edit ? (p.warehouse_id ? whButton("Warehouse-Verwaltung entfernen", "remove", p.warehouse_id) : localize('<button type="button" class="text-button danger" data-action="dwh-delete-project">Projekt entfernen</button>')) : ""}${edit ? dwhFooter(uiText("Projekt speichern")) : `<div id="form-error" class="error-text" role="alert"></div><div class="modal-footer dwh-wizard-footer"><button type="button" class="btn" data-action="dwh-wizard-back">${e(uiText("Zurück"))}</button><div class="actions"><button type="button" class="btn primary" data-action="dwh-wizard-next">${e(uiText("Weiter"))} ${icon("arrow")}</button><button type="submit" class="btn primary">${e(uiText("Projekt starten"))} ${icon("arrow")}</button></div></div>`}</form>`,
   );
   if (!edit) {
     document.querySelector('#dwh-project-form [name="goal"]').required = true;
@@ -479,7 +489,7 @@ function renderDwhProject() {
     (step, index) => index > current && !step.complete,
   );
   const forward = pendingAfter < 0 ? current + 1 : pendingAfter;
-  shell(localize`<button class="back" data-action="nav" data-view="warehouse">${icon("back")} Alle DWH-Projekte</button><div class="page-head"><div><div class="eyebrow">${e(dwhEngines[p.target_kind])} · ${e(p.target_schema)}</div><h1 class="dwh-project-title">${e(p.name)}</h1><p>Zielmodell und Umsetzung · Projektversion ${p.version}</p></div><div class="actions"><button class="btn" data-action="dwh-reload">${icon("refresh")} Neu laden</button><button class="btn" data-action="dwh-export" data-format="markdown">${icon("download")} Dokumentation</button><button class="btn" data-action="dwh-export" data-format="json">JSON</button><button class="btn" data-action="dwh-export" data-format="sql">${icon("download")} SQL-Entwurf</button>${p.can_edit ? localize('<button class="btn" data-action="dwh-settings">Projekt bearbeiten</button>') : ""}</div></div>
+  shell(localize`${p.warehouse_id ? whButton("Zur Warehouse-Gesamtübersicht", "return", p.warehouse_id) : ""}<button class="back" data-action="nav" data-view="warehouse">${icon("back")} Alle DWH-Projekte</button><div class="page-head"><div><div class="eyebrow">${e(dwhEngines[p.target_kind])} · ${e(p.target_schema)}</div><h1 class="dwh-project-title">${e(p.name)}</h1><p>Zielmodell und Umsetzung · Projektversion ${p.version}</p></div><div class="actions"><button class="btn" data-action="dwh-reload">${icon("refresh")} Neu laden</button><button class="btn" data-action="dwh-export" data-format="markdown">${icon("download")} Dokumentation</button><button class="btn" data-action="dwh-export" data-format="json">JSON</button><button class="btn" data-action="dwh-export" data-format="sql">${icon("download")} SQL-Entwurf</button>${p.can_edit ? localize('<button class="btn" data-action="dwh-settings">Projekt bearbeiten</button>') : ""}</div></div>
     <nav class="dwh-process" aria-label="${e(uiText("DWH-Prozess"))}">${steps.map((step, index) => dwhStepButton(step, index, index === current)).join("")}</nav>
     ${tab === "overview" ? dwhRoadmap(steps) : ""}
     ${dwhGuide(steps[current], current)}
@@ -531,8 +541,8 @@ function dwhTypeLabel(c) {
       ? `DECIMAL(${c.precision}, ${c.scale})`
       : c.data_type.toUpperCase();
 }
-function dwhDiagram() {
-  const tables = state.dwhProject.tables.slice(0, 30),
+function dwhDiagram(visibleTables = state.dwhProject.tables, limit = 30) {
+  const tables = visibleTables.slice(0, limit),
     positions = new Map();
   const counts = [0, 0, 0];
   tables.forEach((t) => {
@@ -568,7 +578,7 @@ function dwhDiagram() {
     .map((t) => {
       const p = positions.get(t.id),
         selected = dwhSelectedTable()?.id === t.id;
-      return `<g data-action="dwh-select-table" data-id="${t.id}" role="button" tabindex="0" aria-label="${e(t.name)}" class="dwh-diagram-node"><rect x="${p.x}" y="${p.y}" width="280" height="140" rx="8" fill="${t.role === "fact" ? "#edf4df" : "white"}" stroke="${selected ? "#276256" : "#cddbd2"}" stroke-width="${selected ? 2 : 1}"/><text x="${p.x + 14}" y="${p.y + 23}" fill="#6d8077" font-size="11">${e(dwhRoles[t.role])} · ${e(dwhLayers[t.layer])}</text><text x="${p.x + 14}" y="${p.y + 45}" font-size="14" font-weight="bold" fill="#163a35">${e(t.name.length > 29 ? t.name.slice(0, 28) + "…" : t.name)}<title>${e(t.name)}</title></text>${t.columns
+      return `<g data-action="${state.view === "warehouse-workspace" ? "wh-table" : "dwh-select-table"}" data-id="${t.id}" role="button" tabindex="0" aria-label="${e(t.name)}" class="dwh-diagram-node"><rect x="${p.x}" y="${p.y}" width="280" height="140" rx="8" fill="${t.role === "fact" ? "#edf4df" : "white"}" stroke="${selected ? "#276256" : "#cddbd2"}" stroke-width="${selected ? 2 : 1}"/><text x="${p.x + 14}" y="${p.y + 23}" fill="#6d8077" font-size="11">${e(dwhRoles[t.role])} · ${e(dwhLayers[t.layer])}</text><text x="${p.x + 14}" y="${p.y + 45}" font-size="14" font-weight="bold" fill="#163a35">${e(t.name.length > 29 ? t.name.slice(0, 28) + "…" : t.name)}<title>${e(t.name)}</title></text>${t.columns
         .slice(0, 4)
         .map(
           (c, i) =>
@@ -921,9 +931,17 @@ async function warehouseSubmit(form) {
       });
       if (edit) await dwhSave(body);
       else {
-        const p = await api("/api/dwh/projects", "POST", body);
+        const isWorkspace = form.dataset.workspace === "true";
+        const p = await api(
+          isWorkspace ? "/api/dwh/warehouses" : "/api/dwh/projects",
+          "POST",
+          body,
+        );
         modal.close();
-        await navigate("warehouse-project", p.id);
+        await navigate(
+          isWorkspace ? "warehouse-workspace" : "warehouse-project",
+          p.id,
+        );
       }
     }
     if (form.id === "dwh-table-form") {
@@ -938,7 +956,7 @@ async function warehouseSubmit(form) {
         body.tables.push(t);
         state.dwhTableId = t.id;
       }
-      await dwhSave(body);
+      await dwhSave(body, form.dataset.areaId || null);
     }
     if (form.id === "dwh-column-form") {
       const context = state.dwhColumnContext;
@@ -1114,7 +1132,9 @@ document.addEventListener("keydown", (ev) => {
   const node = ev.target.closest(".dwh-diagram-node");
   if (node && ["Enter", " "].includes(ev.key)) {
     ev.preventDefault();
-    warehouseClick(node).catch((err) => toast(err.message));
+    (node.dataset.action.startsWith("wh-")
+      ? warehouseWorkspaceClick
+      : warehouseClick)(node).catch((err) => toast(err.message));
   }
 });
 

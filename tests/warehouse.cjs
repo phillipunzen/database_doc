@@ -187,9 +187,17 @@ const out = path.resolve(__dirname, "../docs");
       );
     }
     await page.locator('[data-action="dwh-tab"][data-tab="progress"]').click();
-    await page
-      .getByLabel("Umsetzungsstatus fact_sales", { exact: true })
-      .selectOption("in_progress");
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.request().method() === "PUT" &&
+          new URL(response.url()).pathname === endpoint &&
+          response.ok(),
+      ),
+      page
+        .getByLabel("Umsetzungsstatus fact_sales", { exact: true })
+        .selectOption("in_progress"),
+    ]);
     p = await api(endpoint);
     assert.equal(
       p.tables.find((t) => t.name === "fact_sales").status,

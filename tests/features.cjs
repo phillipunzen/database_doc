@@ -104,6 +104,7 @@ const baseURL =
       if (method !== "GET") writes.push({ path: url.pathname, body });
       let json;
       if (url.pathname === "/api/branding") json = { logo_url: null };
+      else if (url.pathname === "/api/dwh/warehouses") json = [];
       else if (url.pathname === "/api/auth/me")
         json = {
           user: {

@@ -191,6 +191,15 @@ class WarehouseProjectSource(Base):
     source_id: Mapped[int] = mapped_column(ForeignKey("sources.id"), primary_key=True)
 
 
+class WarehouseWorkspace(Base):
+    __tablename__ = "warehouse_workspaces"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("warehouse_projects.id"), unique=True
+    )
+    content: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
 if os.getenv("TEST_DATABASE_URL"):
     engine = create_engine(
         os.environ["TEST_DATABASE_URL"], connect_args={"check_same_thread": False}

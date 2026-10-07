@@ -16,6 +16,7 @@ from .models import (
     User,
     WarehouseProject,
     WarehouseProjectSource,
+    WarehouseWorkspace,
     now,
 )
 from .security import current, access, audit
@@ -184,6 +185,11 @@ def project_json(db, user, project, detail=True):
         "implemented_count": sum(
             t.status in {"implemented", "accepted"} for t in body.tables
         ),
+        "warehouse_id": db.scalar(
+            select(WarehouseWorkspace.id).where(
+                WarehouseWorkspace.project_id == project.id
+            )
+        ),
     }
     if detail:
         result.update(
@@ -238,8 +244,30 @@ def validate_sources(db, user, body):
                 )
 
 
-def store_project(db, user, project, body):
+def store_project(db, user, project, body, commit=True):
     validate_sources(db, user, body)
+    workspace = (
+        db.scalar(
+            select(WarehouseWorkspace).where(
+                WarehouseWorkspace.project_id == project.id
+            )
+        )
+        if project.id
+        else None
+    )
+    if workspace:
+        ids = {str(table.id) for table in body.tables}
+        if any(
+            table_id not in ids
+            for area in workspace.content.get("areas", [])
+            for table_id in area["table_ids"]
+        ):
+            raise HTTPException(
+                409,
+                tr(
+                    "Die Tabelle wird von einem Teilprojekt verwendet. Bitte zuerst die Tabellenzuordnung im Warehouse entfernen."
+                ),
+            )
     values = {
         "name": body.name,
         "goal": body.goal,
@@ -289,7 +317,10 @@ def store_project(db, user, project, body):
         ]
     )
     audit(db, user, "dwh_project_saved", project.id)
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     return project_json(db, user, project)
 
 
@@ -333,6 +364,15 @@ def save_project(project_id: int, body: ProjectInput, user: User = Depends(curre
 def delete_project(project_id: int, version: int, user: User = Depends(current)):
     with scan_lock, Session() as db:
         p = project_access(db, user, project_id, edit=True)
+        if db.scalar(
+            select(WarehouseWorkspace.id).where(WarehouseWorkspace.project_id == p.id)
+        ):
+            raise HTTPException(
+                409,
+                tr(
+                    "Das Projekt ist das zentrale Warehouse-Modell und kann nicht als Einzelprojekt gelöscht werden."
+                ),
+            )
         if p.version != version:
             raise HTTPException(
                 409, tr("Projekt wurde inzwischen geändert. Bitte neu laden.")
@@ -393,16 +433,16 @@ def import_source(project_id: int, body: ImportInput, user: User = Depends(curre
             )
         selected = [available[k] for k in body.table_keys]
         if (
-            len(data.tables) + len(selected) > 100
+            len(data.tables) + len(selected) > 300
             or any(len(t["columns"]) > 200 for t in selected)
             or sum(len(t.columns) for t in data.tables)
             + sum(len(t["columns"]) for t in selected)
-            > 3000
+            > 30000
         ):
             raise HTTPException(
                 422,
                 tr(
-                    "Projektlimit: 100 Tabellen, 200 Spalten je Tabelle und insgesamt 3.000 Spalten."
+                    "Modelllimit: 300 Tabellen, 200 Spalten je Tabelle und insgesamt 30.000 Spalten."
                 ),
             )
         names = {t.name.casefold() for t in data.tables}
@@ -458,7 +498,7 @@ def import_source(project_id: int, body: ImportInput, user: User = Depends(curre
             raise HTTPException(
                 422,
                 tr(
-                    "Projektlimit erreicht: 100 Tabellen, 200 Spalten je Tabelle und insgesamt 3.000 Spalten."
+                    "Modelllimit erreicht: 300 Tabellen, 200 Spalten je Tabelle und insgesamt 30.000 Spalten."
                 ),
             )
         result = store_project(db, user, project, data)

@@ -159,8 +159,8 @@ class ProjectInput(Input):
     target_kind: EngineKind
     target_schema: str = Field(min_length=1, max_length=63)
     target_source_id: int | None = Field(default=None, gt=0)
-    source_ids: list[int] = Field(default_factory=list, max_length=30)
-    tables: list[TablePlan] = Field(default_factory=list, max_length=100)
+    source_ids: list[int] = Field(default_factory=list, max_length=100)
+    tables: list[TablePlan] = Field(default_factory=list, max_length=300)
     version: int | None = Field(default=None, ge=1)
 
     @model_validator(mode="after")
@@ -179,8 +179,10 @@ class ProjectInput(Input):
             raise ValueError(
                 tr("Tabellennamen und IDs müssen im Projekt eindeutig sein.")
             )
-        if sum(len(t.columns) for t in self.tables) > 3000:
-            raise ValueError(tr("Ein Projekt unterstützt bis zu 3.000 Zielspalten."))
+        if sum(len(t.columns) for t in self.tables) > 30000:
+            raise ValueError(
+                tr("Ein Zielmodell unterstützt bis zu 30.000 Zielspalten.")
+            )
         by_id = {t.id: t for t in self.tables}
         seen_relations = set()
         for table in self.tables:
