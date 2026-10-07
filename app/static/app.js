@@ -463,8 +463,13 @@ async function navigate(view, id, target = {}) {
       renderDwhProjects();
     }
     if (view === "warehouse-project") {
+      await loadSources();
       state.dwhProject = await api(`/api/dwh/projects/${id}`);
-      state.dwhTab = "overview";
+      state.dwhTab = ["model", "mappings", "progress", "check"].includes(
+        target.step,
+      )
+        ? target.step
+        : "overview";
       state.dwhTableId = null;
       state.dwhComparison = null;
       renderDwhProject();
@@ -486,9 +491,11 @@ async function navigate(view, id, target = {}) {
   const params = new URLSearchParams(
     view === "source"
       ? target
-      : view === "search" && state.searchQuery
-        ? { q: state.searchQuery }
-        : {},
+      : view === "warehouse-project" && state.dwhTab !== "overview"
+        ? { step: state.dwhTab }
+        : view === "search" && state.searchQuery
+          ? { q: state.searchQuery }
+          : {},
   );
   const hash =
     (view === "source" || view === "warehouse-project"
@@ -502,7 +509,7 @@ function tabs(items, current, action) {
 function renderSource() {
   const s = state.source;
   shell(
-    localize`<button class="back" data-action="nav" data-view="sources">${icon("back")} Alle Datenquellen</button><div class="page-head"><div><div class="source-heading"><div class="db-icon ${s.kind}">${databaseLogo(s.kind)}</div><div><div class="eyebrow">${names[s.kind]}</div><h1>${e(s.name)}</h1></div></div><p>${e(s.kind === "sqlite" ? s.config.path : s.config.host + " / " + s.config.database)} ${s.config.schema ? "· " + e(s.config.schema) : ""}</p></div><div class="actions">${s.snapshot_id ? localize`<a class="btn" href="/api/sources/${s.id}/export?format=markdown">${icon("download")} Markdown</a><a class="btn" href="/api/sources/${s.id}/export?format=json">JSON</a><button class="btn" data-action="pdf-tables" title="Alle dokumentierten Tabellen als PDF exportieren">${icon("download")} Tabellen-PDF</button>` : ""}${s.can_edit ? localize`<button class="btn" data-action="edit-source">${icon("edit")} Bearbeiten</button><button class="btn primary" data-action="scan" ${["queued", "running"].includes(s.job?.status) ? "disabled" : ""}>${icon("refresh")} ${["queued", "running"].includes(s.job?.status) ? uiText("Scan läuft …") : uiText("Schema scannen")}</button>` : ""}</div></div>${s.job ? `<div class="status-message">${status(s)} <span style="margin-left:10px">${e(uiMessage(s.job.message))}</span></div>` : ""}${tabs(
+    localize`${state.dwhReturnProject ? `<button class="back dwh-return" data-action="dwh-return">${icon("back")} ${e(uiText("Zurück zum DWH-Projekt: {0}", state.dwhReturnProject.name))}</button>` : ""}<button class="back" data-action="nav" data-view="sources">${icon("back")} Alle Datenquellen</button><div class="page-head"><div><div class="source-heading"><div class="db-icon ${s.kind}">${databaseLogo(s.kind)}</div><div><div class="eyebrow">${names[s.kind]}</div><h1>${e(s.name)}</h1></div></div><p>${e(s.kind === "sqlite" ? s.config.path : s.config.host + " / " + s.config.database)} ${s.config.schema ? "· " + e(s.config.schema) : ""}</p></div><div class="actions">${s.snapshot_id ? localize`<a class="btn" href="/api/sources/${s.id}/export?format=markdown">${icon("download")} Markdown</a><a class="btn" href="/api/sources/${s.id}/export?format=json">JSON</a><button class="btn" data-action="pdf-tables" title="Alle dokumentierten Tabellen als PDF exportieren">${icon("download")} Tabellen-PDF</button>` : ""}${s.can_edit ? localize`<button class="btn" data-action="edit-source">${icon("edit")} Bearbeiten</button><button class="btn primary" data-action="scan" ${["queued", "running"].includes(s.job?.status) ? "disabled" : ""}>${icon("refresh")} ${["queued", "running"].includes(s.job?.status) ? uiText("Scan läuft …") : uiText("Schema scannen")}</button>` : ""}</div></div>${s.job ? `<div class="status-message">${status(s)} <span style="margin-left:10px">${e(uiMessage(s.job.message))}</span></div>` : ""}${tabs(
       [
         ["overview", uiText("Übersicht"), "grid"],
         ["schema", uiText("Tabellen & Felder"), "table"],

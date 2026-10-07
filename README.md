@@ -86,12 +86,22 @@ PostgreSQL materialized views, stored procedures, and ETL or pipeline lineage ar
 
 Open **DWH-Projekte** in the sidebar to design and track a warehouse targeting **SQL Server, PostgreSQL, or MariaDB**. Projects, target models, mappings, requirements, and implementation statuses are stored in the application's MariaDB database. Existing catalog data is retained; startup adds two new tables without replacing sources, snapshots, users, or notes.
 
-1. Create a project with its business requirements, target engine, target schema/database, and documented input sources. An optional target source connects the plan to the warehouse you implement. You can add that connection later.
-2. Under **Zielmodell**, import selected source objects as a starting point for staging, or create tables manually. Imported fields retain their original source names and snapshot IDs. Target types are portable suggestions: unsupported source types are marked for review instead of silently inventing conversions. Database relationships are not automatically promoted into a dimensional model.
-3. Define dimensions, facts, reference/aggregate tables, and raw/staging/core/mart layers. Record the grain (what one row represents), business and technical keys, measures, field definitions, transformations, and load/historization strategy. Add planned foreign keys, including composite keys, against the target table's complete primary key. The diagram shows up to 30 target tables; the object list and exports include the whole plan.
-4. Review **Feldzuordnungen** to trace each target field to its stored source scan. New mappings use the latest documented snapshot. Removing a source field or changing its type/nullability in a subsequent scan produces a planning warning; the original mapping remains available.
-5. Download **SQL-Entwurf** to create the initial schema and tables in the intended target database after review. SQL Server scripts target version 2012 or newer and use `IDENTITY`/Unicode types, PostgreSQL uses identity columns and native UUIDs, and MariaDB uses `AUTO_INCREMENT`, InnoDB, and UTF-8 tables. Foreign keys are added after all tables so cyclic dependencies can be represented. SQL is compiled with SQLAlchemy’s [DDL constructs](https://docs.sqlalchemy.org/en/21/core/ddl.html). The generated script does not change existing tables, execute mapping expressions, or load data. Connect to the intended SQL Server/PostgreSQL database before running it; MariaDB scripts also include database creation. Check storage/index limits, collation, and deployment permissions for your environment.
-6. Track each table as planned, in progress, implemented, or accepted by the business team under **Umsetzung**. These statuses are manually maintained. After implementing and scanning the target warehouse, **Soll-Ist-Vergleich** checks expected tables, columns, portable types, nullability, primary keys, and planned foreign keys. Extra target objects are reported separately. The result includes its snapshot ID/time and does not automatically change acceptance statuses.
+New projects start with a three-page setup assistant: describe the business question, select a target platform/schema, then choose available sources. Nothing is saved until **Start project / Projekt starten**. You can go back without losing entered values and can assign sources or a target connection later. Existing projects keep their requirements, mappings and statuses.
+
+The project opens with a five-step roadmap. Each step explains its goal and expected outcome, lists outstanding tasks, and links directly to the relevant project settings, table or column editor. Completed task information is derived from saved project metadata rather than separate checkboxes. A prominent next-step action points to the earliest unfinished step; all steps remain available for reviewing or parallel work. Completed task panels collapse to keep the workspace compact.
+
+1. **Goal & sources / Ziel & Quellen:** describe the business goal, select the target platform and schema, and assign successfully scanned input sources. When you open a source from a task, a return link brings you back to the same project step.
+2. **Target model / Zielmodell:** import selected source objects as a starting point for staging, or create tables manually. Classify facts, dimensions or aggregates, define columns, primary keys, grain (what one row represents), business keys and measures. The UI explains staging, facts and dimensions with examples. Imported fields retain their source names and snapshot IDs; portable target types remain suggestions requiring review. Staging copies alone do not complete the business-model task. Add planned foreign keys against the target table's complete primary key, including composite keys. The diagram shows up to 30 target tables; the object list and exports include the whole plan.
+3. **Data origin & loading / Datenherkunft & Laden:** map each non-generated field to a source or document its derivation rule, and describe each table's load/historization strategy. Generated identity keys require no source mapping. New mappings use the latest documented snapshot. Source changes generate warnings while retaining the original pinned mapping. Task actions open the relevant column or table directly.
+4. **Implement / Umsetzen:** download and review the SQL draft, run it in the intended target system, and implement/test load jobs and transformations externally. The page shows these actions in order. Record each table's planned/in-progress/implemented/business-accepted status below; these are manual reports, not proof of executed SQL or loads.
+5. **Verify the result / Ergebnis prüfen:** connect and scan the implemented target, then compare expected tables, columns, portable types, nullability, primary keys and planned foreign keys. Extra target objects are reported separately. The result includes its snapshot ID/time and does not change acceptance statuses. A successful comparison satisfies the structural-check task in the current view; reloads, project saves or a newer target snapshot require a fresh comparison. Your team assesses data values and business acceptance separately.
+
+The selected project step is included in the URL, so links and reloads retain the current phase. The progress indicator describes documented information, not physical warehouse completion or executed load jobs. Editors can act on tasks; viewers can inspect the roadmap and exported documentation without changing project data.
+
+SQL Server scripts target version 2012 or newer and use `IDENTITY`; PostgreSQL uses native UUIDs/identity columns, and MariaDB uses `AUTO_INCREMENT`, InnoDB, and UTF-8 tables. Foreign keys are added after all tables so cyclic dependencies can be represented. SQL is compiled with SQLAlchemy’s [DDL constructs](https://docs.sqlalchemy.org/en/21/core/ddl.html). The generated script does not change existing tables, execute mapping expressions, or load data. Connect to the intended SQL Server/PostgreSQL database before running it; MariaDB scripts also include database creation. Check storage/index limits, collation, and deployment permissions for your environment.
+
+![Guided warehouse project setup](docs/dwh-guided-setup.png)
+![Warehouse project roadmap](docs/dwh-workflow.png)
 
 Projects also export JSON and Markdown documentation. Grain, mappings, transformations, and load strategies describe the current project version. SQL exports contain validated target identifiers and types, not arbitrary transformation text. DatabaseDoc never executes warehouse DDL or ETL jobs against your connections. Data-content validation, ETL execution, SCD generation, incremental watermarks, and automatic schema migrations are future work; their requirements can already be documented in the project. The structural comparison does not verify row values, identity configuration, ETL correctness, or business meaning. Older MariaDB snapshots may require a new scan to distinguish `TINYINT(1)` boolean aliases and unsigned ranges.
 
@@ -184,23 +194,23 @@ All existing sources begin without tags/owners and with automatic scanning disab
 
 All endpoints require authentication. Writes require a CSRF token and source editing access; reads require source access. Global search automatically limits its result set to permitted sources.
 
-| Endpoint | Purpose |
-| --- | --- |
-| `PUT /api/sources/{id}/metadata` | Save `{tags: [...], owner: "...", owner_email: "..."}`. |
-| `GET /api/sources/{id}/schedule` | Read the schedule, next due time, and last automatic start. |
-| `PUT /api/sources/{id}/schedule` | Save `{enabled, cadence, hour, minute, weekday, timezone}`; weekday is Monday `0` through Sunday `6`. |
-| `GET /api/sources/{id}/compare?before=...&after=...` | Compare two snapshots from the same source; `before` must be older. |
+| Endpoint                                                              | Purpose                                                                                                       |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `PUT /api/sources/{id}/metadata`                                      | Save `{tags: [...], owner: "...", owner_email: "..."}`.                                                       |
+| `GET /api/sources/{id}/schedule`                                      | Read the schedule, next due time, and last automatic start.                                                   |
+| `PUT /api/sources/{id}/schedule`                                      | Save `{enabled, cadence, hour, minute, weekday, timezone}`; weekday is Monday `0` through Sunday `6`.         |
+| `GET /api/sources/{id}/compare?before=...&after=...`                  | Compare two snapshots from the same source; `before` must be older.                                           |
 | `GET /api/search?q=...&source_id=...&kind=...&page=...&page_size=...` | Search current metadata; source is optional, kind is `all`, `table`, `column`, or `note`, page size is 1–100. |
 
 Dates returned by these endpoints are UTC. Source listing responses also include tags, owner/contact fields, and schedule details.
 
 ## Permissions
 
-| Role | Documentation | Editing and scanning | Data preview | Administration |
-| --- | --- | --- | --- | --- |
-| Administrator | All sources | All sources | All sources | Yes |
-| Editor | Granted sources only | Requires an additional editing grant | Requires an additional data grant | No |
-| Viewer | Granted sources only | No | Requires an additional data grant | No |
+| Role          | Documentation        | Editing and scanning                 | Data preview                      | Administration |
+| ------------- | -------------------- | ------------------------------------ | --------------------------------- | -------------- |
+| Administrator | All sources          | All sources                          | All sources                       | Yes            |
+| Editor        | Granted sources only | Requires an additional editing grant | Requires an additional data grant | No             |
+| Viewer        | Granted sources only | No                                   | Requires an additional data grant | No             |
 
 The user-management page lets administrators create local accounts, deactivate accounts, and grant access to specific databases. New external accounts are created as viewers without source access after successful authentication.
 
@@ -248,13 +258,13 @@ Changing the target server, database, schema, SQLite path, or database type remo
 
 Use dedicated source accounts with only the required read permissions. The application does not issue DDL or data-modification commands against source databases. PostgreSQL, MySQL, and MariaDB connections are additionally configured as read-only; SQLite is opened with `mode=ro`. For SQL Server and MongoDB, the source account must enforce the write restriction.
 
-| Database type | Default port | Notes |
-| --- | --- | --- |
-| Microsoft SQL Server | 1433 | ODBC Driver 18 is included in the image. Grant metadata visibility/`VIEW DEFINITION` and `SELECT` for required objects. Windows Integrated Authentication for source connections is not yet implemented. |
-| MySQL / MariaDB | 3306 | Allow visibility of the selected database, tables, views, and metadata. Grant `SELECT` only where previews are needed. |
-| PostgreSQL | 5432 | Grant `CONNECT` on the database, `USAGE` on schemas, metadata visibility, and `SELECT` for previews. |
-| MongoDB | 27017 | Requires `listCollections`/`listIndexes`, plus `find` for inference or previews. Database discovery needs appropriate listing permissions. |
-| SQLite | — | Place the file in the host's `sources/` directory and use a container path such as `/sources/database.sqlite`. Paths outside this directory are rejected. Provide a consistent export for databases using WAL mode. |
+| Database type        | Default port | Notes                                                                                                                                                                                                               |
+| -------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Microsoft SQL Server | 1433         | ODBC Driver 18 is included in the image. Grant metadata visibility/`VIEW DEFINITION` and `SELECT` for required objects. Windows Integrated Authentication for source connections is not yet implemented.            |
+| MySQL / MariaDB      | 3306         | Allow visibility of the selected database, tables, views, and metadata. Grant `SELECT` only where previews are needed.                                                                                              |
+| PostgreSQL           | 5432         | Grant `CONNECT` on the database, `USAGE` on schemas, metadata visibility, and `SELECT` for previews.                                                                                                                |
+| MongoDB              | 27017        | Requires `listCollections`/`listIndexes`, plus `find` for inference or previews. Database discovery needs appropriate listing permissions.                                                                          |
+| SQLite               | —            | Place the file in the host's `sources/` directory and use a container path such as `/sources/database.sqlite`. Paths outside this directory are rejected. Provide a consistent export for databases using WAL mode. |
 
 TLS with certificate validation is enabled by default for network sources. PostgreSQL, MySQL, MariaDB, and MongoDB use system CAs or an optional `SOURCE_CA_FILE`. Internal CAs must be available and trusted inside the container. For SQL Server, build an image variant that installs the internal CA in the operating system trust store. Self-signed certificates are not accepted without a trusted CA. TLS can be explicitly disabled for local test sources that do not support it.
 
@@ -404,6 +414,13 @@ Database-engine logos are vendored from Devicon and served locally. Attribution,
 ```bash
 WAREHOUSE_TEST_URL=http://127.0.0.1:18091 \
 NODE_PATH=/tmp/datatlas-browser/node_modules node tests/warehouse.cjs
+```
+
+`tests/dwh-flow.cjs` checks the guided workflow with mocked business APIs in German and English: setup validation and back navigation, saving only on the final step, direct task/editor actions, returning from source scans, derived milestones, manual implementation reports, SQL download, target comparison, invalidation after reload/source changes, viewer permissions and mobile layout. Its screenshots use fictional metadata. Point it at an isolated deployment as well:
+
+```bash
+WAREHOUSE_TEST_URL=http://127.0.0.1:8091 \
+NODE_PATH=/tmp/datatlas-browser/node_modules node tests/dwh-flow.cjs
 ```
 
 `tests/test_warehouse_ddl_integration.py` executes the generated initial DDL in dedicated disposable containers named `databasedoc-ddl-postgres`, `databasedoc-ddl-mariadb`, or `databasedoc-ddl-mssql`. Set `WAREHOUSE_TEST_ENGINE` to `postgresql`, `mariadb`, or `mssql` for the corresponding container on the application's Docker network. PostgreSQL/MariaDB fixtures use a database named `databasedoc_ddl_fixture`; the SQL Server check creates that database in its disposable instance. The fixture password is `Dwh-disposable-test-password-2026`. These checks reset fixture schemas/tables, insert fictional rows to verify identity generation, rescan the created model, and verify foreign-key enforcement. Use only the dedicated disposable test instances. With the variable unset, the integration test is skipped.

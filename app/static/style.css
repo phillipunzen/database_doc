@@ -2075,3 +2075,387 @@ dialog::backdrop {
 .dwh-project-title {
   overflow-wrap: anywhere;
 }
+
+/* Guided warehouse process: project milestones and actionable tasks. */
+.dwh-intro,
+.dwh-roadmap {
+  background: #edf3e9;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+.dwh-intro h2,
+.dwh-roadmap h2 {
+  margin-bottom: 8px;
+}
+.dwh-intro p,
+.dwh-roadmap p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+.dwh-intro ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 0;
+  margin: 24px 0 0;
+  list-style: none;
+}
+.dwh-intro li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+.dwh-intro li span {
+  display: grid;
+  place-items: center;
+  background: white;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  font-weight: 700;
+}
+.dwh-process {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.dwh-step {
+  border: 1px solid var(--line);
+  background: white;
+  border-radius: 10px;
+  padding: 14px 10px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  text-align: left;
+  color: var(--ink);
+  min-width: 0;
+  cursor: pointer;
+  font: inherit;
+}
+.dwh-step.active {
+  border-color: var(--green);
+  box-shadow: 0 0 0 1px var(--green);
+  background: #edf3e9;
+}
+.dwh-step strong {
+  font-size: 13px;
+  display: block;
+  overflow-wrap: anywhere;
+}
+.dwh-step small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.dwh-step-number {
+  display: grid;
+  place-items: center;
+  background: #f0f4ef;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+.dwh-step.complete .dwh-step-number {
+  background: #dcebcf;
+  color: #224f42;
+}
+.dwh-step-number .icon {
+  width: 16px;
+  height: 16px;
+}
+.dwh-roadmap-head,
+.dwh-guide-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+.dwh-roadmap-head .btn {
+  flex-shrink: 0;
+}
+.dwh-roadmap-progress {
+  margin-top: 22px;
+  display: grid;
+  gap: 8px;
+  font-size: 13px;
+}
+.dwh-roadmap-progress progress {
+  width: 100%;
+  height: 8px;
+  border: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  accent-color: #276256;
+}
+.dwh-roadmap-progress progress::-webkit-progress-bar {
+  background: #d9e3d7;
+  border-radius: 6px;
+}
+.dwh-roadmap-progress progress::-webkit-progress-value {
+  background: #276256;
+  border-radius: 6px;
+}
+.dwh-roadmap-progress small {
+  color: var(--muted);
+  line-height: 1.5;
+}
+.dwh-guide {
+  margin-bottom: 24px;
+  scroll-margin-top: 20px;
+}
+.dwh-guide-head {
+  padding: 24px;
+  border-bottom: 1px solid var(--line);
+}
+.dwh-guide-head h2 {
+  margin-bottom: 8px;
+}
+.dwh-guide-head p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+.dwh-guide-head .badge {
+  flex-shrink: 0;
+}
+.dwh-guide-body {
+  padding: 20px 24px;
+}
+.dwh-deliverable {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: #276256;
+  margin: 0 0 12px;
+  line-height: 1.6;
+}
+.dwh-deliverable .icon {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.dwh-task-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.dwh-task-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid #eef1ec;
+  font-size: 13px;
+}
+.dwh-task-list li > .icon {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.dwh-task-list li.done > .icon {
+  color: #276256;
+}
+.dwh-task-list li > span {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.dwh-task-list .btn {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.dwh-guide-next {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  background: #f4f7f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-top: 20px;
+}
+.dwh-guide-next p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.dwh-guide-next .btn {
+  flex-shrink: 0;
+}
+.dwh-glossary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+.dwh-glossary p {
+  margin: 0;
+  padding: 14px;
+  background: #f4f7f0;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.dwh-glossary strong {
+  display: block;
+}
+.dwh-boundary {
+  padding: 14px 16px;
+  border-left: 3px solid #a9c293;
+  background: #f4f7f0;
+  font-size: 13px;
+  line-height: 1.7;
+  margin-top: 18px;
+}
+.dwh-execution {
+  padding-left: 22px;
+  line-height: 1.8;
+  font-size: 13px;
+}
+.dwh-execution li {
+  margin: 8px 0;
+}
+.dwh-process-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 28px 0;
+}
+.dwh-wizard-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  gap: 8px;
+}
+.dwh-wizard-steps li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 10px 8px;
+  border-bottom: 2px solid var(--line);
+}
+.dwh-wizard-steps li.active {
+  border-color: #276256;
+  color: #276256;
+  font-weight: 700;
+}
+.dwh-wizard-steps li span {
+  font-weight: 700;
+}
+#dwh-project-form section h3 {
+  margin: 18px 0 8px;
+}
+#dwh-project-form section > p {
+  line-height: 1.7;
+  margin: 0 0 18px;
+}
+.dwh-target-optional {
+  margin: 18px 0;
+  font-size: 13px;
+}
+.dwh-target-optional summary {
+  cursor: pointer;
+  color: #276256;
+  padding: 8px 0;
+}
+.dwh-wizard-footer {
+  justify-content: space-between;
+}
+@media (max-width: 1100px) {
+  .dwh-process {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .dwh-glossary {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 760px) {
+  .dwh-process {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .dwh-step {
+    padding: 12px;
+    align-items: center;
+  }
+  .dwh-step strong {
+    font-size: 13px;
+  }
+  .dwh-step > span:last-child {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: 1;
+    gap: 12px;
+  }
+  .dwh-step small {
+    margin: 0;
+    flex-shrink: 0;
+  }
+  .dwh-roadmap-head,
+  .dwh-guide-head,
+  .dwh-guide-next {
+    flex-direction: column;
+    gap: 14px;
+  }
+  .dwh-guide-head,
+  .dwh-guide-body {
+    padding: 18px;
+  }
+  .dwh-intro,
+  .dwh-roadmap {
+    padding: 18px;
+  }
+  .dwh-task-list li {
+    flex-wrap: wrap;
+  }
+  .dwh-task-list li > span {
+    min-width: 150px;
+  }
+  .dwh-task-list .btn {
+    margin-left: 30px;
+  }
+  .dwh-wizard-steps li {
+    align-items: flex-start;
+    padding: 8px 4px;
+    font-size: 11px;
+  }
+  .dwh-process-footer .btn {
+    white-space: normal;
+    text-align: left;
+  }
+}
+.dwh-guide-head {
+  cursor: pointer;
+  flex-wrap: wrap;
+}
+.dwh-guide-head > div {
+  flex: 1;
+  min-width: 180px;
+}
+.dwh-guide-toggle {
+  font-size: 12px;
+  color: #276256;
+  align-self: center;
+}
+.dwh-guide[open] .dwh-guide-toggle {
+  display: none;
+}
+.dwh-guide:not([open]) .dwh-guide-head {
+  border-bottom: 0;
+}
+.dwh-wizard-footer > .actions {
+  margin-left: auto;
+}

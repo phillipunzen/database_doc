@@ -45,13 +45,16 @@ const out = path.resolve(__dirname, "../docs");
       .fill(
         "Täglicher Nettoumsatz nach Kunde; Kundenhistorie über SCD Typ 2. <script>literal</script>",
       );
+    await page.locator('[data-action="dwh-wizard-next"]').click();
     await page.locator("#dwh-target_kind").selectOption("postgresql");
     assert.equal(
       await page.locator('[name="target_schema"]').inputValue(),
       "public",
     );
     await page.locator('[name="target_schema"]').fill("warehouse");
+    await page.locator('[data-action="dwh-wizard-next"]').click();
     await page.locator("#dwh-source-ids").selectOption("1");
+    await page.locator(".dwh-target-optional summary").click();
     await page.locator("#dwh-target-source").selectOption("2");
     await page.locator('#dwh-project-form [type="submit"]').click();
     await page
@@ -103,7 +106,10 @@ const out = path.resolve(__dirname, "../docs");
     await page.locator('[name="identity"]').check();
     await page.locator("#dwh-purpose").selectOption("technical_key");
     await page.locator('#dwh-column-form [type="submit"]').click();
-    await page.getByText("Automatischer Schlüssel", { exact: true }).waitFor();
+    await page
+      .locator(".object-detail")
+      .getByText("Automatischer Schlüssel", { exact: true })
+      .waitFor();
     // New facts and columns use UUIDs even on non-secure HTTP origins.
     await page.locator('[data-action="dwh-add-table"]').click();
     await page.locator('#dwh-table-form [name="name"]').fill("fact_sales");
