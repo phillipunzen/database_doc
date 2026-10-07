@@ -203,7 +203,13 @@ function sourceStats(sources) {
   )}</div>`;
 }
 function card(s) {
-  return localize`<article class="source-card"><div class="source-card-top"><div class="db-icon ${s.kind}">${databaseLogo(s.kind)}</div><div style="flex:1;min-width:0"><button class="source-title" data-action="open" data-id="${s.id}">${e(s.name)}</button><div class="small muted">${names[s.kind]}</div></div>${status(s)}</div><div class="source-meta">${icon("server")}<span>${e(s.kind === "sqlite" ? s.config.path : s.config.host + (s.config.port ? ":" + s.config.port : "") + " / " + s.config.database)}</span></div><div class="tag-list card-classification">${(s.tags || []).map((t) => tagBadge(t, s, true)).join("")}</div><div class="card-stats"><div><strong>${s.table_count}</strong><span>Objekte</span></div><div><strong>${s.column_count}</strong><span>Spalten</span></div><div><strong>${s.relation_count}</strong><span>Beziehungen</span></div></div><div class="card-footer"><span>${e(dt(s.scanned_at))}</span><button data-action="open" data-id="${s.id}">Öffnen ${icon("arrow")}</button></div></article>`;
+  return localize`<article class="source-card"><div class="source-card-top"><div class="db-icon ${s.kind}">${databaseLogo(s.kind)}</div><div style="flex:1;min-width:0"><button class="source-title" data-action="open" data-id="${s.id}">${e(s.name)}</button><div class="small muted">${names[s.kind]}</div></div>${status(s)}</div><div class="source-meta">${icon("server")}<span>${e(s.kind === "sqlite" ? s.config.path : s.config.host + (s.config.port ? ":" + s.config.port : "") + " / " + s.config.database)}</span></div><div class="tag-list card-classification">${sortedTags(
+    s.tags,
+  )
+    .map((t) => tagBadge(t, s, true))
+    .join(
+      "",
+    )}</div><div class="card-stats"><div><strong>${s.table_count}</strong><span>Objekte</span></div><div><strong>${s.column_count}</strong><span>Spalten</span></div><div><strong>${s.relation_count}</strong><span>Beziehungen</span></div></div><div class="card-footer"><span>${e(dt(s.scanned_at))}</span><button data-action="open" data-id="${s.id}">Öffnen ${icon("arrow")}</button></div></article>`;
 }
 const sourceSortLabels = {
   name: "Name",
@@ -307,8 +313,8 @@ function sortHeader(key, label, extraClass = "") {
 function sourceRow(s) {
   const target = s.kind === "sqlite" ? s.config.path : s.config.database;
   return localize`<tr data-source-id="${s.id}">
-    <td class="source-name-cell"><div class="source-name-wrap"><div class="db-icon ${s.kind}">${databaseLogo(s.kind)}</div><div><button class="source-title" data-action="open" data-id="${s.id}">${e(s.name)}</button><div class="catalog-owner">${e(s.owner || "")}</div><div class="tag-list">${(
-      s.tags || []
+    <td class="source-name-cell"><div class="source-name-wrap"><div class="db-icon ${s.kind}">${databaseLogo(s.kind)}</div><div><button class="source-title" data-action="open" data-id="${s.id}">${e(s.name)}</button><div class="catalog-owner">${e(s.owner || "")}</div><div class="tag-list">${sortedTags(
+      s.tags,
     )
       .slice(0, 3)
       .map((tag) => tagBadge(tag, s, true))
@@ -399,9 +405,9 @@ function renderSources() {
   const hosts = [...new Set(state.sources.map(sourceHost))].sort(
     sourceCollator.compare,
   );
-  const tags = [...new Set(state.sources.flatMap((s) => s.tags || []))].sort(
-    sourceCollator.compare,
-  );
+  const tags = sortedTags([
+    ...new Set(state.sources.flatMap((s) => s.tags || [])),
+  ]);
   shell(localize`<div class="catalog-dashboard">
     <div class="page-head"><div><div class="eyebrow">Datenkatalog</div><h1>Datenquellen</h1><p>Datenbanken finden, Schema-Stände prüfen und Dokumentationen öffnen.</p></div>${classificationActions()}</div>
     ${sourceStats(state.sources)}
@@ -1583,12 +1589,14 @@ setInterval(async () => {
 
 function tagList(tags, source = {}) {
   return (tags || []).length
-    ? `<span class="tag-list">${tags.map((t) => tagBadge(t, source)).join("")}</span>`
+    ? `<span class="tag-list">${sortedTags(tags)
+        .map((t) => tagBadge(t, source))
+        .join("")}</span>`
     : localize('<span class="muted">Keine Tags</span>');
 }
 function organizationView() {
   const s = state.source;
-  return localize`<section class="panel feature-panel"><div class="panel-head"><div><h2>Tags & Verantwortliche</h2><p class="muted small">Ordne diese Datenbank einem Team zu und finde sie mit Tags im Katalog.</p></div></div><div class="panel-body"><form id="organization-form" class="feature-form"><fieldset ${s.can_edit ? "" : "disabled"}><div class="field"><label for="source-tags">Tags</label><input id="source-tags" name="tags" value="${e((s.tags || []).join(", "))}" placeholder="Produktion, Finance, Data Warehouse"><small>Mit Kommas trennen. Bis zu 20 Tags mit jeweils 60 Zeichen.</small>${classificationEditorHints()}</div><div class="form-grid"><div class="field"><label for="source-owner">Verantwortliche Person oder Team</label><input id="source-owner" name="owner" maxlength="190" value="${e(s.owner)}" placeholder="Data Platform Team"></div><div class="field"><label for="source-owner-email">Kontakt-E-Mail</label><input id="source-owner-email" name="owner_email" type="email" maxlength="190" value="${e(s.owner_email)}" placeholder="data-team@example.org"></div></div>${s.can_edit ? localize('<button class="btn primary" type="submit">Zuständigkeit speichern</button>') : localize('<p class="muted">Du hast Leserechte für diese Angaben.</p>')}</fieldset><div id="form-error" class="error-text" role="alert"></div></form></div></section><div class="hint">${icon("info")}<span>Die Zuständigkeit dient der Dokumentation. Zugriffsrechte vergibt ein Administrator unter „Benutzer & Rechte“.</span></div>`;
+  return localize`<section class="panel feature-panel"><div class="panel-head"><div><h2>Tags & Verantwortliche</h2><p class="muted small">Ordne diese Datenbank einem Team zu und finde sie mit Tags im Katalog.</p></div></div><div class="panel-body"><form id="organization-form" class="feature-form"><fieldset ${s.can_edit ? "" : "disabled"}><div class="field"><label for="source-tags">Tags</label><input id="source-tags" name="tags" value="${e(sortedTags(s.tags).join(", "))}" placeholder="Produktion, Finance, Data Warehouse"><small>Mit Kommas trennen. Bis zu 20 Tags mit jeweils 60 Zeichen.</small>${classificationEditorHints()}</div><div class="form-grid"><div class="field"><label for="source-owner">Verantwortliche Person oder Team</label><input id="source-owner" name="owner" maxlength="190" value="${e(s.owner)}" placeholder="Data Platform Team"></div><div class="field"><label for="source-owner-email">Kontakt-E-Mail</label><input id="source-owner-email" name="owner_email" type="email" maxlength="190" value="${e(s.owner_email)}" placeholder="data-team@example.org"></div></div>${s.can_edit ? localize('<button class="btn primary" type="submit">Zuständigkeit speichern</button>') : localize('<p class="muted">Du hast Leserechte für diese Angaben.</p>')}</fieldset><div id="form-error" class="error-text" role="alert"></div></form></div></section><div class="hint">${icon("info")}<span>Die Zuständigkeit dient der Dokumentation. Zugriffsrechte vergibt ein Administrator unter „Benutzer & Rechte“.</span></div>`;
 }
 function scheduleView() {
   const s = state.source,

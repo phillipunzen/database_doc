@@ -14,6 +14,9 @@ const classificationColors = {
   teal: uiText("Türkis"),
   gray: uiText("Grau"),
 };
+function sortedTags(tags = [], nameOf = (tag) => tag) {
+  return [...tags].sort((a, b) => sourceCollator.compare(nameOf(a), nameOf(b)));
+}
 function tagStyle(name, source = {}) {
   return (
     source.tag_styles?.[name] ||
@@ -51,10 +54,12 @@ function classificationPreview() {
   const input = document.getElementById("source-tags"),
     preview = document.getElementById("classification-preview");
   if (input && preview)
-    preview.innerHTML = input.value
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean)
+    preview.innerHTML = sortedTags(
+      input.value
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean),
+    )
       .map((t) => tagBadge(t, state.source))
       .join(" ");
 }
@@ -80,7 +85,15 @@ async function classificationReload() {
 function classificationManager() {
   openModal(
     uiText("Tags verwalten"),
-    `<p class="muted">${e(uiText("Definiere gemeinsame Farben und Kategorien. Diese Definitionen sind für alle angemeldeten Benutzer sichtbar; Datenbankfreigaben bleiben unverändert."))}</p><div class="actions ct-manager-head"><button class="btn primary" data-action="ct-edit">${e(uiText("Tag definieren"))}</button></div><div class="ct-definition-list">${state.catalogTags.map((tag) => `<div class="ct-definition"><div>${tagBadge(tag.name)}<span class="small muted">${e(classificationCategories[tag.category])}</span></div><button class="btn" data-action="ct-edit" data-key="${tag.key}">${e(uiText("Bearbeiten"))}</button></div>`).join("") || `<p>${e(uiText("Noch keine gemeinsamen Tags definiert. Beispiele: Berlin als Standort, ERP als Funktion, Produktion als Umgebung."))}</p>`}</div>`,
+    `<p class="muted">${e(uiText("Definiere gemeinsame Farben und Kategorien. Diese Definitionen sind für alle angemeldeten Benutzer sichtbar; Datenbankfreigaben bleiben unverändert."))}</p><div class="actions ct-manager-head"><button class="btn primary" data-action="ct-edit">${e(uiText("Tag definieren"))}</button></div><div class="ct-definition-list">${
+      sortedTags(state.catalogTags, (tag) => tag.name)
+        .map(
+          (tag) =>
+            `<div class="ct-definition"><div>${tagBadge(tag.name)}<span class="small muted">${e(classificationCategories[tag.category])}</span></div><button class="btn" data-action="ct-edit" data-key="${tag.key}">${e(uiText("Bearbeiten"))}</button></div>`,
+        )
+        .join("") ||
+      `<p>${e(uiText("Noch keine gemeinsamen Tags definiert. Beispiele: Berlin als Standort, ERP als Funktion, Produktion als Umgebung."))}</p>`
+    }</div>`,
   );
 }
 function classificationTagModal(key) {
@@ -96,18 +109,24 @@ function classificationTagModal(key) {
   );
 }
 function classificationEditorHints() {
-  return `<div id="classification-preview" class="tag-list">${(state.source.tags || []).map((t) => tagBadge(t, state.source)).join("")}</div>${state.source.can_edit ? `<button class="text-button" type="button" data-action="ct-pick">${e(uiText("Gemeinsame Tags auswählen"))}</button>` : ""}<small>${e(uiText("Farben und Kategorien verwaltet ein Administrator über die Datenquellenübersicht."))}</small>`;
+  return `<div id="classification-preview" class="tag-list">${sortedTags(
+    state.source.tags,
+  )
+    .map((t) => tagBadge(t, state.source))
+    .join(
+      "",
+    )}</div>${state.source.can_edit ? `<button class="text-button" type="button" data-action="ct-pick">${e(uiText("Gemeinsame Tags auswählen"))}</button>` : ""}<small>${e(uiText("Farben und Kategorien verwaltet ein Administrator über die Datenquellenübersicht."))}</small>`;
 }
 function classificationBulk() {
   const sources = filteredSources()
     .filter((s) => s.can_edit)
     .slice(0, 200);
-  const options = [
+  const options = sortedTags([
     ...new Set([
       ...state.catalogTags.map((t) => t.name),
       ...state.sources.flatMap((s) => s.tags || []),
     ]),
-  ].sort(sourceCollator.compare);
+  ]);
   openModal(
     uiText("Mehrere Quellen klassifizieren"),
     `<form id="ct-assignment-form"><p>${e(uiText("Die Auswahl enthält bis zu 200 bearbeitbare Quellen aus dem aktuellen Filter, auch von weiteren Seiten. Prüfe die Datenbanken vor dem Speichern."))}</p><p class="small muted">${e(uiText("Für einen ganzen Server: zuerst in der Übersicht nach diesem Server filtern, dann seine Datenbanken auswählen. Neue Datenbanken erhalten Tags nicht automatisch."))}</p>${classificationSelect(uiText("Aktion"), "mode", { add: uiText("Tags ergänzen"), remove: uiText("Tags entfernen") }, "add")}<div class="field"><label for="ct-tags">${e(uiText("Tags"))}</label><input id="ct-tags" name="tags" required placeholder="Berlin, ERP" list="ct-known-tags"><datalist id="ct-known-tags">${options.map((t) => `<option value="${e(t)}"></option>`).join("")}</datalist><small>${e(uiText("Mit Kommas trennen. Bestehende Tags und Verantwortliche bleiben beim Ergänzen erhalten."))}</small></div><div class="actions"><button class="btn" type="button" data-action="ct-select-all">${e(uiText("Alle auswählen"))}</button><button class="btn" type="button" data-action="ct-select-none">${e(uiText("Auswahl aufheben"))}</button><span id="ct-selection-count" aria-live="polite"></span></div><div class="ct-source-list">${sources.map((s) => `<label class="checkbox"><input type="checkbox" name="source_ids" value="${s.id}" checked><span><strong>${e(s.name)}</strong><span class="small muted">${e(sourceHost(s))} · ${e(s.config.database || s.config.path || "")}</span></span></label>`).join("")}</div><div id="form-error" class="error-text" role="alert"></div><div class="modal-footer"><button class="btn" type="button" data-action="close-modal">${e(uiText("Abbrechen"))}</button><button class="btn primary" type="submit" ${sources.length ? "" : "disabled"}>${e(uiText("Ausgewählte Quellen aktualisieren"))}</button></div></form>`,
@@ -164,7 +183,9 @@ async function classificationClick(button) {
     );
     openModal(
       uiText("Klassifikation"),
-      `<p>${e(source.name)}</p><div class="tag-list">${source.tags.map((t) => tagBadge(t, source, true)).join("")}</div>`,
+      `<p>${e(source.name)}</p><div class="tag-list">${sortedTags(source.tags)
+        .map((t) => tagBadge(t, source, true))
+        .join("")}</div>`,
     );
   }
   if (action === "ct-select-all" || action === "ct-select-none") {
@@ -183,7 +204,7 @@ async function classificationClick(button) {
         `<div id="classification-picker" class="tag-list"></div>`,
       );
     document.getElementById("classification-picker").innerHTML =
-      state.catalogTags
+      sortedTags(state.catalogTags, (tag) => tag.name)
         .map(
           (t) =>
             `<button type="button" class="text-button" data-action="ct-pick-tag" data-tag="${e(t.name)}">${tagBadge(t.name)}</button>`,
@@ -200,7 +221,7 @@ async function classificationClick(button) {
         .filter(Boolean);
     if (!tags.some((t) => t.toLowerCase() === button.dataset.tag.toLowerCase()))
       tags.push(button.dataset.tag);
-    input.value = tags.join(", ");
+    input.value = sortedTags(tags).join(", ");
     classificationPreview();
   }
 }
