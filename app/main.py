@@ -73,6 +73,7 @@ from .catalog_tags import (
     definitions,
     normalize_tags,
 )
+from .finder_api import router as finder_router
 from .analysis_api import router as analysis_router
 from .business_catalog import (
     router as business_catalog_router,
@@ -150,6 +151,7 @@ app.include_router(warehouse_workspace_router)
 app.include_router(catalog_tags_router)
 app.include_router(design_tools_router)
 app.include_router(analysis_router)
+app.include_router(finder_router)
 app.include_router(business_catalog_router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 oauth = OAuth()

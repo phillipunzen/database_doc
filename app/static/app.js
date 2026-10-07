@@ -142,6 +142,7 @@ async function api(url, method = "GET", body) {
   const result = await res.json().catch(() => ({}));
   if (!res.ok) {
     if (res.status === 401 && state.user) {
+      finderReset();
       state.user = null;
       await showLogin();
     }
@@ -549,9 +550,13 @@ async function navigate(view, id, target = {}) {
       renderAnalysisCatalog();
     }
     if (view === "search") {
-      if (target.q !== undefined) state.searchQuery = target.q;
-      if (state.searchQuery.trim().length >= 2) await runSearch();
-      else renderSearch();
+      state.searchMode = target.mode === "finder" ? "finder" : "metadata";
+      if (state.searchMode === "finder") renderFinder();
+      else {
+        if (target.q !== undefined) state.searchQuery = target.q;
+        if (state.searchQuery.trim().length >= 2) await runSearch();
+        else renderSearch();
+      }
     }
     if (view === "users") {
       state.users = await api("/api/users");
@@ -586,9 +591,11 @@ async function navigate(view, id, target = {}) {
             }
           : view === "warehouse-workspace"
             ? { phase: state.whTab }
-            : view === "search" && state.searchQuery
-              ? { q: state.searchQuery }
-              : {},
+            : view === "search" && state.searchMode === "finder"
+              ? { mode: "finder" }
+              : view === "search" && state.searchQuery
+                ? { q: state.searchQuery }
+                : {},
   );
   const hash =
     (view === "tool-design" ||
@@ -905,6 +912,7 @@ async function downloadPdf(format, tableKey = null) {
   if (!response.ok) {
     const error = await response.json().catch(() => ({}));
     if (response.status === 401) {
+      finderReset();
       state.user = null;
       await showLogin();
     }
@@ -940,6 +948,7 @@ const auditLabels = {
   analysis_preparation_saved: uiText("DWH-Vorbereitung gespeichert"),
   analysis_rules_saved: uiText("Qualitätsregeln gespeichert"),
   analysis_profile_created: uiText("Datenprofil erstellt"),
+  finder_value_search: uiText("Beispielwert-Suche ausgeführt"),
   analysis_concept_saved: uiText("Fachbegriff gespeichert"),
   analysis_concept_removed: uiText("Fachbegriff entfernt"),
   company_logo_updated: uiText("Firmenlogo gespeichert"),
@@ -1134,6 +1143,7 @@ document.addEventListener("click", async (ev) => {
   if (!button) return;
   const a = button.dataset.action;
   try {
+    if (a.startsWith("df-")) await finderClick(button);
     if (a.startsWith("an-")) await analysisClick(button);
     if (a.startsWith("wa-")) await warehouseAssessmentClick(button);
     if (a.startsWith("tool-")) await toolsClick(button);
@@ -1204,6 +1214,7 @@ document.addEventListener("click", async (ev) => {
     if (a === "password") passwordModal();
     if (a === "logout") {
       await api("/api/auth/logout", "POST", {});
+      finderReset();
       state.user = null;
       state.csrf = "";
       location.hash = "";
@@ -1327,6 +1338,11 @@ document.addEventListener("click", async (ev) => {
 });
 document.addEventListener("submit", async (ev) => {
   const form = ev.target;
+  if (form.id.startsWith("df-")) {
+    ev.preventDefault();
+    await finderSubmit(form);
+    return;
+  }
   if (form.id.startsWith("an-")) {
     ev.preventDefault();
     await analysisSubmit(form);
@@ -1510,6 +1526,7 @@ document.addEventListener("submit", async (ev) => {
   }
 });
 document.addEventListener("input", (ev) => {
+  finderInput(ev.target);
   analysisInput(ev.target);
   if (ev.target.id === "wa-object-query") {
     state.waObjectPage = 0;
@@ -1530,6 +1547,7 @@ document.addEventListener("input", (ev) => {
     );
 });
 document.addEventListener("change", (ev) => {
+  finderChange(ev.target);
   analysisChange(ev.target);
   if (ev.target.id === "wa-severity") {
     state.waFindingPage = 0;
@@ -1809,6 +1827,7 @@ async function runSearch() {
   renderSearch();
 }
 function renderSearch() {
+  if (state.searchMode === "finder") return renderFinder();
   const data = state.searchResults,
     labels = {
       table: uiText("Tabelle / Collection"),
@@ -1816,7 +1835,7 @@ function renderSearch() {
       note: uiText("Dokumentation"),
     };
   shell(
-    localize`<div class="page-head"><div><div class="eyebrow">Datenbankübergreifend</div><h1>Globale Suche</h1><p>Finde Tabellen, Spalten, Kommentare und Notizen in deinen freigegebenen Datenbanken.</p></div></div><section class="panel"><div class="panel-body"><form id="search-form" class="global-search-form"><div class="field"><label for="global-search-q">Suchbegriff</label><input id="global-search-q" name="q" minlength="2" maxlength="200" required placeholder="Zum Beispiel customer_id oder Bestellungen …" value="${e(state.searchQuery)}"></div><div class="field"><label for="global-search-source">Datenquelle</label><select id="global-search-source" name="source_id"><option value="all">Alle freigegebenen Quellen</option>${state.sources.map((s) => `<option value="${s.id}" ${String(s.id) === String(state.searchSource) ? "selected" : ""}>${e(s.name)}</option>`).join("")}</select></div><div class="field"><label for="global-search-kind">Treffertyp</label><select id="global-search-kind" name="kind"><option value="all">Alle Typen</option>${Object.entries(
+    localize`<div class="page-head"><div><div class="eyebrow">Datenbankübergreifend</div><h1>Globale Suche</h1><p>Finde Tabellen, Spalten, Kommentare und Notizen in deinen freigegebenen Datenbanken.</p></div></div>${searchModes()}<section class="panel"><div class="panel-body"><form id="search-form" class="global-search-form"><div class="field"><label for="global-search-q">Suchbegriff</label><input id="global-search-q" name="q" minlength="2" maxlength="200" required placeholder="Zum Beispiel customer_id oder Bestellungen …" value="${e(state.searchQuery)}"></div><div class="field"><label for="global-search-source">Datenquelle</label><select id="global-search-source" name="source_id"><option value="all">Alle freigegebenen Quellen</option>${state.sources.map((s) => `<option value="${s.id}" ${String(s.id) === String(state.searchSource) ? "selected" : ""}>${e(s.name)}</option>`).join("")}</select></div><div class="field"><label for="global-search-kind">Treffertyp</label><select id="global-search-kind" name="kind"><option value="all">Alle Typen</option>${Object.entries(
       labels,
     )
       .map(

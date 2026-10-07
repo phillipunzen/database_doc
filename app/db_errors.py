@@ -19,6 +19,7 @@ STEPS = {
     "metadata": "Struktur auslesen",
     "save": "Dokumentation speichern",
     "test": "Verbindung testen",
+    "value_search": "Beispielwert suchen",
 }
 REASONS = {
     "unknown": "Die Ursache ist noch nicht eindeutig. Fehlercode und Schritt bei der Fehlersuche angeben; Erreichbarkeit, Leserechte und Datenbankzustand prüfen.",

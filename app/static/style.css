@@ -3234,3 +3234,114 @@ button.classification-tag:focus-visible {
 .an-catalog-panel {
   margin-bottom: 24px;
 }
+
+.df-modes {
+  margin-bottom: 24px;
+}
+.df-panel {
+  margin-top: 24px;
+}
+.df-query-grid {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1fr;
+  gap: 16px;
+  margin: 20px 0;
+}
+.df-candidate {
+  padding: 22px 24px;
+  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.df-object-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.df-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  padding-top: 14px;
+}
+.df-fields small {
+  display: block;
+}
+.df-candidate summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+.df-selected {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+  overflow-wrap: anywhere;
+}
+.df-result-line {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 14px 0;
+}
+.df-panel .hint {
+  margin: 16px 24px;
+}
+.df-panel .panel-body .hint {
+  margin: 16px 0;
+}
+#df-values-form {
+  margin-top: 20px;
+}
+#df-values-form .field {
+  max-width: 650px;
+}
+#df-query-form fieldset,
+#df-values-form fieldset {
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+#df-values-form fieldset {
+  display: grid;
+  gap: 16px;
+}
+#df-values-form [type="submit"] {
+  justify-self: start;
+}
+.df-candidate-list {
+  max-height: 620px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.df-fields {
+  border: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+#df-values-form + .small {
+  margin-top: 18px;
+}
+@media (max-width: 750px) {
+  .df-candidate-list {
+    max-height: 480px;
+  }
+  .df-query-grid {
+    grid-template-columns: 1fr;
+  }
+  .df-object-head,
+  .df-selected {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .df-candidate {
+    padding: 20px;
+  }
+  .df-fields {
+    grid-template-columns: 1fr;
+  }
+}

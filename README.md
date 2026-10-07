@@ -135,6 +135,7 @@ The source dashboard defaults to a compact list with locally served database-eng
 - Stored schema snapshots with comparisons of any two retained versions, plus JSON, Markdown, and PDF exports.
 - Source tags, a responsible person or team, and contact email, shown in the catalog and documentation exports.
 - Global search across the latest documented tables, columns, database comments, and object notes, restricted to sources granted to the signed-in user.
+- Find data using local German/English business terms, then explicitly search selected text fields for an example value and display its source/database/table/column locations.
 - Separately authorized data previews of up to 50 rows. Preview values are not persisted. Individual values are limited to 2,000 characters; binary values are represented by their size. There is no arbitrary SQL console.
 - User management, source-specific access grants, an activity log, local authentication, and configurable Entra ID and Active Directory authentication.
 
@@ -403,13 +404,42 @@ POST /api/catalog/tags/assign         # source_ids, tags, mode: add|remove
 
 ## Global search
 
-Select **Globale Suche** in the sidebar. Enter at least two characters to search table/collection names, schema names, column/field names and types, database comments, and documentation notes across accessible sources. Multiple words must all occur in a result. Filter by source or result type; results are paginated at 50 per page.
+Select **Global search → Metadata search** in the sidebar. Enter at least two characters to search table/collection names, schema names, column/field names and types, database comments, and documentation notes across accessible sources. Multiple words must all occur in a result. Filter by source or result type; results are paginated at 50 per page.
 
 Opening a result navigates to its current object. Column results highlight the matching column; note results open the documentation tab. These object links survive browser reloads.
 
 Only the latest successful snapshot of each source is indexed. Successful scans replace the index transactionally; failed scans preserve the previous snapshot and its index. Editing a note updates search immediately. Removing a source or changing its connection target removes the corresponding search entries. Source grants are checked at query time, so revoking access also removes those results immediately. Connection settings, credentials, and row previews are never indexed.
 
 The index uses literal substring matching over stored metadata, including literal `%` and `_` characters. For very large schemas, narrow the source/type filters; result pagination limits responses but does not eliminate the cost of scanning matching text.
+
+### Find data by business meaning or example
+
+Open **Global search → Find data** (**Globale Suche → Daten finden** in German):
+
+1. Enter a description such as **“Where can I find customer addresses?”** or **“Adressen der Kunden”**. An optional example such as **“Musterstraße 33”** can help identify address fields even without a description. Select one source or all accessible sources, then choose **Suggest tables**. This step reads saved metadata only, without connecting to source databases or searching their values.
+2. Review each candidate's source, database, table/collection, matching business terms, related tables and confirmed concepts. Select objects and their scanned text fields. Selections survive result pagination. A schema scan is required; unscanned sources are counted separately. Comments, documentation notes and confirmed business concepts improve discovery of obscure ERP identifiers such as `t101.f001`.
+3. Enter the example value and choose **Equals** (default) or **Contains**, then explicitly press **Search example value**. Only selected fields are queried. The result lists source/database/table/column locations with links into their documentation. It does not return customer records or matching row contents.
+
+Suggestions use a small local German/English vocabulary for customers, addresses, suppliers, orders, invoices, machines, products, email and phone, together with names, comments, notes, declared foreign-key relationships and confirmed concept definitions. Unknown terms use literal metadata matching. This is deterministic term matching, not a language model or automatic knowledge of every ERP. It does not establish business identity or a valid join. A confirmed concept is visible only when all its bound sources are accessible to the user.
+
+Value searches require the separate **data permission**, including for viewers; documentation permission alone allows suggestions. Every selected identifier must belong to the current scanned schema. Account status, data grants, connection identity and snapshot versions are rechecked during the operation and before returning results. Revocation or a changed connection/scan discards the result. Requests require authentication, CSRF and trusted Origin checks. No new application database migration is needed for this feature.
+
+Each search supports **up to five objects and ten text columns**, checked serially, with **two simultaneous searches per application process**. Relational queries use bound values and quoted scanned identifiers with `WHERE` and a one-row existence limit; MongoDB uses a limited aggregation returning a constant marker. There is no first-N-row sampling: a match can be found beyond the first rows. Numeric, date, UUID, JSON and binary columns are excluded; MongoDB string fields must already have been inferred during a scan. Street and house number may be separate fields, so try the street name alone if needed.
+
+The default equality comparison can use a suitable index when the database planner chooses one. Contains searches escape SQL wildcard characters (and regex characters for MongoDB) so input is treated literally; they can require a full table scan. Comparisons follow native database collation, padding and case rules; MongoDB contains matching is case-sensitive. Legacy SQL Server TEXT/NTEXT fields are cast to NVARCHAR(MAX) for comparison.
+
+Query execution has an **eight-second budget per field** and a **45-second budget per batch**. PostgreSQL uses `statement_timeout`, MariaDB `max_statement_time`, MySQL `max_execution_time`, SQL Server the ODBC query timeout, MongoDB `maxTimeMS`, and SQLite a progress handler and busy timeout. If configuring a timeout fails, the field is not queried. These are execution budgets, not a guaranteed wall-clock deadline: connection setup, network waits and server cancellation checkpoints can extend elapsed time. See [MariaDB statement cancellation](https://mariadb.com/docs/server/ha-and-performance/optimization-and-tuning/query-optimizations/aborting-statements) and [MySQL execution limits](https://dev.mysql.com/doc/refman/8.4/en/server-system-variables.html#sysvar_max_execution_time).
+
+Only a successfully completed predicate can return **No match in the checked field**. Errors and fields skipped because of the batch budget are explicitly unknown and mark the search incomplete. A found value confirms existence in that accessible field at query time; it does not prove that the row belongs to a particular customer or establish where all matching business records live. Use source accounts with read-only privileges.
+
+Example values and results are held in memory only and are not saved in DatabaseDoc, forwarded to an external AI service, or written to URLs or application logs. The audit records only the search action and source IDs. Source database query/audit logs or separately configured infrastructure may record query values; their configuration is outside DatabaseDoc. Browser results are cleared on sign-out or expired authentication.
+
+| Endpoint                      | Purpose                                                                                                                 |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/finder/candidates` | Metadata-only suggestions: `{query, value_hint, source_ids, page, page_size}`; 25 results by default, maximum 50.       |
+| `POST /api/finder/values`     | Explicit value search: `{value, mode: "exact" \| "contains", targets: [{source_id, snapshot_id, table_key, columns}]}`. |
+
+![Finding relevant tables and searching selected fields with fictional data](docs/data-finder.png)
 
 ## Source analysis and business concepts
 
@@ -612,7 +642,7 @@ The backend uses FastAPI and SQLAlchemy. The bilingual interface uses locally se
 docker compose run --rm \
   -v "$PWD/app:/app/app:ro" \
   -v "$PWD/tests:/app/tests:ro" \
-  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py tests/test_warehouse_workspace.py tests/test_catalog_tags.py tests/test_design_tools.py tests/test_warehouse_assessment.py tests/test_scan_scale.py tests/test_source_analysis.py tests/test_db_diagnostics.py
+  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py tests/test_warehouse_workspace.py tests/test_catalog_tags.py tests/test_design_tools.py tests/test_warehouse_assessment.py tests/test_scan_scale.py tests/test_source_analysis.py tests/test_db_diagnostics.py tests/test_data_finder.py
 ```
 
 Application tests use temporary SQLite databases for both application storage and sources. They verify encrypted credentials, scanning, metadata, notes, exports, CSRF and Origin checks, roles and source grants, preview authorization, account deactivation, read-only SQLite access, path boundaries, and session revocation. The feature suite additionally covers permission-filtered global search, literal search patterns, note indexing, snapshot/index rollback, schema comparisons, persistent scheduling, duplicate-scan deferral, access revocation, daylight-saving transitions, additive migrations, and cleanup on source deletion. PDF tests parse the actual generated files and cover full/single-object and historical exports, viewer permissions, literal markup, Unicode text, long notes and oversized table cells, 85-object diagrams, cross-page references, composite/self/external foreign keys, and empty/inferred schemas.
@@ -782,3 +812,13 @@ ANALYSIS_TEST_URL=http://127.0.0.1:8091 \
 `tests/test_analysis_connectors.py` is opt-in (`ANALYSIS_CONNECTOR_INTEGRATION=1`) and uses only fixed disposable container hostnames: `databasedoc-analysis-postgres`, `databasedoc-analysis-mysql`, `databasedoc-analysis-mariadb`, `databasedoc-analysis-mssql` and `databasedoc-analysis-mongo`, on an isolated Docker network. It creates fictional tables/views/documents and checks catalog estimates, supported view dependencies and bounded aggregate profiles. Fixture credentials are defined in the test. Use fresh instances and remove them after testing; with the variable unset, all five checks are skipped.
 
 `tests/test_db_diagnostics.py` covers sanitized driver codes, safe logging, localized persisted messages, connection-test errors, preserved snapshots/search results and the distinction between source reflection and application-storage failures. Its optional real MariaDB check (`DB_DIAGNOSTICS_INTEGRATION=1`) uses only the disposable hostname `databasedoc-diagnostics-mariadb` and fictional objects. It demonstrates a successful connection test followed by a failed scan of an invalid view. Never use production instances for this integration fixture.
+
+`tests/test_data_finder.py` verifies metadata-only suggestions, German/English vocabulary, foreign-key context, confirmed concepts, source/data permissions, CSRF/Origin protection, stale scans, revocation, literal value binding, unchanged SQLite source files, a match after 2,000 earlier rows, non-disclosing errors, concurrency and incomplete budgets. `tests/data-finder.cjs` exercises both languages, a 64-source catalog, pagination, selected value queries, literal wildcards, documentation links, restricted viewers, logout and mobile layout against a disposable instance seeded with `tests/seed_finder_fixture.py`:
+
+```bash
+FINDER_TEST_URL=http://127.0.0.1:8091 \
+  FINDER_TEST_PASSWORD=YOUR_DISPOSABLE_ADMIN_PASSWORD \
+  NODE_PATH=/tmp/datatlas-browser/node_modules node tests/data-finder.cjs
+```
+
+`tests/test_finder_connectors.py` is opt-in (`FINDER_CONNECTOR_INTEGRATION=1`). It checks parameterized Unicode exact/contains queries, literal SQL/regex metacharacters, quoted identifiers, timeout configuration and SQL Server legacy text fields against dedicated disposable PostgreSQL, MySQL, MariaDB, SQL Server and MongoDB containers on hostnames `databasedoc-finder-{postgres,mysql,mariadb,mssql,mongo}`. Run one fixture at a time on memory-constrained hosts. It creates fictional objects only; never point those hostnames at existing databases.

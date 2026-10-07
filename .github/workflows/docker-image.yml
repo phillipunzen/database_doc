@@ -71,7 +71,7 @@ jobs:
             tests/test_application.py tests/test_catalog_features.py \
             tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py \
             tests/test_branding.py tests/test_warehouse_workspace.py tests/test_catalog_tags.py \
-            tests/test_design_tools.py tests/test_warehouse_assessment.py tests/test_scan_scale.py tests/test_source_analysis.py tests/test_db_diagnostics.py
+            tests/test_design_tools.py tests/test_warehouse_assessment.py tests/test_scan_scale.py tests/test_source_analysis.py tests/test_db_diagnostics.py tests/test_data_finder.py
 
       - name: Log in to GitHub Container Registry
         if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
