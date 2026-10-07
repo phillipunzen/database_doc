@@ -160,6 +160,10 @@ function brand() {
   return `<div class="brand-block">${state.branding?.logo_url ? `<div class="company-brand"><img class="company-logo" src="${e(state.branding.logo_url)}" alt="${e(uiText("Firmenlogo"))}"></div>` : ""}<div class="brand">${icon("database")}<div>DatabaseDoc<small>DATABASE DOCUMENTATION</small></div></div></div>`;
 }
 async function showLogin() {
+  if (UI_PROFILE_LANGUAGE !== "auto") {
+    location.reload();
+    return;
+  }
   diagramCleanup();
   await loadBranding();
   const options = await api("/api/auth/options");
@@ -167,7 +171,7 @@ async function showLogin() {
 }
 function shell(content) {
   diagramCleanup();
-  root.innerHTML = localize`<div class="layout"><aside class="sidebar">${brand()}<nav><div class="nav-label">Arbeitsbereich</div><button class="nav-button ${["sources", "source"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="sources">${icon("database")}<span>Datenquellen</span></button>${localize`<button class="nav-button ${state.view === "search" ? "active" : ""}" data-action="nav" data-view="search">${icon("search")}<span>Globale Suche</span></button>`}<button class="nav-button ${state.view === "analysis" ? "active" : ""}" data-action="nav" data-view="analysis">${icon("grid")}<span>Analyse & Fachbegriffe</span></button><button class="nav-button ${["warehouse", "warehouse-project", "warehouse-workspace"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="warehouse" title="Data Warehouse">${icon("relations")}<span>Data Warehouse</span></button><button class="nav-button ${["tools", "tool-design"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="tools">${icon("edit")}<span>Tools</span></button>${state.user.role === "admin" ? localize`<div class="nav-label" style="margin-top:30px">Administration</div><button class="nav-button ${state.view === "users" ? "active" : ""}" data-action="nav" data-view="users">${icon("users")}<span>Benutzer & Rechte</span></button><button class="nav-button ${state.view === "audit" ? "active" : ""}" data-action="nav" data-view="audit">${icon("shield")}<span>Aktivitätsprotokoll</span></button><button class="nav-button ${state.view === "settings" ? "active" : ""}" data-action="nav" data-view="settings" title="Systemeinstellungen">${icon("settings")}<span>Systemeinstellungen</span></button>` : ""}</nav><div class="sidebar-bottom"><div class="user-line"><div class="avatar">${e(state.user.display_name.slice(0, 1).toUpperCase())}</div><div><div class="small">${e(state.user.display_name)}</div><div style="font-size:10px;color:#a7c0b3">${roles[state.user.role]}</div></div></div>${state.user.provider === "local" ? localize('<button data-action="password">Passwort ändern</button>') : ""}<button data-action="logout">Abmelden</button></div></aside><main class="main"><header class="topbar"><div class="breadcrumb">${state.view === "settings" ? uiText("Administration") : uiText("Arbeitsbereich")} <span>/</span> <strong>${state.view === "analysis" ? uiText("Analyse & Fachbegriffe") : ["tools", "tool-design"].includes(state.view) ? "Tools" : state.view === "source" ? e(state.source.name) : state.view === "search" ? uiText("Globale Suche") : ["warehouse", "warehouse-project", "warehouse-workspace"].includes(state.view) ? uiText("Data Warehouse") : state.view === "users" ? uiText("Benutzer & Rechte") : state.view === "audit" ? uiText("Aktivitätsprotokoll") : state.view === "settings" ? uiText("Systemeinstellungen") : uiText("Datenquellen")}</strong></div><div class="env-pill"><span class="dot"></span> ${roles[state.user.role]}</div><button class="btn ghost mobile-logout" data-action="logout" style="display:none">Abmelden</button></header><div class="content">${content}</div></main></div>`;
+  root.innerHTML = localize`<div class="layout"><aside class="sidebar">${brand()}<nav><div class="nav-label">Arbeitsbereich</div><button class="nav-button ${["sources", "source"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="sources">${icon("database")}<span>Datenquellen</span></button>${localize`<button class="nav-button ${state.view === "search" ? "active" : ""}" data-action="nav" data-view="search">${icon("search")}<span>Globale Suche</span></button>`}<button class="nav-button ${state.view === "analysis" ? "active" : ""}" data-action="nav" data-view="analysis">${icon("grid")}<span>Analyse & Fachbegriffe</span></button><button class="nav-button ${["warehouse", "warehouse-project", "warehouse-workspace"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="warehouse" title="Data Warehouse">${icon("relations")}<span>Data Warehouse</span></button><button class="nav-button ${["tools", "tool-design"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="tools">${icon("edit")}<span>Tools</span></button>${state.user.role === "admin" ? localize`<div class="nav-label" style="margin-top:30px">Administration</div><button class="nav-button ${state.view === "users" ? "active" : ""}" data-action="nav" data-view="users">${icon("users")}<span>Benutzer & Rechte</span></button><button class="nav-button ${state.view === "audit" ? "active" : ""}" data-action="nav" data-view="audit">${icon("shield")}<span>Aktivitätsprotokoll</span></button><button class="nav-button ${state.view === "settings" ? "active" : ""}" data-action="nav" data-view="settings" title="Systemeinstellungen">${icon("settings")}<span>Systemeinstellungen</span></button>` : ""}</nav><div class="sidebar-bottom"><button class="profile-link ${state.view === "profile" ? "active" : ""}" data-action="nav" data-view="profile">${icon("settings")} ${e(uiText("Profileinstellungen"))}</button><div class="user-line"><div class="avatar">${e(state.user.display_name.slice(0, 1).toUpperCase())}</div><div><div class="small">${e(state.user.display_name)}</div><div style="font-size:10px;color:#a7c0b3">${roles[state.user.role]}</div></div></div>${state.user.provider === "local" ? localize('<button data-action="password">Passwort ändern</button>') : ""}<button data-action="logout">Abmelden</button></div></aside><main class="main"><header class="topbar"><div class="breadcrumb">${state.view === "settings" ? uiText("Administration") : uiText("Arbeitsbereich")} <span>/</span> <strong>${state.view === "profile" ? uiText("Profileinstellungen") : state.view === "analysis" ? uiText("Analyse & Fachbegriffe") : ["tools", "tool-design"].includes(state.view) ? "Tools" : state.view === "source" ? e(state.source.name) : state.view === "search" ? uiText("Globale Suche") : ["warehouse", "warehouse-project", "warehouse-workspace"].includes(state.view) ? uiText("Data Warehouse") : state.view === "users" ? uiText("Benutzer & Rechte") : state.view === "audit" ? uiText("Aktivitätsprotokoll") : state.view === "settings" ? uiText("Systemeinstellungen") : uiText("Datenquellen")}</strong></div><button class="btn ghost profile-mobile" data-action="nav" data-view="profile" title="Profileinstellungen">${icon("settings")}<span>Mein Profil</span></button><div class="env-pill"><span class="dot"></span> ${roles[state.user.role]}</div><button class="btn ghost mobile-logout" data-action="logout" style="display:none">Abmelden</button></header><div class="content">${content}</div></main></div>`;
   setupPlannedDiagrams();
 }
 function status(source) {
@@ -558,6 +562,15 @@ async function navigate(view, id, target = {}) {
         else renderSearch();
       }
     }
+    if (view === "profile") {
+      state.profile = await api("/api/profile");
+      state.user = { ...state.profile.user, language: state.profile.language };
+      if (profileNeedsReload(state.user)) {
+        location.reload();
+        return;
+      }
+      renderProfile();
+    }
     if (view === "users") {
       state.users = await api("/api/users");
       renderUsers();
@@ -938,6 +951,7 @@ function renderUsers() {
   );
 }
 const auditLabels = {
+  profile_updated: uiText("Profil aktualisiert"),
   tag_style_saved: uiText("Tag-Definition gespeichert"),
   tag_style_deleted: uiText("Tag-Definition entfernt"),
   source_metadata_updated: uiText("Tags und Verantwortliche gespeichert."),
@@ -1338,6 +1352,11 @@ document.addEventListener("click", async (ev) => {
 });
 document.addEventListener("submit", async (ev) => {
   const form = ev.target;
+  if (form.id === "profile-form") {
+    ev.preventDefault();
+    await profileSubmit(form);
+    return;
+  }
   if (form.id.startsWith("df-")) {
     ev.preventDefault();
     await finderSubmit(form);
@@ -1451,6 +1470,10 @@ document.addEventListener("submit", async (ev) => {
       const result = await api("/api/auth/login", "POST", data);
       state.user = result.user;
       state.csrf = result.csrf;
+      if (profileNeedsReload(state.user)) {
+        location.reload();
+        return;
+      }
       await loadSources();
       await route();
     }
@@ -1614,6 +1637,7 @@ async function route() {
       "users",
       "audit",
       "settings",
+      "profile",
       "branding",
     ].includes(view)
       ? view
@@ -1673,6 +1697,10 @@ setInterval(async () => {
     const me = await api("/api/auth/me");
     state.user = me.user;
     state.csrf = me.csrf;
+    if (profileNeedsReload(state.user)) {
+      location.reload();
+      return;
+    }
     await loadSources();
     await route();
   } catch (error) {

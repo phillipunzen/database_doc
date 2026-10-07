@@ -118,7 +118,8 @@ if (!baseURL)
         const path = new URL(route.request().url()).pathname;
         if (path === "/api/dwh/warehouses") return route.fulfill({ json: [] });
         // Serve the real shared translation catalog.
-        if (path === "/api/i18n/en.js") return route.continue();
+        if (["/api/i18n/en.js", "/api/i18n/preference.js"].includes(path))
+          return route.continue();
         assert.equal(
           route.request().method(),
           "GET",

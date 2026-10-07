@@ -4,13 +4,33 @@ DatabaseDoc is a web application for documenting databases and data warehouses. 
 
 Supported database adapters: **Microsoft SQL Server, MySQL, MariaDB, PostgreSQL, MongoDB, and SQLite**.
 
-The interface supports English and German and automatically uses the first supported language in your browser preferences. Regional variants such as `de-DE`, `de-AT`, `en-US`, and `en-GB` are supported; English is the fallback when no supported language is listed. Reload the page after changing your browser language. This README and the configuration documentation are in English.
+The interface supports English and German. Each user can select **German**, **English**, or **Use browser language** in their profile settings. Browser language is the default for existing and new accounts: the first supported browser preference is used, including regional variants such as `de-DE`, `de-AT`, `en-US`, and `en-GB`; English is the fallback when no supported language is listed. Reload the page after changing your browser language. This README and the configuration documentation are in English.
 
 ## Interface language
 
-Navigation, forms, application messages, source documentation, global search, user administration, and warehouse planning are available in English and German. Dates, numbers, sorting and weekday names use the selected language. The document's `lang` attribute and page title are set accordingly. Application messages and PDF/Markdown export labels follow the request's `Accept-Language` preferences; JSON keys, database identifiers, and generated SQL identifiers remain stable. Technical SQL comments are in English.
+Navigation, forms, application messages, source documentation, global search, user administration, and warehouse planning are available in English and German. Dates, numbers, sorting and weekday names use the selected language. The document's `lang` attribute and page title are set accordingly. Application messages and PDF/Markdown export labels use the authenticated user's personal language choice, or the request's `Accept-Language` preferences in automatic mode; JSON keys, database identifiers, and generated SQL identifiers remain stable. Technical SQL comments are in English.
 
 Database names, comments, tags, owners, notes, business requirements, transformation descriptions, and preview values are shown exactly as recorded; they are not automatically translated. A shared English catalog lives in `app/static/translations.json`, with German application text as the source keys. Frontend translation helpers process application literals before interpolating user content. Backend language state is isolated per request, so users with different browser languages can work concurrently.
+
+### Personal profile settings
+
+Open **Profile settings** (**Profileinstellungen**) above your account name in the sidebar. On mobile, use the settings button in the top bar. Every active user can open their own profile, regardless of role or database grants.
+
+- Choose **Use browser language**, **German**, or **English** and press **Save profile**. The choice is stored per user in MariaDB and follows the account across browsers, devices and later sign-ins. Explicit choices take priority over browser/request language; German uses `de-DE` formatting and English uses `en-GB`. Automatic mode preserves the supported browser region for UI formatting. Other users keep their own choices.
+- Local accounts can edit their display name and open the existing password-change dialog. Password changes still require the current password and revoke other sessions. AD/Entra users can set their language, while display-name and password controls remain externally managed.
+- Username, sign-in provider and role are shown for reference. Roles and database grants remain administrator-managed; the profile API cannot change them.
+
+Saving a different language reloads the page to apply translations consistently to navigation, dialogs, cached labels, dates and exports. The language bootstrap is loaded before application modules and is never cached. After logout or session expiry, the sign-in screen returns to browser language; profile preferences are used only with a valid active session. A preference changed elsewhere is picked up on reload or when opening the profile. API requests and exports read the saved preference on each request.
+
+Startup adds the `user_preferences` table without altering the existing user table, passwords, identities, roles, grants or source documentation. Accounts without a preference retain automatic browser detection. Back up MariaDB before upgrading and retain `.env` and the encryption key.
+
+| Endpoint                      | Purpose                                                                                                                                                                                                   |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/profile`            | Read the signed-in user's account, stored `language` (`auto`, `de`, `en`) and request's `effective_language`.                                                                                             |
+| `PUT /api/profile`            | Save `{language, display_name?}` for the signed-in user; display name is optional and supported for local accounts only. Authentication, CSRF and trusted Origin checks apply; extra fields are rejected. |
+| `GET /api/i18n/preference.js` | Serve the authenticated language bootstrap, or `auto` for anonymous, expired or inactive sessions; `Cache-Control: no-store`.                                                                             |
+
+![Personal language and account settings using fictional data](docs/profile-settings.png)
 
 ## Quick start
 
@@ -642,7 +662,7 @@ The backend uses FastAPI and SQLAlchemy. The bilingual interface uses locally se
 docker compose run --rm \
   -v "$PWD/app:/app/app:ro" \
   -v "$PWD/tests:/app/tests:ro" \
-  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py tests/test_warehouse_workspace.py tests/test_catalog_tags.py tests/test_design_tools.py tests/test_warehouse_assessment.py tests/test_scan_scale.py tests/test_source_analysis.py tests/test_db_diagnostics.py tests/test_data_finder.py
+  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py tests/test_warehouse_workspace.py tests/test_catalog_tags.py tests/test_design_tools.py tests/test_warehouse_assessment.py tests/test_scan_scale.py tests/test_source_analysis.py tests/test_db_diagnostics.py tests/test_data_finder.py tests/test_profile.py
 ```
 
 Application tests use temporary SQLite databases for both application storage and sources. They verify encrypted credentials, scanning, metadata, notes, exports, CSRF and Origin checks, roles and source grants, preview authorization, account deactivation, read-only SQLite access, path boundaries, and session revocation. The feature suite additionally covers permission-filtered global search, literal search patterns, note indexing, snapshot/index rollback, schema comparisons, persistent scheduling, duplicate-scan deferral, access revocation, daylight-saving transitions, additive migrations, and cleanup on source deletion. PDF tests parse the actual generated files and cover full/single-object and historical exports, viewer permissions, literal markup, Unicode text, long notes and oversized table cells, 85-object diagrams, cross-page references, composite/self/external foreign keys, and empty/inferred schemas.
@@ -822,3 +842,14 @@ FINDER_TEST_URL=http://127.0.0.1:8091 \
 ```
 
 `tests/test_finder_connectors.py` is opt-in (`FINDER_CONNECTOR_INTEGRATION=1`). It checks parameterized Unicode exact/contains queries, literal SQL/regex metacharacters, quoted identifiers, timeout configuration and SQL Server legacy text fields against dedicated disposable PostgreSQL, MySQL, MariaDB, SQL Server and MongoDB containers on hostnames `databasedoc-finder-{postgres,mysql,mariadb,mssql,mongo}`. Run one fixture at a time on memory-constrained hosts. It creates fictional objects only; never point those hostnames at existing databases.
+
+`tests/test_profile.py` checks per-account language persistence and isolation, automatic fallback, auth/CSRF/Origin checks, privilege-field rejection, display-name validation, external accounts, expired/deactivated sessions and audit privacy. `tests/profile-settings.cjs` runs against the dedicated fictional MariaDB instance prepared with `tests/seed_profile_fixture.py`. The fixture first creates the old user table and account before application startup; the new application adds preferences and preserves that account. Browser checks cover profile saving, escaped names, complete German/English label changes, regional fallback, new browser sessions, Markdown/PDF export languages, independent viewer/editor accounts, external-account controls and mobile layout:
+
+```bash
+PROFILE_TEST_URL=http://127.0.0.1:8091 \
+  PROFILE_TEST_PASSWORD=YOUR_DISPOSABLE_ADMIN_PASSWORD \
+  PROFILE_TEST_EXTERNAL_SESSION=/path/to/disposable-session.json \
+  NODE_PATH=/tmp/datatlas-browser/node_modules node tests/profile-settings.cjs
+```
+
+The profile fixture requires `PROFILE_FIXTURE=1` and the isolated hostname `databasedoc-profile-mariadb`; it refuses other targets. Its external session is a local fictional test session, not a live AD/Entra authentication test. Never seed it against an existing application database.

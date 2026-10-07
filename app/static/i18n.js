@@ -4,10 +4,17 @@
 const uiPreference = (navigator.languages || [navigator.language]).find(
   (language) => ["de", "en"].includes(language.toLowerCase().split("-")[0]),
 );
-const uiLanguage = uiPreference
-  ? uiPreference.toLowerCase().split("-")[0]
-  : "en";
-const uiLocale = uiPreference || "en-GB";
+const uiLanguage = ["de", "en"].includes(UI_PROFILE_LANGUAGE)
+  ? UI_PROFILE_LANGUAGE
+  : uiPreference
+    ? uiPreference.toLowerCase().split("-")[0]
+    : "en";
+const uiLocale =
+  UI_PROFILE_LANGUAGE === "de"
+    ? "de-DE"
+    : UI_PROFILE_LANGUAGE === "en"
+      ? "en-GB"
+      : uiPreference || "en-GB";
 function uiText(message, ...values) {
   const text =
     uiLanguage === "en" && Object.hasOwn(UI_TRANSLATIONS, message)

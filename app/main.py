@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy import select, func, delete
 from starlette.middleware.sessions import SessionMiddleware
+from starlette.concurrency import run_in_threadpool
 from authlib.integrations.starlette_client import OAuth
 from .i18n import tr, tr_message
 from .db_errors import diagnostic
@@ -74,6 +75,7 @@ from .catalog_tags import (
     normalize_tags,
 )
 from .finder_api import router as finder_router
+from .profile import router as profile_router, language_for, request_preference
 from .analysis_api import router as analysis_router
 from .business_catalog import (
     router as business_catalog_router,
@@ -152,6 +154,7 @@ app.include_router(catalog_tags_router)
 app.include_router(design_tools_router)
 app.include_router(analysis_router)
 app.include_router(finder_router)
+app.include_router(profile_router)
 app.include_router(business_catalog_router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 oauth = OAuth()
@@ -198,11 +201,33 @@ async def headers(request, call_next):
 async def localized_request(request: Request, call_next):
     token = LANGUAGE.set(negotiate_language(request.headers.get("accept-language")))
     try:
+        preference = "auto"
+        if (
+            not request.url.path.startswith("/static/")
+            and request.url.path != "/api/health"
+        ):
+            preference = await run_in_threadpool(
+                request_preference, request.cookies.get("datatlas_session", "")
+            )
+        request.state.profile_language = preference
+        if preference != "auto":
+            LANGUAGE.set(preference)
         response = await call_next(request)
         response.headers["Content-Language"] = LANGUAGE.get()
         return response
     finally:
         LANGUAGE.reset(token)
+
+
+@app.get("/api/i18n/preference.js", include_in_schema=False)
+def profile_language_script(request: Request):
+    return Response(
+        "const UI_PROFILE_LANGUAGE = "
+        + json.dumps(request.state.profile_language)
+        + ";",
+        media_type="application/javascript",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/")
@@ -278,7 +303,10 @@ def login(body: LoginInput, request: Request, response: Response):
             db.commit()
             raise HTTPException(401, tr("Anmeldung fehlgeschlagen."))
         csrf = issue_session(db, user, response)
-        return {"user": user_json(user), "csrf": csrf}
+        return {
+            "user": {**user_json(user), "language": language_for(db, user.id)},
+            "csrf": csrf,
+        }
 
 
 DUMMY_HASH = hasher.hash("unused-dummy-password")
@@ -339,7 +367,10 @@ def me(request: Request, user: User = Depends(current)):
             LoginSession,
             hashlib.sha256(request.cookies["datatlas_session"].encode()).hexdigest(),
         )
-        return {"user": user_json(user), "csrf": session.csrf}
+        return {
+            "user": {**user_json(user), "language": language_for(db, user.id)},
+            "csrf": session.csrf,
+        }
 
 
 @app.post("/api/auth/logout")

@@ -46,6 +46,14 @@ class LoginSession(Base):
     expires: Mapped[datetime] = mapped_column(DateTime)
 
 
+class UserPreference(Base):
+    __tablename__ = "user_preferences"
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    language: Mapped[str] = mapped_column(String(10), default="auto")
+
+
 class Source(Base):
     __tablename__ = "sources"
     id: Mapped[int] = mapped_column(primary_key=True)
