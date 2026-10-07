@@ -10,9 +10,10 @@ from sqlalchemy import (
     ForeignKey,
     JSON,
     UniqueConstraint,
+    LargeBinary,
 )
 from sqlalchemy.engine import URL
-from sqlalchemy.dialects.mysql import MEDIUMTEXT
+from sqlalchemy.dialects.mysql import MEDIUMTEXT, MEDIUMBLOB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 
 
@@ -151,6 +152,16 @@ class SchemaVersion(Base):
     __tablename__ = "schema_versions"
     version: Mapped[str] = mapped_column(String(64), primary_key=True)
     created: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
+class ApplicationBranding(Base):
+    __tablename__ = "application_branding"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    logo: Mapped[bytes] = mapped_column(
+        LargeBinary().with_variant(MEDIUMBLOB(), "mysql")
+    )
+    version: Mapped[str] = mapped_column(String(64))
+    updated: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
 class WarehouseProject(Base):

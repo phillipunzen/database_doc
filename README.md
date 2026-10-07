@@ -145,6 +145,23 @@ GET /api/sources/{id}/export?format=er_pdf&snapshot_id={snapshot_id}
 
 Upgrading requires rebuilding the Docker image (`docker compose up -d --build app`) to install the pinned ReportLab dependencies and the local fonts. No additional database migration is required for PDF export.
 
+## Company logo
+
+Administrators can open **Company logo** in the Administration section to upload, preview, replace or remove one shared company logo. Select **Save logo** to publish it for all users; selecting a file alone only shows an unsaved preview. The logo appears on the sign-in page, in the sidebar, and in the header of newly generated table and ER PDFs. DatabaseDoc's product name remains visible. Removing the logo restores the default appearance.
+
+Supported uploads are non-animated PNG, JPEG and WebP images up to 2 MiB, with at most 4,096 pixels per side and 4 million pixels overall. Transparent PNGs are recommended. The server verifies the actual image content, strips image metadata and converts the logo to PNG, scaling it proportionally to fit within 1,200 × 400 pixels. SVG and animated images are not accepted.
+
+The normalized logo is stored in MariaDB in the additive `application_branding` table and is included in the regular database backup. It survives Docker container rebuilds without an extra writable volume. Logo reads are public because the sign-in page displays it; writes require an active administrator session, CSRF token and the existing origin checks. Uploads/removals are audited. Existing downloaded PDFs keep their original appearance; Markdown, JSON and SQL exports are unchanged.
+
+```text
+GET /api/branding
+GET /api/branding/logo
+PUT /api/branding/logo       # Raw image bytes, with X-CSRF-Token
+DELETE /api/branding/logo
+```
+
+![Company logo administration with fictional artwork](docs/company-logo.png)
+
 ## Automatic scans
 
 Open a source and select **Automatische Scans**. An administrator or an editor with an editing grant can enable an hourly, daily, or weekly schedule. Existing sources have automatic scans disabled until a schedule is explicitly enabled.
@@ -329,7 +346,7 @@ The backend uses FastAPI and SQLAlchemy. The bilingual interface uses locally se
 docker compose run --rm \
   -v "$PWD/app:/app/app:ro" \
   -v "$PWD/tests:/app/tests:ro" \
-  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py
+  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py
 ```
 
 Application tests use temporary SQLite databases for both application storage and sources. They verify encrypted credentials, scanning, metadata, notes, exports, CSRF and Origin checks, roles and source grants, preview authorization, account deactivation, read-only SQLite access, path boundaries, and session revocation. The feature suite additionally covers permission-filtered global search, literal search patterns, note indexing, snapshot/index rollback, schema comparisons, persistent scheduling, duplicate-scan deferral, access revocation, daylight-saving transitions, additive migrations, and cleanup on source deletion. PDF tests parse the actual generated files and cover full/single-object and historical exports, viewer permissions, literal markup, Unicode text, long notes and oversized table cells, 85-object diagrams, cross-page references, composite/self/external foreign keys, and empty/inferred schemas.
@@ -382,6 +399,14 @@ This browser check downloads the existing example source's complete documentatio
 ```bash
 I18N_TEST_URL=http://127.0.0.1:8091 \
   NODE_PATH=/tmp/datatlas-browser/node_modules node tests/i18n.cjs
+```
+
+`tests/test_branding.py` verifies upload formats/limits, removal, database persistence, image metadata stripping, administrator/CSRF/origin checks, localized validation and branded PDFs. `tests/branding.cjs` tests preview versus saved state, replacement, public sign-in branding, removal, viewer navigation, and mobile layout in both languages against a disposable deployment. It uploads/removes fictional logos; never run it against a live installation:
+
+```bash
+BRANDING_TEST_URL=http://127.0.0.1:8091 \
+BRANDING_TEST_PASSWORD=your-disposable-admin-password \
+NODE_PATH=/tmp/datatlas-browser/node_modules node tests/branding.cjs
 ```
 
 Point `I18N_TEST_URL` at a disposable application instance, with its own temporary application database. The browser suite mocks business APIs and checks login, source catalogs, connection forms, metadata, tags/owners, scheduling, DWH modeling, search, administration and mobile layout in `de-DE`, `de-AT`, `en-US`, `en-GB` and an unsupported language (`fr-FR`, falling back to English). It also checks that database names and user-authored German text remain unchanged in the English interface. It does not write business records.

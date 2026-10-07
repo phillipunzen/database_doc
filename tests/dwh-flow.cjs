@@ -75,7 +75,8 @@ if (!baseURL)
           writes++;
         }
         let result;
-        if (url.pathname === "/api/auth/me")
+        if (url.pathname === "/api/branding") result = { logo_url: null };
+        else if (url.pathname === "/api/auth/me")
           result = {
             user: {
               id: 1,

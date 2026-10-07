@@ -123,8 +123,17 @@ async function api(url, method = "GET", body) {
   const res = await fetch(url, {
     method,
     credentials: "same-origin",
-    headers: { "Content-Type": "application/json", "X-CSRF-Token": state.csrf },
-    body: body === undefined ? undefined : JSON.stringify(body),
+    headers: {
+      "Content-Type":
+        body instanceof File ? "application/octet-stream" : "application/json",
+      "X-CSRF-Token": state.csrf,
+    },
+    body:
+      body instanceof File
+        ? body
+        : body === undefined
+          ? undefined
+          : JSON.stringify(body),
   });
   const result = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -143,14 +152,15 @@ async function api(url, method = "GET", body) {
   return result;
 }
 function brand() {
-  return `<div class="brand">${icon("database")}<div>DatabaseDoc<small>DATABASE DOCUMENTATION</small></div></div>`;
+  return `<div class="brand-block">${state.branding?.logo_url ? `<div class="company-brand"><img class="company-logo" src="${e(state.branding.logo_url)}" alt="${e(uiText("Firmenlogo"))}"></div>` : ""}<div class="brand">${icon("database")}<div>DatabaseDoc<small>DATABASE DOCUMENTATION</small></div></div></div>`;
 }
 async function showLogin() {
+  await loadBranding();
   const options = await api("/api/auth/options");
   root.innerHTML = localize`<div class="login-shell"><aside class="login-art">${brand()}<div><div class="eyebrow" style="color:#b5d7a2">Wissen, wie Daten zusammenhängen</div><h1>Deine Datenbanken.<br>Ein klarer Überblick.</h1><p>Strukturen entdecken, Beziehungen verstehen und Datenwissen gemeinsam festhalten.</p><svg class="art-nodes" viewBox="0 0 440 200" aria-hidden="true"><g fill="none" stroke="#739b7c"><path d="M130 60H200V150H275M130 60H310V40"/></g><g fill="#244d40" stroke="#739b7c"><rect x="0" y="18" width="130" height="90" rx="8"/><rect x="275" y="110" width="140" height="85" rx="8"/><rect x="280" y="5" width="140" height="75" rx="8"/></g><g fill="#c0e8aa" font-size="12" font-family="monospace"><text x="15" y="42">customers</text><text x="295" y="28">addresses</text><text x="290" y="134">orders</text></g><g stroke="#6f9779"><path d="M15 58h90M15 73h65M15 88h78M295 43h100M295 58h70M290 150h100M290 166h65M290 181h80"/></g></svg></div><small>Metadaten · ER-Modelle · Dokumentation</small></aside><main class="login-main"><div class="login-box"><div class="eyebrow">Willkommen bei DatabaseDoc</div><h2>Anmelden</h2><p>Öffne deine Datenbankdokumentation.</p><form id="login-form" class="login-form"><div class="field"><label for="login-user">Benutzername</label><input id="login-user" name="username" autocomplete="username" required autofocus></div><div class="field"><label for="login-pass">Passwort</label><input id="login-pass" name="password" type="password" autocomplete="current-password" required></div>${options.ad ? localize('<div class="field"><label for="provider">Anmeldung</label><select id="provider" name="provider"><option value="local">Lokales Konto</option><option value="ad">Microsoft Active Directory</option></select></div>') : ""}<button class="btn primary" type="submit">Anmelden ${icon("arrow")}</button><div class="error-text" id="login-error" role="alert">${location.search.includes("auth_error") ? uiText("Entra-Anmeldung fehlgeschlagen. Bitte Einrichtung oder Kontostatus prüfen.") : ""}</div></form>${options.entra ? localize('<div class="divider">oder</div><a class="btn" style="width:100%" href="/auth/entra">Mit Microsoft Entra ID anmelden</a>') : ""}<p class="login-foot">Der Zugriff richtet sich nach den Freigaben deines Administrators.</p></div></main></div>`;
 }
 function shell(content) {
-  root.innerHTML = localize`<div class="layout"><aside class="sidebar">${brand()}<nav><div class="nav-label">Arbeitsbereich</div><button class="nav-button ${["sources", "source"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="sources">${icon("database")}<span>Datenquellen</span></button>${localize`<button class="nav-button ${state.view === "search" ? "active" : ""}" data-action="nav" data-view="search">${icon("search")}<span>Globale Suche</span></button>`}<button class="nav-button ${["warehouse", "warehouse-project"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="warehouse" title="DWH-Projekte">${icon("relations")}<span>DWH-Projekte</span></button>${state.user.role === "admin" ? localize`<div class="nav-label" style="margin-top:30px">Administration</div><button class="nav-button ${state.view === "users" ? "active" : ""}" data-action="nav" data-view="users">${icon("users")}<span>Benutzer & Rechte</span></button><button class="nav-button ${state.view === "audit" ? "active" : ""}" data-action="nav" data-view="audit">${icon("shield")}<span>Aktivitätsprotokoll</span></button>` : ""}</nav><div class="sidebar-bottom"><div class="user-line"><div class="avatar">${e(state.user.display_name.slice(0, 1).toUpperCase())}</div><div><div class="small">${e(state.user.display_name)}</div><div style="font-size:10px;color:#a7c0b3">${roles[state.user.role]}</div></div></div>${state.user.provider === "local" ? localize('<button data-action="password">Passwort ändern</button>') : ""}<button data-action="logout">Abmelden</button></div></aside><main class="main"><header class="topbar"><div class="breadcrumb">Arbeitsbereich <span>/</span> <strong>${state.view === "source" ? e(state.source.name) : state.view === "search" ? uiText("Globale Suche") : ["warehouse", "warehouse-project"].includes(state.view) ? uiText("DWH-Projekte") : state.view === "users" ? uiText("Benutzer & Rechte") : state.view === "audit" ? uiText("Aktivitätsprotokoll") : uiText("Datenquellen")}</strong></div><div class="env-pill"><span class="dot"></span> ${roles[state.user.role]}</div><button class="btn ghost mobile-logout" data-action="logout" style="display:none">Abmelden</button></header><div class="content">${content}</div></main></div>`;
+  root.innerHTML = localize`<div class="layout"><aside class="sidebar">${brand()}<nav><div class="nav-label">Arbeitsbereich</div><button class="nav-button ${["sources", "source"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="sources">${icon("database")}<span>Datenquellen</span></button>${localize`<button class="nav-button ${state.view === "search" ? "active" : ""}" data-action="nav" data-view="search">${icon("search")}<span>Globale Suche</span></button>`}<button class="nav-button ${["warehouse", "warehouse-project"].includes(state.view) ? "active" : ""}" data-action="nav" data-view="warehouse" title="DWH-Projekte">${icon("relations")}<span>DWH-Projekte</span></button>${state.user.role === "admin" ? localize`<div class="nav-label" style="margin-top:30px">Administration</div><button class="nav-button ${state.view === "users" ? "active" : ""}" data-action="nav" data-view="users">${icon("users")}<span>Benutzer & Rechte</span></button><button class="nav-button ${state.view === "audit" ? "active" : ""}" data-action="nav" data-view="audit">${icon("shield")}<span>Aktivitätsprotokoll</span></button><button class="nav-button ${state.view === "branding" ? "active" : ""}" data-action="nav" data-view="branding" title="Firmenlogo">${icon("eye")}<span>Firmenlogo</span></button>` : ""}</nav><div class="sidebar-bottom"><div class="user-line"><div class="avatar">${e(state.user.display_name.slice(0, 1).toUpperCase())}</div><div><div class="small">${e(state.user.display_name)}</div><div style="font-size:10px;color:#a7c0b3">${roles[state.user.role]}</div></div></div>${state.user.provider === "local" ? localize('<button data-action="password">Passwort ändern</button>') : ""}<button data-action="logout">Abmelden</button></div></aside><main class="main"><header class="topbar"><div class="breadcrumb">Arbeitsbereich <span>/</span> <strong>${state.view === "source" ? e(state.source.name) : state.view === "search" ? uiText("Globale Suche") : ["warehouse", "warehouse-project"].includes(state.view) ? uiText("DWH-Projekte") : state.view === "users" ? uiText("Benutzer & Rechte") : state.view === "audit" ? uiText("Aktivitätsprotokoll") : state.view === "branding" ? uiText("Firmenlogo") : uiText("Datenquellen")}</strong></div><div class="env-pill"><span class="dot"></span> ${roles[state.user.role]}</div><button class="btn ghost mobile-logout" data-action="logout" style="display:none">Abmelden</button></header><div class="content">${content}</div></main></div>`;
 }
 function status(source) {
   const job = source.job;
@@ -487,6 +497,15 @@ async function navigate(view, id, target = {}) {
       state.audit = await api("/api/audit");
       renderAudit();
     }
+    if (view === "branding") {
+      if (state.user.role !== "admin") {
+        await navigate("sources");
+        toast(uiText("Nur Administratoren dürfen diese Aktion ausführen."));
+        return;
+      }
+      await loadBranding();
+      renderBranding();
+    }
   }
   const params = new URLSearchParams(
     view === "source"
@@ -816,6 +835,8 @@ function renderUsers() {
   );
 }
 const auditLabels = {
+  company_logo_updated: uiText("Firmenlogo gespeichert"),
+  company_logo_removed: uiText("Firmenlogo entfernt"),
   dwh_project_saved: uiText("DWH-Projekt gespeichert"),
   dwh_project_deleted: uiText("DWH-Projekt gelöscht"),
   dwh_project_exported: uiText("DWH-Projekt exportiert"),
@@ -1055,6 +1076,7 @@ document.addEventListener("click", async (ev) => {
       paintSources();
     }
     if (a === "nav") await navigate(button.dataset.view);
+    if (a === "branding-remove") await removeCompanyLogo();
     if (a === "open") await navigate("source", button.dataset.id);
     if (a === "add-source") sourceModal();
     if (a === "edit-source") sourceModal(true);
@@ -1207,6 +1229,7 @@ document.addEventListener("submit", async (ev) => {
       "schedule-form",
       "comparison-form",
       "search-form",
+      "branding-form",
     ].includes(form.id)
   )
     return;
@@ -1215,6 +1238,7 @@ document.addEventListener("submit", async (ev) => {
   button.disabled = true;
   const data = Object.fromEntries(new FormData(form));
   try {
+    if (form.id === "branding-form") await saveCompanyLogo(form);
     if (form.id === "organization-form") {
       const result = await api(
         `/api/sources/${state.source.id}/metadata`,
@@ -1389,6 +1413,7 @@ document.addEventListener("change", (ev) => {
     paintSources();
   }
   if (ev.target.id === "f-kind") sourceFormKind();
+  if (ev.target.id === "company-logo-file") previewCompanyLogo(ev.target);
   if (ev.target.id === "schedule-cadence") updateScheduleFields();
 });
 modal.addEventListener("click", (ev) => {
@@ -1415,6 +1440,7 @@ async function route() {
       "warehouse-project",
       "users",
       "audit",
+      "branding",
     ].includes(view)
       ? view
       : "sources",
@@ -1469,6 +1495,7 @@ setInterval(async () => {
 }, 4000);
 (async () => {
   try {
+    await loadBranding();
     const me = await api("/api/auth/me");
     state.user = me.user;
     state.csrf = me.csrf;

@@ -124,79 +124,81 @@ if (!baseURL)
           "No live business data may be written",
         );
         const result =
-          path === "/api/auth/me"
-            ? {
-                user: {
-                  id: 1,
-                  username: "fixture",
-                  display_name: "Benutzername",
-                  role: "admin",
-                  provider: "local",
-                },
-                csrf: "fixture",
-              }
-            : path === "/api/sources"
-              ? [source]
-              : path.endsWith("/snapshot")
-                ? {
+          path === "/api/branding"
+            ? { logo_url: null }
+            : path === "/api/auth/me"
+              ? {
+                  user: {
                     id: 1,
-                    created: source.scanned_at,
-                    payload: { tables: [table], warnings: [] },
-                    notes: { [table.key]: "Dokumentation speichern" },
-                  }
-                : path === "/api/dwh/projects"
-                  ? [project]
-                  : path === "/api/dwh/projects/1"
-                    ? project
-                    : path === "/api/users"
-                      ? [
-                          {
-                            id: 1,
-                            username: "Benutzername",
-                            display_name: "Beschreibung",
-                            role: "admin",
-                            provider: "local",
-                            active: true,
-                          },
-                        ]
-                      : path === "/api/audit"
+                    username: "fixture",
+                    display_name: "Benutzername",
+                    role: "admin",
+                    provider: "local",
+                  },
+                  csrf: "fixture",
+                }
+              : path === "/api/sources"
+                ? [source]
+                : path.endsWith("/snapshot")
+                  ? {
+                      id: 1,
+                      created: source.scanned_at,
+                      payload: { tables: [table], warnings: [] },
+                      notes: { [table.key]: "Dokumentation speichern" },
+                    }
+                  : path === "/api/dwh/projects"
+                    ? [project]
+                    : path === "/api/dwh/projects/1"
+                      ? project
+                      : path === "/api/users"
                         ? [
                             {
                               id: 1,
-                              created: source.scanned_at,
                               username: "Benutzername",
-                              action: "dwh_project_save",
-                              source_id: 1,
+                              display_name: "Beschreibung",
+                              role: "admin",
+                              provider: "local",
+                              active: true,
                             },
                           ]
-                        : path.endsWith("/schedule")
-                          ? {
-                              enabled: false,
-                              cadence: "weekly",
-                              hour: 2,
-                              minute: 0,
-                              weekday: 1,
-                              timezone: "Europe/Berlin",
-                              message: "Zeitplan aktiv.",
-                            }
-                          : path.endsWith("/history")
-                            ? [
-                                {
-                                  id: 1,
-                                  created: source.scanned_at,
-                                  table_count: 1,
-                                  column_count: 1,
-                                  relation_count: 0,
-                                },
-                              ]
-                            : path.startsWith("/api/search")
-                              ? {
-                                  total: 0,
-                                  results: [],
-                                  page: 1,
-                                  page_size: 25,
-                                }
-                              : {};
+                        : path === "/api/audit"
+                          ? [
+                              {
+                                id: 1,
+                                created: source.scanned_at,
+                                username: "Benutzername",
+                                action: "dwh_project_save",
+                                source_id: 1,
+                              },
+                            ]
+                          : path.endsWith("/schedule")
+                            ? {
+                                enabled: false,
+                                cadence: "weekly",
+                                hour: 2,
+                                minute: 0,
+                                weekday: 1,
+                                timezone: "Europe/Berlin",
+                                message: "Zeitplan aktiv.",
+                              }
+                            : path.endsWith("/history")
+                              ? [
+                                  {
+                                    id: 1,
+                                    created: source.scanned_at,
+                                    table_count: 1,
+                                    column_count: 1,
+                                    relation_count: 0,
+                                  },
+                                ]
+                              : path.startsWith("/api/search")
+                                ? {
+                                    total: 0,
+                                    results: [],
+                                    page: 1,
+                                    page_size: 25,
+                                  }
+                                : {};
         return route.fulfill({ json: result });
       });
       await page.reload();

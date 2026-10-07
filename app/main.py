@@ -33,6 +33,7 @@ from .models import (
     SearchEntry,
     WarehouseProject,
     WarehouseProjectSource,
+    ApplicationBranding,
     now,
 )
 from .security import (
@@ -60,6 +61,7 @@ from .jobs import (
 from .search import migrate, reindex_source
 from .schema_diff import compare
 from .warehouse_api import router as warehouse_router
+from .branding import router as branding_router
 
 from .i18n import LANGUAGE, MESSAGES, negotiate_language
 
@@ -127,6 +129,7 @@ def english_catalog():
 
 
 app.include_router(warehouse_router)
+app.include_router(branding_router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 oauth = OAuth()
 if (
@@ -745,8 +748,12 @@ def export(
         if format in {"pdf", "er_pdf"}:
             from .pdf_export import tables_pdf, er_pdf
 
+            branding = db.get(ApplicationBranding, 1)
+            logo = branding.logo if branding else None
             content = (
-                tables_pdf(payload, tables) if format == "pdf" else er_pdf(payload)
+                tables_pdf(payload, tables, logo)
+                if format == "pdf"
+                else er_pdf(payload, logo)
             )
             audit(db, user, "documentation_export", source_id)
             db.commit()

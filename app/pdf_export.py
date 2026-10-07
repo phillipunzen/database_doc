@@ -10,6 +10,7 @@ from xml.sax.saxutils import escape
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, A3, landscape
 from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
@@ -151,8 +152,9 @@ def document(buffer, payload, page_size, title):
     )
 
 
-def footer(payload, page_size):
+def footer(payload, page_size, logo=None):
     width, height = page_size
+    image = ImageReader(BytesIO(logo)) if logo else None
 
     def draw(canvas, doc):
         canvas.saveState()
@@ -161,6 +163,17 @@ def footer(payload, page_size):
         canvas.setFont(BOLD, 9)
         canvas.setFillColor(GREEN)
         canvas.drawString(36, height - 25, tr("DatabaseDoc · Datenbankdokumentation"))
+        if image:
+            iw, ih = image.getSize()
+            scale = min(100 / iw, 23 / ih)
+            canvas.drawImage(
+                image,
+                width - 36 - iw * scale,
+                height - 29,
+                width=iw * scale,
+                height=ih * scale,
+                mask="auto",
+            )
         canvas.setFont(FONT, 8)
         canvas.setFillColor(MUTED)
         canvas.drawString(
@@ -210,7 +223,7 @@ def grid(headers, rows, widths):
     return table
 
 
-def tables_pdf(payload, tables):
+def tables_pdf(payload, tables, logo=None):
     buffer = BytesIO()
     size = landscape(A4)
     width = size[0] - 72
@@ -400,7 +413,7 @@ def tables_pdf(payload, tables):
             ]
         if table.get("validator"):
             story += [para(tr("MongoDB-Validator"), "h2"), para(table["validator"])]
-    draw_footer = footer(payload, size)
+    draw_footer = footer(payload, size, logo)
     doc.build(story, onFirstPage=draw_footer, onLaterPages=draw_footer)
     return buffer.getvalue()
 
@@ -629,7 +642,7 @@ class Diagram(Flowable):
                 )
 
 
-def er_pdf(payload):
+def er_pdf(payload, logo=None):
     buffer = BytesIO()
     size = landscape(A3)
     width = size[0] - 72
@@ -763,6 +776,6 @@ def er_pdf(payload):
                 "small",
             )
         )
-    draw_footer = footer(payload, size)
+    draw_footer = footer(payload, size, logo)
     doc.build(story, onFirstPage=draw_footer, onLaterPages=draw_footer)
     return buffer.getvalue()
