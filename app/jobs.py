@@ -13,6 +13,7 @@ from .models import Session, Source, Job, Snapshot, ScanSchedule, User, now
 from .security import decrypt, access, audit
 from .connectors import scan, ConnectorError
 from .search import reindex_source
+from .db_errors import diagnostic
 
 scan_lock = threading.Lock()
 executor = None
@@ -199,8 +200,11 @@ def run_scan(job_id):
         job.status = "running"
         job.message = tr("Metadaten werden ausgelesen.")
         db.commit()
+        phase = "metadata"
+        source_kind, source_id = source.kind, source.id
         try:
             payload = scan(source.kind, decrypt(source), source.mongo_infer)
+            phase = "save"
             with scan_lock:
                 db.add(Snapshot(source_id=source.id, payload=payload))
                 reindex_source(db, source)
@@ -210,16 +214,19 @@ def run_scan(job_id):
                 db.commit()
         except Exception as error:
             # Roll back snapshot/index together, preserving the previous searchable schema.
+            message = (
+                str(error)
+                if isinstance(error, ConnectorError)
+                else diagnostic(
+                    "mariadb" if phase == "save" else source_kind, error, phase
+                )
+            )
+            logger.warning(
+                "Scan job %s source %s failed: %s", job_id, source_id, message
+            )
             db.rollback()
             job = db.get(Job, job_id)
             job.status = "failed"
-            job.message = (
-                str(error)
-                if isinstance(error, ConnectorError)
-                else tr(
-                    "Scan fehlgeschlagen ({0}). Bitte Erreichbarkeit, TLS und Leserechte prüfen.",
-                    type(error).__name__,
-                )
-            )
+            job.message = message
             job.finished = now()
             db.commit()

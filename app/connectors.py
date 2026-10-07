@@ -192,7 +192,30 @@ def optional(fn, fallback):
         return fallback
 
 
+@contextmanager
+def scan_step(kind, step):
+    try:
+        yield
+    except ConnectorError:
+        raise
+    except Exception as error:
+        from .db_errors import diagnostic
+
+        raise ConnectorError(diagnostic(kind, error, step)) from None
+
+
+def read_metadata(kind, step, fn, *args, **kwargs):
+    with scan_step(kind, step):
+        return fn(*args, **kwargs)
+
+
 def scan(kind, cfg, infer=False):
+    # Inner steps preserve their specific diagnostic; this catches connection failures.
+    with scan_step(kind, "connect"):
+        return scan_metadata(kind, cfg, infer)
+
+
+def scan_metadata(kind, cfg, infer=False):
     if kind == "mongodb":
         return scan_mongo(cfg, infer)
     tables = []
@@ -207,28 +230,60 @@ def scan(kind, cfg, infer=False):
         else:
             schemas = [
                 s
-                for s in inspector.get_schema_names()
+                for s in read_metadata(kind, "schemas", inspector.get_schema_names)
                 if s.lower() not in SYSTEM_SCHEMAS and not s.startswith("pg_")
             ]
         for schema in schemas:
-            names = [(n, "table") for n in inspector.get_table_names(schema=schema)]
-            names += [(n, "view") for n in inspector.get_view_names(schema=schema)]
+            names = [
+                (n, "table")
+                for n in read_metadata(
+                    kind, "tables", inspector.get_table_names, schema=schema
+                )
+            ]
+            names += [
+                (n, "view")
+                for n in read_metadata(
+                    kind, "views", inspector.get_view_names, schema=schema
+                )
+            ]
             for name, object_type in names:
-                columns = inspector.get_columns(name, schema=schema)
-                pk = optional(
-                    lambda: inspector.get_pk_constraint(name, schema=schema), {}
+                columns = read_metadata(
+                    kind, "columns", inspector.get_columns, name, schema=schema
+                )
+                pk = read_metadata(
+                    kind,
+                    "primary_key",
+                    optional,
+                    lambda: inspector.get_pk_constraint(name, schema=schema),
+                    {},
                 ).get("constrained_columns", [])
-                fks = optional(
-                    lambda: inspector.get_foreign_keys(name, schema=schema), []
+                fks = read_metadata(
+                    kind,
+                    "foreign_keys",
+                    optional,
+                    lambda: inspector.get_foreign_keys(name, schema=schema),
+                    [],
                 )
-                indexes = optional(
-                    lambda: inspector.get_indexes(name, schema=schema), []
+                indexes = read_metadata(
+                    kind,
+                    "indexes",
+                    optional,
+                    lambda: inspector.get_indexes(name, schema=schema),
+                    [],
                 )
-                uniques = optional(
-                    lambda: inspector.get_unique_constraints(name, schema=schema), []
+                uniques = read_metadata(
+                    kind,
+                    "unique",
+                    optional,
+                    lambda: inspector.get_unique_constraints(name, schema=schema),
+                    [],
                 )
-                comment = optional(
-                    lambda: inspector.get_table_comment(name, schema=schema), {}
+                comment = read_metadata(
+                    kind,
+                    "comments",
+                    optional,
+                    lambda: inspector.get_table_comment(name, schema=schema),
+                    {},
                 ).get("text")
                 tables.append(
                     {
@@ -291,13 +346,19 @@ def scan(kind, cfg, infer=False):
 def scan_mongo(cfg, infer):
     tables = []
     with mongo(cfg) as db:
-        infos = list(db.list_collections())
+        infos = read_metadata(
+            "mongodb", "collections", lambda: list(db.list_collections())
+        )
         for info in infos:
             name = info["name"]
             fields = {}
             observed = 0
             if infer and info.get("type") != "view":
-                for doc in db[name].find({}, max_time_ms=15000).limit(100):
+                for doc in read_metadata(
+                    "mongodb",
+                    "fields",
+                    lambda: list(db[name].find({}, max_time_ms=15000).limit(100)),
+                ):
                     observed += 1
 
                     def visit(obj, prefix=""):
@@ -310,7 +371,13 @@ def scan_mongo(cfg, infer):
                                 visit(value, field + ".")
 
                     visit(doc)
-            idx = list(db[name].list_indexes()) if info.get("type") != "view" else []
+            idx = (
+                read_metadata(
+                    "mongodb", "indexes", lambda: list(db[name].list_indexes())
+                )
+                if info.get("type") != "view"
+                else []
+            )
             tables.append(
                 {
                     "key": table_key(cfg["database"], name),

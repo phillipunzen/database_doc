@@ -16,6 +16,7 @@ from sqlalchemy import select, func, delete
 from starlette.middleware.sessions import SessionMiddleware
 from authlib.integrations.starlette_client import OAuth
 from .i18n import tr, tr_message
+from .db_errors import diagnostic
 from .models import (
     Base,
     engine,
@@ -632,10 +633,7 @@ def do_test(kind, config):
     except Exception as error:
         raise HTTPException(
             400,
-            tr(
-                "Verbindung fehlgeschlagen ({0}). Host, Port, TLS und Zugangsdaten prüfen.",
-                type(error).__name__,
-            ),
+            diagnostic(kind, error, "test"),
         )
 
 

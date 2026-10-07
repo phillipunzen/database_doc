@@ -530,6 +530,27 @@ Use dedicated source accounts with only the required read permissions. The appli
 
 TLS with certificate validation is enabled by default for network sources. PostgreSQL, MySQL, MariaDB, and MongoDB use system CAs or an optional `SOURCE_CA_FILE`. Internal CAs must be available and trusted inside the container. For SQL Server, build an image variant that installs the internal CA in the operating system trust store. Self-signed certificates are not accepted without a trusted CA. TLS can be explicitly disabled for local test sources that do not support it.
 
+### Diagnosing a failed scan
+
+A successful **Test connection** checks connectivity and authentication with a simple query. A schema scan also reads tables/views, columns, keys, indexes and comments, and finally saves documentation to application storage. Large data files alone do not imply a full data read: relational scans collect metadata rather than table contents. Optional catalog estimates and view dependencies are collected separately. Explicit profiles and previews are separate operations.
+
+New failures show a safe driver code, the failed step and a matching troubleshooting hint in German or English. For example, `MariaDB 1356` at **Read columns** indicates an invalid view or missing definer/invoker rights, while `MariaDB 2013` indicates a lost connection (which can also follow a client/server timeout). An error at **Save documentation** refers to application storage, rather than the source. Only numeric driver codes, structured SQLSTATE values, exception types and fixed explanations are shown; SQL, parameters, passwords and free-form driver messages are excluded. Unknown codes remain explicitly unresolved. Failed scans keep the previous snapshot and search index.
+
+Update an image deployment and retry the scan to get the new diagnostic; previously saved generic errors cannot be reconstructed retrospectively:
+
+```bash
+docker compose pull app
+docker compose up -d --no-deps app
+```
+
+Failed scans also write the safe diagnostic, job ID and source ID to the application log:
+
+```bash
+docker compose logs --tail=100 app
+```
+
+For MySQL/MariaDB, investigate the reported code before changing permissions or timeouts. Codes for invalid views and missing definers can require repair by the source database administrator; a larger timeout does not repair those objects. No objects are silently skipped to make a scan appear successful. See the official [MariaDB 1356 reference](https://mariadb.com/docs/server/reference/error-codes/mariadb-error-codes-1300-to-1399/e1356) and [MySQL error reference](https://dev.mysql.com/doc/mysql-errors/8.4/en/server-error-reference.html).
+
 ## Microsoft Entra ID
 
 OIDC authentication is implemented but has not yet been configured or integration-tested against a real tenant on this server.
@@ -591,7 +612,7 @@ The backend uses FastAPI and SQLAlchemy. The bilingual interface uses locally se
 docker compose run --rm \
   -v "$PWD/app:/app/app:ro" \
   -v "$PWD/tests:/app/tests:ro" \
-  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py tests/test_warehouse_workspace.py tests/test_catalog_tags.py tests/test_design_tools.py tests/test_warehouse_assessment.py tests/test_scan_scale.py tests/test_source_analysis.py
+  app python -m pytest -q -p no:cacheprovider tests/test_application.py tests/test_catalog_features.py tests/test_pdf_export.py tests/test_warehouse.py tests/test_i18n.py tests/test_branding.py tests/test_warehouse_workspace.py tests/test_catalog_tags.py tests/test_design_tools.py tests/test_warehouse_assessment.py tests/test_scan_scale.py tests/test_source_analysis.py tests/test_db_diagnostics.py
 ```
 
 Application tests use temporary SQLite databases for both application storage and sources. They verify encrypted credentials, scanning, metadata, notes, exports, CSRF and Origin checks, roles and source grants, preview authorization, account deactivation, read-only SQLite access, path boundaries, and session revocation. The feature suite additionally covers permission-filtered global search, literal search patterns, note indexing, snapshot/index rollback, schema comparisons, persistent scheduling, duplicate-scan deferral, access revocation, daylight-saving transitions, additive migrations, and cleanup on source deletion. PDF tests parse the actual generated files and cover full/single-object and historical exports, viewer permissions, literal markup, Unicode text, long notes and oversized table cells, 85-object diagrams, cross-page references, composite/self/external foreign keys, and empty/inferred schemas.
@@ -759,3 +780,5 @@ ANALYSIS_TEST_URL=http://127.0.0.1:8091 \
 ```
 
 `tests/test_analysis_connectors.py` is opt-in (`ANALYSIS_CONNECTOR_INTEGRATION=1`) and uses only fixed disposable container hostnames: `databasedoc-analysis-postgres`, `databasedoc-analysis-mysql`, `databasedoc-analysis-mariadb`, `databasedoc-analysis-mssql` and `databasedoc-analysis-mongo`, on an isolated Docker network. It creates fictional tables/views/documents and checks catalog estimates, supported view dependencies and bounded aggregate profiles. Fixture credentials are defined in the test. Use fresh instances and remove them after testing; with the variable unset, all five checks are skipped.
+
+`tests/test_db_diagnostics.py` covers sanitized driver codes, safe logging, localized persisted messages, connection-test errors, preserved snapshots/search results and the distinction between source reflection and application-storage failures. Its optional real MariaDB check (`DB_DIAGNOSTICS_INTEGRATION=1`) uses only the disposable hostname `databasedoc-diagnostics-mariadb` and fictional objects. It demonstrates a successful connection test followed by a failed scan of an invalid view. Never use production instances for this integration fixture.

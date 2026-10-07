@@ -36,6 +36,9 @@ def tr(message, *values):
     )
 
 
+DATABASE_ERROR_TEMPLATE = "Datenbankzugriff fehlgeschlagen ({0}). Schritt: {1}. {2}"
+
+
 MESSAGE_PATTERNS = [
     (
         key,
@@ -48,6 +51,8 @@ MESSAGE_PATTERNS = [
     for key in MESSAGES
     if re.search(r"\{\d+\}", key)
 ]
+# Match diagnostics before broad UI templates such as "{0}: {1}".
+MESSAGE_PATTERNS.sort(key=lambda item: item[0] != DATABASE_ERROR_TEMPLATE)
 
 
 def tr_message(message):
@@ -59,5 +64,10 @@ def tr_message(message):
     for key, pattern in MESSAGE_PATTERNS:
         match = pattern.match(message)
         if match:
-            return tr(key, *match.groups())
+            values = list(match.groups())
+            if key == DATABASE_ERROR_TEMPLATE:
+                # These two fragments are generated from fixed diagnostic catalogs.
+                # Other messages may contain user-authored values and stay literal.
+                values[1:] = [MESSAGES.get(value, value) for value in values[1:]]
+            return tr(key, *values)
     return message
