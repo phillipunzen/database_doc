@@ -417,9 +417,7 @@ def test_departments_survive_model_updates_and_are_exported(admin, warehouse):
     warehouse = result.json()
     assert warehouse["areas"][0]["department"] == "Production"
     assert metadata(admin, warehouse, areas=areas, version=1).status_code == 409
-    warehouse = starter(
-        admin, warehouse, warehouse["areas"][0], "fact_machine_events"
-    )
+    warehouse = starter(admin, warehouse, warehouse["areas"][0], "fact_machine_events")
     body = model_body(warehouse)
     body["tables"][1]["description"] = "Idle minutes per event"
     updated = admin.put(
@@ -452,3 +450,182 @@ def test_legacy_department_defaults_do_not_rewrite_stored_content(admin, warehou
     assert admin.get(root + "/export").json()["areas"][0]["department"] == ""
     with Session() as db:
         assert db.get(WarehouseWorkspace, warehouse["id"]).content == legacy
+
+
+def test_source_suggestion_adoption_is_atomic_and_reuses_staging(
+    admin, warehouse, source
+):
+    from app.connectors import table_key
+
+    workspace = add_area(admin, warehouse, "Customer analysis")
+    key = table_key("", "customers")
+    with Session() as db:
+        snap = Snapshot(
+            source_id=source,
+            payload={
+                "tables": [
+                    {
+                        "key": key,
+                        "name": "customers",
+                        "schema": "",
+                        "kind": "table",
+                        "columns": [
+                            {
+                                "name": "id",
+                                "type": "INTEGER",
+                                "primary_key": True,
+                                "nullable": False,
+                            },
+                            {"name": "name", "type": "VARCHAR(80)", "nullable": True},
+                        ],
+                        "foreign_keys": [],
+                        "primary_key": ["id"],
+                        "indexes": [],
+                        "unique_constraints": [],
+                    }
+                ],
+                "warnings": [],
+            },
+        )
+        db.add(snap)
+        db.commit()
+        snapshot_id = snap.id
+    # The suggested source can be bound as part of the same atomic adoption.
+    project = workspace["project"]
+    project["source_ids"] = []
+    body = {
+        key: project[key]
+        for key in [
+            "name",
+            "goal",
+            "target_kind",
+            "target_schema",
+            "target_source_id",
+            "source_ids",
+            "tables",
+            "version",
+        ]
+    }
+    workspace = admin.put(
+        f'/api/dwh/warehouses/{workspace["id"]}/model', json={"project": body}
+    ).json()
+    payload = {
+        "version": workspace["project"]["version"],
+        "source_id": source,
+        "snapshot_id": snapshot_id,
+        "table_key": key,
+        "area_id": workspace["areas"][0]["id"],
+    }
+    endpoint = f'/api/dwh/warehouses/{workspace["id"]}/source-table'
+    before = admin.get(f'/api/dwh/warehouses/{workspace["id"]}').json()
+    for replacement, status in [
+        ({"snapshot_id": snapshot_id + 1}, 409),
+        ({"version": payload["version"] - 1}, 409),
+        ({"area_id": str(uuid4())}, 422),
+        ({"table_key": "missing"}, 422),
+    ]:
+        assert (
+            admin.post(endpoint, json={**payload, **replacement}).status_code == status
+        )
+        after = admin.get(f'/api/dwh/warehouses/{workspace["id"]}').json()
+        assert after["project"]["version"] == before["project"]["version"]
+        assert after["project"]["source_ids"] == []
+        assert after["project"]["tables"] == []
+        assert after["areas"] == before["areas"]
+    assert (
+        admin.post(endpoint, json=payload, headers={"x-csrf-token": ""}).status_code
+        == 403
+    )
+    assert (
+        admin.post(
+            endpoint, json=payload, headers={"origin": "https://evil.invalid"}
+        ).status_code
+        == 403
+    )
+    result = admin.post(endpoint, json=payload)
+    assert result.status_code == 200, result.text
+    workspace = result.json()["workspace"]
+    table = workspace["project"]["tables"][0]
+    assert workspace["project"]["source_ids"] == [source]
+    assert table["role"] == "staging" and table["name"] == "stg_customers"
+    assert workspace["areas"][0]["table_ids"] == [table["id"]]
+    assert all(
+        column["mapping"]["snapshot_id"] == snapshot_id for column in table["columns"]
+    )
+    assert all(column["mapping"]["source_id"] == source for column in table["columns"])
+    result = admin.post(
+        endpoint, json={**payload, "version": workspace["project"]["version"]}
+    )
+    assert result.status_code == 200
+    workspace = result.json()["workspace"]
+    assert len(workspace["project"]["tables"]) == 1
+    assert workspace["areas"][0]["table_ids"] == [table["id"]]
+
+
+def test_source_adoption_requires_edit_permission_for_added_source(
+    admin, warehouse, source
+):
+    from app.models import User, Grant
+    from app.security import hasher
+    from app.connectors import table_key
+
+    workspace = add_area(admin, warehouse, "Restricted subject")
+    key = table_key("", "customers")
+    with Session() as db:
+        db.add(
+            User(
+                username="discovery-editor",
+                display_name="Discovery editor",
+                password_hash=hasher.hash("discovery-editor-password"),
+                role="editor",
+            )
+        )
+        db.commit()
+        user = db.scalar(select(User).where(User.username == "discovery-editor"))
+        db.add(Grant(user_id=user.id, source_id=source, edit=True))
+        db.commit()
+    # A read-only new connection is visible for discovery, but cannot be adopted.
+    path = Path(os.environ["SQLITE_ROOT"]) / "discovery-restricted.sqlite"
+    path.touch()
+    extra = admin.post(
+        "/api/sources",
+        json={
+            "name": "Restricted discovery source",
+            "kind": "sqlite",
+            "path": str(path),
+        },
+    ).json()["id"]
+    try:
+        with Session() as db:
+            db.add(Grant(user_id=user.id, source_id=extra, edit=False))
+            snap = Snapshot(source_id=extra, payload={"tables": [], "warnings": []})
+            db.add(snap)
+            db.commit()
+            sid = snap.id
+        with TestClient(app) as editor:
+            login = editor.post(
+                "/api/auth/login",
+                json={
+                    "username": "discovery-editor",
+                    "password": "discovery-editor-password",
+                },
+            )
+            editor.headers["x-csrf-token"] = login.json()["csrf"]
+            response = editor.post(
+                f'/api/dwh/warehouses/{workspace["id"]}/source-table',
+                json={
+                    "version": workspace["project"]["version"],
+                    "source_id": extra,
+                    "snapshot_id": sid,
+                    "table_key": key,
+                    "area_id": workspace["areas"][0]["id"],
+                },
+            )
+            assert response.status_code == 403, response.text
+        after = admin.get(f'/api/dwh/warehouses/{workspace["id"]}').json()
+        assert (
+            after["project"]["source_ids"] == [source]
+            and not after["project"]["tables"]
+        )
+    finally:
+        admin.delete(f"/api/sources/{extra}")

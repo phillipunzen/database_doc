@@ -337,3 +337,27 @@ def test_database_errors_are_unknown_and_limits_apply_before_queries(
         secret not in result.text
         for secret in ["Musterstraße", "SECRET", "RAW_DRIVER_TEXT"]
     )
+
+
+def test_business_question_classifies_customers_without_value_reads(
+    fixture, monkeypatch
+):
+    c = fixture
+    monkeypatch.setattr(
+        finder_api,
+        "search_targets",
+        Mock(
+            side_effect=AssertionError("Classification must only use stored metadata")
+        ),
+    )
+    response = c.viewer.post(
+        "/api/finder/candidates", json={"query": "Kundenauswertung"}
+    )
+    assert response.status_code == 200
+    result = response.json()
+    customer = next(
+        table for table in result["candidates"] if table["table_name"] == "customers"
+    )
+    assert customer["suggested_role"] == "dimension"
+    assert customer["inferred_categories"]
+    assert all(table["source_id"] == c.ids[0] for table in result["candidates"])

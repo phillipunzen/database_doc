@@ -13,7 +13,7 @@ from sqlalchemy import select, update
 from .i18n import tr
 from .jobs import scan_lock
 from .models import Session, Source, User, WarehouseProject, WarehouseWorkspace, now
-from .security import current, audit
+from .security import current, audit, access
 from .warehouse import (
     Input,
     ProjectInput,
@@ -24,6 +24,7 @@ from .warehouse import (
 )
 from .warehouse_api import (
     allowed,
+    import_tables,
     project_access,
     project_json,
     as_input,
@@ -137,6 +138,14 @@ class StarterInput(Input):
     grain: str = Field(min_length=1, max_length=2000)
     measure_name: str = Field(min_length=1, max_length=63)
     measure_description: str = Field(min_length=1, max_length=2000)
+
+
+class SourceTableInput(Input):
+    version: int = Field(ge=1)
+    source_id: int = Field(gt=0)
+    snapshot_id: int = Field(gt=0)
+    table_key: str = Field(min_length=1, max_length=700)
+    area_id: UUID
 
 
 def workspace_access(db, user, workspace_id, edit=False):
@@ -347,6 +356,65 @@ def update_model(workspace_id: int, body: ModelInput, user: User = Depends(curre
         audit(db, user, "warehouse_updated", workspace.id)
         db.commit()
         return workspace_json(db, user, workspace, project)
+
+
+@router.post("/{workspace_id}/source-table")
+def adopt_source_table(
+    workspace_id: int, body: SourceTableInput, user: User = Depends(current)
+):
+    with scan_lock, Session() as db:
+        workspace, project = workspace_access(db, user, workspace_id, True)
+        check_version(project, body.version)
+        access(db, user, body.source_id, edit=True)
+        snap = latest(db, body.source_id)
+        if not snap or snap.id != body.snapshot_id:
+            raise HTTPException(
+                409, tr("Der Struktur-Scan wurde geändert. Bitte Vorschläge neu laden.")
+            )
+        if body.table_key not in {table["key"] for table in snap.payload["tables"]}:
+            raise HTTPException(
+                422, tr("Bitte vorhandene Quellobjekte eindeutig auswählen.")
+            )
+        model = as_input(db, project)
+        content = Content.model_validate(workspace.content)
+        area = next((area for area in content.areas if area.id == body.area_id), None)
+        if not area:
+            raise HTTPException(422, tr("Teilprojekt nicht gefunden."))
+        # Reuse an already planned staging copy instead of silently duplicating it.
+        existing = next(
+            (
+                table
+                for table in model.tables
+                if table.role == "staging"
+                and table.columns
+                and all(
+                    column.mapping
+                    and column.mapping.source_id == body.source_id
+                    and column.mapping.table_key == body.table_key
+                    for column in table.columns
+                )
+            ),
+            None,
+        )
+        warnings = []
+        if existing is None:
+            model.source_ids = sorted(set(model.source_ids + [body.source_id]))
+            model, warnings = import_tables(
+                model, body.source_id, snap, [body.table_key]
+            )
+            existing = model.tables[-1]
+        if existing.id not in area.table_ids:
+            area.table_ids.append(existing.id)
+        validated = validate_content(content.model_dump(mode="json"), model)
+        store_project(db, user, project, model, commit=False)
+        workspace.content = validated
+        audit(db, user, "warehouse_source_table_adopted", workspace.id)
+        db.commit()
+        return {
+            "workspace": workspace_json(db, user, workspace, project),
+            "warnings": warnings,
+            "table_id": str(existing.id),
+        }
 
 
 def checked_model(data):

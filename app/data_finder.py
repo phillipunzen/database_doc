@@ -87,6 +87,27 @@ VOCABULARY = {
         "Artikel",
         ["product", "products", "article", "articles", "artikel", "material"],
     ),
+    "employee": (
+        "Mitarbeiter",
+        ["employee", "employees", "mitarbeiter", "personal", "staff"],
+    ),
+    "measurement": (
+        "Messdaten",
+        [
+            "measurement",
+            "measurements",
+            "sensor",
+            "telemetry",
+            "messwert",
+            "messwerte",
+            "messdaten",
+        ],
+    ),
+    "inventory": (
+        "Lagerbestand",
+        ["inventory", "stock", "lagerbestand", "bestand", "warehouse_stock"],
+    ),
+    "sales": ("Umsatz", ["sales", "revenue", "umsatz", "verkauf", "verkaeufe"]),
     "email": ("E-Mail", ["email", "e_mail", "mailadresse", "emailadresse"]),
     "phone": (
         "Telefon",
@@ -304,6 +325,19 @@ def candidates(db, user, query, value_hint, selected_sources, page, page_size):
                         [tr(VOCABULARY[k][0]) for k in sorted(relation_hits)]
                         if facets
                         else []
+                    ),
+                    "inferred_categories": [
+                        tr(VOCABULARY[k][0]) for k in sorted(direct)
+                    ],
+                    "suggested_role": (
+                        "fact"
+                        if direct & {"order", "invoice", "measurement", "sales"}
+                        else (
+                            "dimension"
+                            if direct
+                            & {"customer", "supplier", "product", "employee", "address"}
+                            else None
+                        )
                     ),
                     "related_tables": sorted(set(neighbors[t["key"]])),
                     "concepts": [c["name"] for c in concepts],

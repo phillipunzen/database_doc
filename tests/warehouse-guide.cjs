@@ -212,10 +212,13 @@ const sources = [1, 2].map((id) => ({
       page.on("pageerror", (error) => errors.push(error.message));
       await page.route("**/api/**", (route) => {
         const url = new URL(route.request().url());
-        if (url.pathname === "/api/i18n/en.js") return route.continue();
+        if (
+          ["/api/i18n/en.js", "/api/i18n/preference.js"].includes(url.pathname)
+        )
+          return route.continue();
         assert.equal(
           route.request().method(),
-          "GET",
+          url.pathname === "/api/finder/candidates" ? "POST" : "GET",
           "Guide and filters must not write business data",
         );
         let result = [];
@@ -230,6 +233,15 @@ const sources = [1, 2].map((id) => ({
             },
             csrf: "fixture",
           };
+        else if (url.pathname === "/api/finder/candidates")
+          result = {
+            candidates: [],
+            recognized_terms: [],
+            total: 0,
+            page: 1,
+            page_size: 10,
+            unscanned_sources: 0,
+          };
         else if (url.pathname === "/api/branding") result = { logo_url: null };
         else if (url.pathname === "/api/sources") result = sources;
         else if (url.pathname === "/api/dwh/warehouses") result = [workspace()];
@@ -241,11 +253,11 @@ const sources = [1, 2].map((id) => ({
         return route.fulfill({ json: result });
       });
       await page.goto(baseURL + "/#warehouse");
-      await page.locator(".wh-concept").waitFor();
+      await page.locator(".wh-recommended").waitFor();
       assert.equal(await page.locator("h1").textContent(), "Data Warehouse");
       assert.equal(await page.locator(".wh-architecture > div").count(), 3);
       assert.equal(await page.locator('[data-action="wh-create"]').count(), 1);
-      assert.equal(await page.locator(".wh-build-step").count(), 7);
+      assert.equal(await page.locator(".wh-build-guide").count(), 0);
       assert.equal(
         await page.locator(".wh-standalone").getAttribute("open"),
         null,
@@ -266,7 +278,7 @@ const sources = [1, 2].map((id) => ({
       await page.locator('.wh-warehouse-list [data-action="wh-open"]').click();
       await page.locator("#wh-view").waitFor();
       const badge = (id) =>
-        page.locator(`[data-guide-step="${id}"] summary .badge`);
+        page.locator(`.wh-guide-nav-step[data-id="${id}"] small`);
       assert.equal(
         await badge("implementation").textContent(),
         locale === "de-DE" ? "Ausstehend" : "Pending",
@@ -274,10 +286,25 @@ const sources = [1, 2].map((id) => ({
       assert.notEqual(await badge("validation").textContent(), "Documented");
       assert.equal(
         await page
-          .locator('[data-guide-step="implementation"]')
-          .getAttribute("open"),
-        "",
+          .locator('.wh-guide-current[data-guide-step="implementation"]')
+          .count(),
+        1,
       );
+      assert.equal(await page.locator(".wh-guide-current").count(), 1);
+      await page.locator('.wh-guide-nav-step[data-id="sources"]').click();
+      assert.equal(
+        await page
+          .locator('.wh-guide-current[data-guide-step="sources"]')
+          .count(),
+        1,
+      );
+      await page.reload();
+      await page
+        .locator('.wh-guide-current[data-guide-step="sources"]')
+        .waitFor();
+      await page
+        .locator('.wh-guide-nav-step[data-id="implementation"]')
+        .click();
       const statuses = () =>
         page.evaluate(() =>
           Object.fromEntries(
@@ -313,6 +340,12 @@ const sources = [1, 2].map((id) => ({
         "An old subject without department/owner still needs assignment",
       );
       const phase = async (tab) => {
+        if (
+          tab !== "overview" &&
+          (await page.locator(".wh-view-menu details").getAttribute("open")) ===
+            null
+        )
+          await page.locator(".wh-view-menu summary").click();
         await page.locator(`[data-action="wh-tab"][data-tab="${tab}"]`).click();
       };
       await phase("areas");
@@ -377,7 +410,7 @@ const sources = [1, 2].map((id) => ({
       );
       await page.locator('[data-action="wh-return"]').click();
       await page.locator(".wh-build-guide").waitFor();
-      await page.locator('[data-guide-step="sources"] summary').click();
+      await page.locator('.wh-guide-nav-step[data-id="sources"]').click();
       await page
         .locator('[data-guide-step="sources"] [data-action="wh-input-source"]')
         .click();

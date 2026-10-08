@@ -527,6 +527,11 @@ async function navigate(view, id, target = {}) {
       state.whTab = whTabs.some(([tab]) => tab === target.phase)
         ? target.phase
         : "overview";
+      if (
+        target.step &&
+        whBuildSteps(state.wh).some((step) => step.id === target.step)
+      )
+        state.whGuide = { warehouseId: state.wh.id, step: target.step };
       state.whDepartmentFilter = "";
       state.whAreaFilter = "";
       state.whQuery = "";
@@ -603,7 +608,12 @@ async function navigate(view, id, target = {}) {
               ...(target.table ? { table: target.table } : {}),
             }
           : view === "warehouse-workspace"
-            ? { phase: state.whTab }
+            ? {
+                phase: state.whTab,
+                ...(state.whTab === "overview"
+                  ? { step: whGuideSelection(state.wh).id }
+                  : {}),
+              }
             : view === "search" && state.searchMode === "finder"
               ? { mode: "finder" }
               : view === "search" && state.searchQuery
@@ -1559,6 +1569,7 @@ document.addEventListener("submit", async (ev) => {
   }
 });
 document.addEventListener("input", (ev) => {
+  if (ev.target.id === "wh-discovery-query") whDiscoveryInput();
   finderInput(ev.target);
   analysisInput(ev.target);
   if (ev.target.id === "wa-object-query") {

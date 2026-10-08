@@ -3409,3 +3409,223 @@ button.classification-tag:focus-visible {
     display: none;
   }
 }
+
+/* Focused warehouse build assistant; advanced inventory stays in its own tabs. */
+.wh-guide-layout {
+  display: grid;
+  grid-template-columns: 235px minmax(0, 1fr);
+}
+.wh-guide-nav {
+  padding: 14px;
+  border-right: 1px solid var(--line);
+  background: #f8faf6;
+}
+.wh-guide-nav-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  width: 100%;
+  padding: 12px 8px;
+  margin-bottom: 5px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.wh-guide-nav-step.active {
+  background: #e6eee1;
+  border-color: #aec4a0;
+}
+.wh-guide-nav-step strong {
+  font-size: 13px;
+  display: block;
+  line-height: 1.4;
+}
+.wh-guide-nav-step small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+.wh-guide-nav-step .wh-step-number {
+  flex-shrink: 0;
+}
+.wh-guide-current {
+  min-width: 0;
+  padding: 28px;
+}
+.wh-guide-current > p,
+.wh-guide-example p,
+.wh-guide-execution p {
+  line-height: 1.7;
+}
+.wh-guide-current h2 {
+  margin: 8px 0 16px;
+}
+.wh-guide-main-action {
+  margin: 20px 0;
+}
+.wh-guide-example,
+.wh-guide-result {
+  padding: 16px;
+  border-left: 3px solid #a9c293;
+  background: #f4f7f0;
+  border-radius: 4px;
+}
+.wh-guide-example p {
+  margin: 8px 0 0;
+  font-size: 13px;
+}
+.wh-guide-source-list > div,
+.wh-guide-checks li,
+.wh-guide-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.wh-guide-source-list > div {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.wh-guide-source-list small,
+.wh-guide-source-picker small {
+  display: block;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.wh-guide-checks,
+.wh-guide-other-actions {
+  margin: 18px 0;
+  font-size: 13px;
+}
+.wh-guide-checks summary,
+.wh-guide-other-actions summary,
+.wh-background > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.wh-guide-checks ul {
+  list-style: none;
+  padding: 0;
+}
+.wh-guide-checks li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+.wh-guide-other-actions .actions {
+  margin-top: 12px;
+}
+.wh-guide-footer {
+  margin-top: 24px;
+}
+.wh-guide-source-picker {
+  max-height: 340px;
+  overflow-y: auto;
+}
+.wh-guide-source-picker label {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.wh-guide-current strong,
+.wh-guide-source-picker strong,
+.wh-discovery-candidates h4 {
+  overflow-wrap: anywhere;
+}
+.wh-background > summary {
+  padding: 20px 24px;
+}
+.wh-discovery {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.wh-discovery-candidates article {
+  padding: 16px;
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.wh-discovery-candidates h4 {
+  margin: 0 0 8px;
+}
+.wh-guide-execution {
+  padding-left: 20px;
+  line-height: 1.6;
+}
+.wh-guide-execution li {
+  padding: 8px 0;
+}
+.wh-guide-execution p {
+  margin: 5px 0;
+}
+@media (max-width: 800px) {
+  .wh-guide-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wh-guide-nav {
+    display: flex;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    gap: 8px;
+  }
+  .wh-guide-nav-step {
+    flex: 0 0 175px;
+    margin: 0;
+  }
+  .wh-guide-current {
+    padding: 20px;
+  }
+  .wh-build-guide > .panel-head {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+}
+.wh-view-menu {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.wh-view-menu > details {
+  flex: 1;
+  min-width: 0;
+}
+.wh-view-menu summary {
+  cursor: pointer;
+  padding: 10px 0;
+  font-size: 13px;
+}
+.wh-toolbar {
+  position: relative;
+}
+.wh-toolbar > summary {
+  cursor: pointer;
+}
+.wh-toolbar > .actions {
+  position: absolute;
+  right: 0;
+  z-index: 2;
+  margin-top: 8px;
+  padding: 14px;
+  min-width: 230px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 8px 24px #0001;
+}
+.sidebar .brand {
+  font-size: 20px;
+  gap: 8px;
+}
+@media (max-width: 600px) {
+  .wh-toolbar > .actions {
+    left: 0;
+    right: auto;
+    max-width: calc(100vw - 40px);
+  }
+}

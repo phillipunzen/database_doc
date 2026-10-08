@@ -408,6 +408,87 @@ def safe_name(value, used):
     return candidate
 
 
+def import_tables(data, source_id, snap, table_keys):
+    available = {t["key"]: t for t in snap.payload["tables"]}
+    if len(set(table_keys)) != len(table_keys) or any(
+        k not in available for k in table_keys
+    ):
+        raise HTTPException(
+            422, tr("Bitte vorhandene Quellobjekte eindeutig auswählen.")
+        )
+    selected = [available[k] for k in table_keys]
+    if (
+        len(data.tables) + len(selected) > 300
+        or any(len(t["columns"]) > 200 for t in selected)
+        or sum(len(t.columns) for t in data.tables)
+        + sum(len(t["columns"]) for t in selected)
+        > 30000
+    ):
+        raise HTTPException(
+            422,
+            tr(
+                "Modelllimit: 300 Tabellen, 200 Spalten je Tabelle und insgesamt 30.000 Spalten."
+            ),
+        )
+    names = {t.name.casefold() for t in data.tables}
+    warnings = []
+    for key in table_keys:
+        t = available[key]
+        cols = []
+        colnames = set()
+        for c in t["columns"]:
+            target_name = safe_name(c["name"], colnames)
+            inferred, warning = inferred_type(c["type"])
+            pk = bool(c.get("primary_key"))
+            if pk and (
+                inferred["data_type"] in {"text", "binary"}
+                or inferred.get("length", 0) > 190
+            ):
+                pk = False
+                warning = (
+                    warning
+                    + tr(
+                        " Primärschlüssel nicht übernommen; Zieltyp und Schlüssel prüfen."
+                    )
+                ).strip()
+            if warning:
+                warnings.append(f'{t["name"]}.{c["name"]}: {warning}')
+            cols.append(
+                ColumnPlan(
+                    name=target_name,
+                    **inferred,
+                    nullable=False if pk else bool(c.get("nullable", True)),
+                    primary_key=pk,
+                    purpose="business_key" if pk else "attribute",
+                    description=(c.get("comment") or "")[:2000],
+                    mapping=Mapping(
+                        source_id=source_id,
+                        snapshot_id=snap.id,
+                        table_key=key,
+                        column_name=c["name"],
+                    ),
+                )
+            )
+        data.tables.append(
+            TablePlan(
+                name=safe_name("stg_" + t["name"], names),
+                description=(t.get("comment") or "")[:4000],
+                columns=cols,
+            )
+        )
+    # Re-validate collection limits after extending the already validated project.
+    try:
+        data = ProjectInput.model_validate(data.model_dump(mode="json"))
+    except ValidationError:
+        raise HTTPException(
+            422,
+            tr(
+                "Modelllimit erreicht: 300 Tabellen, 200 Spalten je Tabelle und insgesamt 30.000 Spalten."
+            ),
+        )
+    return data, warnings
+
+
 @router.post("/{project_id}/import")
 def import_source(project_id: int, body: ImportInput, user: User = Depends(current)):
     with scan_lock, Session() as db:
@@ -424,83 +505,7 @@ def import_source(project_id: int, body: ImportInput, user: User = Depends(curre
             raise HTTPException(
                 422, tr("Die Quelle benötigt einen erfolgreichen Schema-Scan.")
             )
-        available = {t["key"]: t for t in snap.payload["tables"]}
-        if len(set(body.table_keys)) != len(body.table_keys) or any(
-            k not in available for k in body.table_keys
-        ):
-            raise HTTPException(
-                422, tr("Bitte vorhandene Quellobjekte eindeutig auswählen.")
-            )
-        selected = [available[k] for k in body.table_keys]
-        if (
-            len(data.tables) + len(selected) > 300
-            or any(len(t["columns"]) > 200 for t in selected)
-            or sum(len(t.columns) for t in data.tables)
-            + sum(len(t["columns"]) for t in selected)
-            > 30000
-        ):
-            raise HTTPException(
-                422,
-                tr(
-                    "Modelllimit: 300 Tabellen, 200 Spalten je Tabelle und insgesamt 30.000 Spalten."
-                ),
-            )
-        names = {t.name.casefold() for t in data.tables}
-        warnings = []
-        for key in body.table_keys:
-            t = available[key]
-            cols = []
-            colnames = set()
-            for c in t["columns"]:
-                target_name = safe_name(c["name"], colnames)
-                inferred, warning = inferred_type(c["type"])
-                pk = bool(c.get("primary_key"))
-                if pk and (
-                    inferred["data_type"] in {"text", "binary"}
-                    or inferred.get("length", 0) > 190
-                ):
-                    pk = False
-                    warning = (
-                        warning
-                        + tr(
-                            " Primärschlüssel nicht übernommen; Zieltyp und Schlüssel prüfen."
-                        )
-                    ).strip()
-                if warning:
-                    warnings.append(f'{t["name"]}.{c["name"]}: {warning}')
-                cols.append(
-                    ColumnPlan(
-                        name=target_name,
-                        **inferred,
-                        nullable=False if pk else bool(c.get("nullable", True)),
-                        primary_key=pk,
-                        purpose="business_key" if pk else "attribute",
-                        description=(c.get("comment") or "")[:2000],
-                        mapping=Mapping(
-                            source_id=body.source_id,
-                            snapshot_id=snap.id,
-                            table_key=key,
-                            column_name=c["name"],
-                        ),
-                    )
-                )
-            data.tables.append(
-                TablePlan(
-                    name=safe_name("stg_" + t["name"], names),
-                    description=(t.get("comment") or "")[:4000],
-                    columns=cols,
-                )
-            )
-        # Re-validate collection limits after extending the already validated project.
-        try:
-            data = ProjectInput.model_validate(data.model_dump(mode="json"))
-        except ValidationError:
-            raise HTTPException(
-                422,
-                tr(
-                    "Modelllimit erreicht: 300 Tabellen, 200 Spalten je Tabelle und insgesamt 30.000 Spalten."
-                ),
-            )
+        data, warnings = import_tables(data, body.source_id, snap, body.table_keys)
         result = store_project(db, user, project, data)
         return {"project": result, "warnings": warnings, "snapshot_id": snap.id}
 

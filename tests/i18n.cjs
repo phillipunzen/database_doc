@@ -275,6 +275,7 @@ if (!baseURL)
         german ? "Dienstag" : "Tuesday",
       );
       await page.locator('[data-action="nav"][data-view="warehouse"]').click();
+      await page.locator(".wh-standalone > summary").click();
       await page.locator('[data-action="dwh-open"]').click();
       assert(
         (await page.locator(".dwh-prose").textContent()).includes(
