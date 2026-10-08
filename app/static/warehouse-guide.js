@@ -531,9 +531,22 @@ function whGuideWorkButton(work) {
 }
 
 function whDiscoveryState() {
-  if (state.whDiscovery?.warehouseId !== state.wh.id) {
+  const scope = JSON.stringify(
+    state.sources.map((source) => [
+      source.id,
+      source.snapshot_id,
+      source.can_edit,
+    ]),
+  );
+  if (
+    state.whDiscovery?.warehouseId !== state.wh.id ||
+    state.whDiscovery?.userId !== state.user.id ||
+    state.whDiscovery?.scope !== scope
+  ) {
     state.whDiscovery = {
       warehouseId: state.wh.id,
+      userId: state.user.id,
+      scope,
       query: (state.wh.areas.find((area) => area.goal)?.goal || "").slice(
         0,
         200,
