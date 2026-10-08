@@ -157,7 +157,7 @@ async function api(url, method = "GET", body) {
   return result;
 }
 function brand() {
-  return `<div class="brand-block">${state.branding?.logo_url ? `<div class="company-brand"><img class="company-logo" src="${e(state.branding.logo_url)}" alt="${e(uiText("Firmenlogo"))}"></div>` : ""}<div class="brand">${icon("database")}<div>DatabaseDoc<small>DATABASE DOCUMENTATION</small></div></div></div>`;
+  return `<div class="brand-block">${state.branding?.logo_url ? `<div class="company-brand"><img class="company-logo" src="${e(state.branding.logo_url)}" alt="${e(uiText("Firmenlogo"))}"></div>` : ""}<div class="brand">${icon("database")}<div><span class="application-name">${e(applicationName())}</span><small>DATABASE DOCUMENTATION</small></div></div></div>`;
 }
 async function showLogin() {
   if (UI_PROFILE_LANGUAGE !== "auto") {
@@ -167,7 +167,7 @@ async function showLogin() {
   diagramCleanup();
   await loadBranding();
   const options = await api("/api/auth/options");
-  root.innerHTML = localize`<div class="login-shell"><aside class="login-art">${brand()}<div><div class="eyebrow" style="color:#b5d7a2">Wissen, wie Daten zusammenhängen</div><h1>Deine Datenbanken.<br>Ein klarer Überblick.</h1><p>Strukturen entdecken, Beziehungen verstehen und Datenwissen gemeinsam festhalten.</p><svg class="art-nodes" viewBox="0 0 440 200" aria-hidden="true"><g fill="none" stroke="#739b7c"><path d="M130 60H200V150H275M130 60H310V40"/></g><g fill="#244d40" stroke="#739b7c"><rect x="0" y="18" width="130" height="90" rx="8"/><rect x="275" y="110" width="140" height="85" rx="8"/><rect x="280" y="5" width="140" height="75" rx="8"/></g><g fill="#c0e8aa" font-size="12" font-family="monospace"><text x="15" y="42">customers</text><text x="295" y="28">addresses</text><text x="290" y="134">orders</text></g><g stroke="#6f9779"><path d="M15 58h90M15 73h65M15 88h78M295 43h100M295 58h70M290 150h100M290 166h65M290 181h80"/></g></svg></div><small>Metadaten · ER-Modelle · Dokumentation</small></aside><main class="login-main"><div class="login-box"><div class="eyebrow">Willkommen bei DatabaseDoc</div><h2>Anmelden</h2><p>Öffne deine Datenbankdokumentation.</p><form id="login-form" class="login-form"><div class="field"><label for="login-user">Benutzername</label><input id="login-user" name="username" autocomplete="username" required autofocus></div><div class="field"><label for="login-pass">Passwort</label><input id="login-pass" name="password" type="password" autocomplete="current-password" required></div>${options.ad ? localize('<div class="field"><label for="provider">Anmeldung</label><select id="provider" name="provider"><option value="local">Lokales Konto</option><option value="ad">Microsoft Active Directory</option></select></div>') : ""}<button class="btn primary" type="submit">Anmelden ${icon("arrow")}</button><div class="error-text" id="login-error" role="alert">${location.search.includes("auth_error") ? uiText("Entra-Anmeldung fehlgeschlagen. Bitte Einrichtung oder Kontostatus prüfen.") : ""}</div></form>${options.entra ? localize('<div class="divider">oder</div><a class="btn" style="width:100%" href="/auth/entra">Mit Microsoft Entra ID anmelden</a>') : ""}<p class="login-foot">Der Zugriff richtet sich nach den Freigaben deines Administrators.</p></div></main></div>`;
+  root.innerHTML = localize`<div class="login-shell"><aside class="login-art">${brand()}<div><div class="eyebrow" style="color:#b5d7a2">Wissen, wie Daten zusammenhängen</div><h1>Deine Datenbanken.<br>Ein klarer Überblick.</h1><p>Strukturen entdecken, Beziehungen verstehen und Datenwissen gemeinsam festhalten.</p><svg class="art-nodes" viewBox="0 0 440 200" aria-hidden="true"><g fill="none" stroke="#739b7c"><path d="M130 60H200V150H275M130 60H310V40"/></g><g fill="#244d40" stroke="#739b7c"><rect x="0" y="18" width="130" height="90" rx="8"/><rect x="275" y="110" width="140" height="85" rx="8"/><rect x="280" y="5" width="140" height="75" rx="8"/></g><g fill="#c0e8aa" font-size="12" font-family="monospace"><text x="15" y="42">customers</text><text x="295" y="28">addresses</text><text x="290" y="134">orders</text></g><g stroke="#6f9779"><path d="M15 58h90M15 73h65M15 88h78M295 43h100M295 58h70M290 150h100M290 166h65M290 181h80"/></g></svg></div><small>Metadaten · ER-Modelle · Dokumentation</small></aside><main class="login-main"><div class="login-box"><div class="eyebrow">${e(uiText("Willkommen bei {0}", applicationName()))}</div><h2>Anmelden</h2><p>Öffne deine Datenbankdokumentation.</p><form id="login-form" class="login-form"><div class="field"><label for="login-user">Benutzername</label><input id="login-user" name="username" autocomplete="username" required autofocus></div><div class="field"><label for="login-pass">Passwort</label><input id="login-pass" name="password" type="password" autocomplete="current-password" required></div>${options.ad ? localize('<div class="field"><label for="provider">Anmeldung</label><select id="provider" name="provider"><option value="local">Lokales Konto</option><option value="ad">Microsoft Active Directory</option></select></div>') : ""}<button class="btn primary" type="submit">Anmelden ${icon("arrow")}</button><div class="error-text" id="login-error" role="alert">${location.search.includes("auth_error") ? uiText("Entra-Anmeldung fehlgeschlagen. Bitte Einrichtung oder Kontostatus prüfen.") : ""}</div></form>${options.entra ? localize('<div class="divider">oder</div><a class="btn" style="width:100%" href="/auth/entra">Mit Microsoft Entra ID anmelden</a>') : ""}<p class="login-foot">Der Zugriff richtet sich nach den Freigaben deines Administrators.</p></div></main></div>`;
 }
 function shell(content) {
   diagramCleanup();
@@ -1218,6 +1218,11 @@ document.addEventListener("click", async (ev) => {
       paintSources();
     }
     if (a === "nav") await navigate(button.dataset.view);
+    if (a === "branding-name-default") {
+      const input = document.getElementById("application-name");
+      input.value = "DatabaseDoc";
+      input.focus();
+    }
     if (a === "branding-remove") await removeCompanyLogo();
     if (a === "open") await navigate("source", button.dataset.id);
     if (a === "add-source") sourceModal();
@@ -1352,6 +1357,11 @@ document.addEventListener("click", async (ev) => {
 });
 document.addEventListener("submit", async (ev) => {
   const form = ev.target;
+  if (form.id === "branding-name-form") {
+    ev.preventDefault();
+    await saveApplicationName(form);
+    return;
+  }
   if (form.id === "profile-form") {
     ev.preventDefault();
     await profileSubmit(form);

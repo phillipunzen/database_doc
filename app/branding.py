@@ -1,24 +1,49 @@
-"""Application-wide company logo, persisted as a normalized raster image."""
+"""Shared application display name and normalized company logo."""
 
 import hashlib
 import warnings
+import unicodedata
 from io import BytesIO
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from PIL import Image, ImageOps, UnidentifiedImageError
+from pydantic import BaseModel, ConfigDict, StringConstraints, field_validator
 from sqlalchemy import select
 from starlette.concurrency import run_in_threadpool
 
 from .i18n import tr
-from .models import ApplicationBranding, Session, User, now
+from .models import ApplicationBranding, ApplicationSettings, Session, User, now
 from .security import audit, current, require_admin
 
 router = APIRouter(prefix="/api/branding")
 MAX_UPLOAD = 2 * 1024 * 1024
 
 
-def branding_json(version=None):
-    return {"logo_url": f"/api/branding/logo?v={version}" if version else None}
+def branding_json(db, version=None):
+    settings = db.get(ApplicationSettings, 1)
+    return {
+        "logo_url": f"/api/branding/logo?v={version}" if version else None,
+        "app_name": settings.app_name if settings else "DatabaseDoc",
+    }
+
+
+class BrandingInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    app_name: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)
+    ]
+
+    @field_validator("app_name", mode="before")
+    @classmethod
+    def single_line(cls, value):
+        if isinstance(value, str) and any(
+            unicodedata.category(char) in {"Cc", "Zl", "Zp"} for char in value
+        ):
+            raise ValueError(
+                "Application name must be a single line without control characters"
+            )
+        return value
 
 
 def normalize_logo(data):
@@ -63,13 +88,32 @@ def normalize_logo(data):
 
 
 @router.get("")
-def get_branding():
-    # Public by design: the same logo is displayed before sign-in.
+def get_branding(response: Response):
+    # Public by design: the name and logo are displayed before sign-in.
+    response.headers["Cache-Control"] = "no-store"
     with Session() as db:
         version = db.scalar(
             select(ApplicationBranding.version).where(ApplicationBranding.id == 1)
         )
-        return branding_json(version)
+        return branding_json(db, version)
+
+
+@router.put("")
+def update_branding(body: BrandingInput, user: User = Depends(current)):
+    require_admin(user)
+    with Session() as db:
+        settings = db.get(ApplicationSettings, 1)
+        if settings is None:
+            settings = ApplicationSettings(id=1)
+            db.add(settings)
+        settings.app_name = body.app_name
+        settings.updated = now()
+        audit(db, user, "application_name_updated")
+        db.commit()
+        version = db.scalar(
+            select(ApplicationBranding.version).where(ApplicationBranding.id == 1)
+        )
+        return branding_json(db, version)
 
 
 @router.get("/logo")
@@ -94,7 +138,7 @@ def save_logo(data, user):
             db.add(ApplicationBranding(id=1, logo=logo, version=version))
         audit(db, user, "company_logo_updated")
         db.commit()
-    return branding_json(version)
+        return branding_json(db, version)
 
 
 @router.put("/logo")
@@ -117,4 +161,4 @@ def remove_logo(user: User = Depends(current)):
             db.delete(branding)
             audit(db, user, "company_logo_removed")
             db.commit()
-    return branding_json()
+        return branding_json(db)

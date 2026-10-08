@@ -1604,5 +1604,15 @@
   "Rollen und Datenbankfreigaben verwaltet ein Administrator.": "An administrator manages roles and database access.",
   "Profil gespeichert.": "Profile saved.",
   "Profil aktualisiert": "Profile updated",
-  "Der Anzeigename dieses Kontos wird extern verwaltet.": "The display name of this account is managed externally."
+  "Der Anzeigename dieses Kontos wird extern verwaltet.": "The display name of this account is managed externally.",
+  "{0} · Datenbankdokumentation": "{0} · Database documentation",
+  "Willkommen bei {0}": "Welcome to {0}",
+  "Gemeinsame Einstellungen für eure Installation.": "Shared settings for your installation.",
+  "Anwendungsname": "Application name",
+  "Name der Anwendung": "Application display name",
+  "Der Name erscheint in der Seitenleiste, auf der Anmeldung und im Browser-Titel. Er gilt für alle Benutzer. Maximal 80 Zeichen.": "The name appears in the sidebar, on the sign-in page and in the browser title. It applies to all users. Maximum 80 characters.",
+  "Namen speichern": "Save name",
+  "Standard verwenden": "Use default",
+  "Standard: DatabaseDoc. Änderungen werden erst beim Speichern übernommen.": "Default: DatabaseDoc. Changes only take effect after saving.",
+  "Anwendungsname gespeichert.": "Application name saved."
 }

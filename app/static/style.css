@@ -216,6 +216,11 @@ svg.icon {
   width: 29px;
   height: 29px;
   color: var(--accent);
+  flex-shrink: 0;
+}
+.brand > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .brand small {
   display: block;
@@ -241,7 +246,8 @@ svg.icon {
 .branding-panel {
   max-width: 780px;
 }
-#branding-form {
+#branding-form,
+#branding-name-form {
   display: grid;
   gap: 20px;
   min-width: 0;

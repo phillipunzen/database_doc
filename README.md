@@ -359,16 +359,21 @@ GET /api/sources/{id}/export?format=er_pdf&snapshot_id={snapshot_id}
 
 Upgrading requires pulling the updated image (or rebuilding locally with the build override) to include the pinned ReportLab dependencies and local fonts. No additional database migration is required for PDF export.
 
-## Company logo
+## Application name and company logo
 
-Administrators can open **Administration → System settings → Company logo** to upload, preview, replace or remove one shared company logo. Select **Save logo** to publish it for all users; selecting a file alone only shows an unsaved preview. The logo appears on the sign-in page, in the sidebar, and in the header of newly generated table and ER PDFs. DatabaseDoc's product name remains visible. Removing the logo restores the default appearance.
+Administrators can open **Administration → System settings → Application name** to change the shared display name (1–80 characters, one line). The default is **DatabaseDoc**. Select **Save name** to apply it immediately to the sidebar, sign-in page and browser title; other open sessions receive the change on their next page reload. **Use default** fills in DatabaseDoc; save the form to apply the reset. The name is displayed verbatim in both languages and is independent of the company logo.
+
+The name is stored in MariaDB in the additive `application_settings` table, included in database backups, and survives container updates. Existing databases create the new table automatically on startup without altering existing records. Reads are public for the sign-in page; changes require an active administrator session, CSRF token and the existing origin checks, and are audited. The technical product/repository/image names and export identifiers remain DatabaseDoc.
+
+Administrators can open **Administration → System settings → Company logo** to upload, preview, replace or remove one shared company logo. Select **Save logo** to publish it for all users; selecting a file alone only shows an unsaved preview. The logo appears on the sign-in page, in the sidebar, and in the header of newly generated table and ER PDFs. The configured application name remains visible in the interface. Removing the logo preserves the application name.
 
 Supported uploads are non-animated PNG, JPEG and WebP images up to 2 MiB, with at most 4,096 pixels per side and 4 million pixels overall. Transparent PNGs are recommended. The server verifies the actual image content, strips image metadata and converts the logo to PNG, scaling it proportionally to fit within 1,200 × 400 pixels. SVG and animated images are not accepted.
 
 The normalized logo is stored in MariaDB in the additive `application_branding` table and is included in the regular database backup. It survives Docker container rebuilds without an extra writable volume. Logo reads are public because the sign-in page displays it; writes require an active administrator session, CSRF token and the existing origin checks. Uploads/removals are audited. Existing downloaded PDFs keep their original appearance; Markdown, JSON and SQL exports are unchanged.
 
 ```text
-GET /api/branding
+GET /api/branding            # Public app_name and logo_url
+PUT /api/branding            # JSON {"app_name": "Example Data Portal"}, with X-CSRF-Token
 GET /api/branding/logo
 PUT /api/branding/logo       # Raw image bytes, with X-CSRF-Token
 DELETE /api/branding/logo

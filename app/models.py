@@ -171,6 +171,13 @@ class SchemaVersion(Base):
     created: Mapped[datetime] = mapped_column(DateTime, default=now)
 
 
+class ApplicationSettings(Base):
+    __tablename__ = "application_settings"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    app_name: Mapped[str] = mapped_column(String(80), default="DatabaseDoc")
+    updated: Mapped[datetime] = mapped_column(DateTime, default=now)
+
+
 class ApplicationBranding(Base):
     __tablename__ = "application_branding"
     id: Mapped[int] = mapped_column(primary_key=True)

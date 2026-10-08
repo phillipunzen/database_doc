@@ -9,7 +9,14 @@ from pypdf import PdfReader
 from sqlalchemy import delete, select
 
 from app.main import app, login_attempts
-from app.models import ApplicationBranding, Audit, Session, Source, Snapshot
+from app.models import (
+    ApplicationBranding,
+    ApplicationSettings,
+    Audit,
+    Session,
+    Source,
+    Snapshot,
+)
 
 
 def logo_bytes(format="PNG", size=(240, 80)):
@@ -41,17 +48,22 @@ def admin():
 def empty_branding(admin):
     with Session() as db:
         db.execute(delete(ApplicationBranding))
+        db.execute(delete(ApplicationSettings))
         db.commit()
     yield
     with Session() as db:
         db.execute(delete(ApplicationBranding))
+        db.execute(delete(ApplicationSettings))
         db.commit()
 
 
 @pytest.mark.parametrize("format", ["PNG", "JPEG", "WEBP"])
 def test_upload_replace_public_read_and_remove(admin, format):
     anonymous = TestClient(app)
-    assert anonymous.get("/api/branding").json() == {"logo_url": None}
+    assert anonymous.get("/api/branding").json() == {
+        "logo_url": None,
+        "app_name": "DatabaseDoc",
+    }
     assert anonymous.get("/api/branding/logo").status_code == 404
     result = admin.put(
         "/api/branding/logo",
@@ -75,7 +87,10 @@ def test_upload_replace_public_read_and_remove(admin, format):
     assert replacement.json()["logo_url"] != url
     image = Image.open(BytesIO(anonymous.get(replacement.json()["logo_url"]).content))
     assert image.size == (1200, 400)
-    assert admin.delete("/api/branding/logo").json() == {"logo_url": None}
+    assert admin.delete("/api/branding/logo").json() == {
+        "logo_url": None,
+        "app_name": "DatabaseDoc",
+    }
     assert anonymous.get("/api/branding/logo").status_code == 404
     assert admin.delete("/api/branding/logo").status_code == 200
     with Session() as db:
@@ -88,6 +103,16 @@ def test_upload_permissions_csrf_and_origin(admin):
     anonymous = TestClient(app)
     assert anonymous.put("/api/branding/logo", content=image).status_code == 401
     assert anonymous.delete("/api/branding/logo").status_code == 401
+    assert (
+        anonymous.put("/api/branding", json={"app_name": "Example"}).status_code == 401
+    )
+    for headers in [{"x-csrf-token": ""}, {"origin": "https://evil.invalid"}]:
+        assert (
+            admin.put(
+                "/api/branding", json={"app_name": "Example"}, headers=headers
+            ).status_code
+            == 403
+        )
     assert (
         admin.put(
             "/api/branding/logo", content=image, headers={"x-csrf-token": ""}
@@ -129,6 +154,11 @@ def test_upload_permissions_csrf_and_origin(admin):
             assert reader.get("/api/branding").status_code == 200
             assert reader.put("/api/branding/logo", content=image).status_code == 403
             assert reader.delete("/api/branding/logo").status_code == 403
+            assert (
+                reader.put("/api/branding", json={"app_name": "Example"}).status_code
+                == 403
+            )
+    assert admin.get("/api/branding").json()["app_name"] == "DatabaseDoc"
 
 
 def test_invalid_upload_keeps_existing_logo_and_localizes_errors(admin):
@@ -194,3 +224,56 @@ def test_logo_in_table_and_er_exports_only(admin):
         assert len(PdfReader(BytesIO(result.content)).pages[0].images) == 0
     finally:
         admin.delete(f'/api/sources/{source["id"]}')
+
+
+def test_application_name_persists_and_logo_changes_preserve_it(admin):
+    logo_url = admin.put("/api/branding/logo", content=logo_bytes()).json()["logo_url"]
+    name = 'Datenquellen & <script>alert("example")</script> {0}'
+    result = admin.put("/api/branding", json={"app_name": f"  {name}  "})
+    assert result.status_code == 200
+    assert result.json() == {"logo_url": logo_url, "app_name": name}
+    with Session() as db:
+        assert db.get(ApplicationSettings, 1).app_name == name
+        assert db.scalar(
+            select(Audit).where(Audit.action == "application_name_updated")
+        )
+    with TestClient(app) as anonymous:
+        result = anonymous.get("/api/branding")
+        assert result.json()["app_name"] == name
+        assert result.headers["cache-control"] == "no-store"
+    assert (
+        admin.put("/api/branding/logo", content=logo_bytes(size=(400, 100))).json()[
+            "app_name"
+        ]
+        == name
+    )
+    assert admin.delete("/api/branding/logo").json() == {
+        "logo_url": None,
+        "app_name": name,
+    }
+    assert admin.put("/api/branding", json={"app_name": "DatabaseDoc"}).json() == {
+        "logo_url": None,
+        "app_name": "DatabaseDoc",
+    }
+
+
+def test_invalid_application_name_preserves_saved_branding(admin):
+    admin.put("/api/branding", json={"app_name": "Example Data Portal"})
+    before = admin.put("/api/branding/logo", content=logo_bytes()).json()
+    for body in [
+        {},
+        {"app_name": ""},
+        {"app_name": "   "},
+        {"app_name": "x" * 81},
+        {"app_name": "x\ny"},
+        {"app_name": "x\ty"},
+        {"app_name": "x\x00y"},
+        {"app_name": "x\u2028y"},
+        {"app_name": None},
+        {"app_name": 123},
+        {"app_name": "Valid", "role": "admin"},
+        {"app_name": "Valid", "logo_url": None},
+    ]:
+        assert admin.put("/api/branding", json=body).status_code == 422
+        assert admin.get("/api/branding").json() == before
+    assert admin.put("/api/branding", json={"app_name": "Ä" * 80}).status_code == 200

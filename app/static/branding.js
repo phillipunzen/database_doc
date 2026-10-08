@@ -1,10 +1,23 @@
 async function loadBranding() {
   state.branding = await api("/api/branding");
+  updateApplicationTitle();
+}
+
+function applicationName() {
+  return state.branding?.app_name || "DatabaseDoc";
+}
+
+function updateApplicationTitle() {
+  document.title = uiText("{0} · Datenbankdokumentation", applicationName());
 }
 
 function renderBranding() {
   const logo = state.branding?.logo_url;
-  shell(localize`<div class="page-head"><div><div class="eyebrow">Administration</div><h1>Systemeinstellungen</h1><p>Gemeinsame Einstellungen für eure DatabaseDoc-Installation.</p></div></div>
+  shell(localize`<div class="page-head"><div><div class="eyebrow">Administration</div><h1>Systemeinstellungen</h1><p>Gemeinsame Einstellungen für eure Installation.</p></div></div>
+    <section class="panel branding-panel" aria-labelledby="application-name-title"><div class="panel-head"><h2 id="application-name-title">Anwendungsname</h2></div><div class="panel-body"><form id="branding-name-form">
+      <div class="field"><label for="application-name">Name der Anwendung</label><input id="application-name" name="app_name" value="${e(applicationName())}" maxlength="80" required aria-describedby="application-name-help"><small id="application-name-help">Der Name erscheint in der Seitenleiste, auf der Anmeldung und im Browser-Titel. Er gilt für alle Benutzer. Maximal 80 Zeichen.</small></div>
+      <div id="branding-name-error" class="error-text" role="alert"></div><div class="actions"><button type="submit" class="btn primary">Namen speichern</button><button type="button" class="btn" data-action="branding-name-default">Standard verwenden</button></div><p class="small muted">Standard: DatabaseDoc. Änderungen werden erst beim Speichern übernommen.</p>
+    </form></div></section>
     <section class="panel branding-panel" aria-labelledby="company-logo-title"><div class="panel-head"><h2 id="company-logo-title">Firmenlogo</h2></div><div class="panel-body"><form id="branding-form">
       <h3>Logo-Vorschau</h3><div class="branding-preview" id="branding-preview">${logo ? `<img src="${e(logo)}" alt="${e(uiText("Firmenlogo"))}">` : `<p class="muted">${e(uiText("Kein Firmenlogo hinterlegt."))}</p>`}</div>
       <p class="muted">Das Logo erscheint auf der Anmeldung, in der Seitenleiste und in Tabellen- und ER-PDFs. Es gilt für alle Benutzer.</p>
@@ -12,6 +25,24 @@ function renderBranding() {
       <p class="small muted" id="branding-preview-status" role="status"></p><div id="form-error" class="error-text" role="alert"></div>
       <div class="actions"><button type="submit" class="btn primary">Logo speichern</button>${logo ? localize('<button type="button" class="btn danger" data-action="branding-remove">Logo entfernen</button>') : ""}</div>
     </form></div></section>`);
+}
+
+async function saveApplicationName(form) {
+  const button = form.querySelector('[type="submit"]');
+  button.disabled = true;
+  document.getElementById("branding-name-error").textContent = "";
+  try {
+    state.branding = await api("/api/branding", "PUT", {
+      app_name: form.elements.app_name.value,
+    });
+    updateApplicationTitle();
+    renderBranding();
+    toast(uiText("Anwendungsname gespeichert."));
+  } catch (error) {
+    document.getElementById("branding-name-error").textContent = error.message;
+  } finally {
+    button.disabled = false;
+  }
 }
 
 function previewCompanyLogo(input) {
